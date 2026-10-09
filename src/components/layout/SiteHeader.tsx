@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { signOut } from "@/app/entrar/actions";
 import { Logo } from "@/components/brand/Logo";
+import { CartSync } from "@/components/cart/CartSync";
 import { Button, buttonClass } from "@/components/ui/Button";
 import { getCurrentProfile } from "@/lib/auth/session";
 
@@ -41,17 +42,25 @@ async function UserArea() {
 
   return (
     <nav aria-label="Sua conta" className="flex items-center gap-2">
+      {profile.role === "customer" && <CartSync />}
       <span className="hidden text-sm text-coffee-soft sm:inline" data-testid="user-greeting">
         Oi, {profile.fullName.split(" ")[0] || "você"}
       </span>
+      {profile.role === "customer" && (
+        <Link href="/pedidos" className={buttonClass("secondary", small)}>
+          Pedidos
+        </Link>
+      )}
       <Link href={panel.href} className={buttonClass("secondary", small)}>
         {panel.label}
       </Link>
+      {profile.role !== "customer" && (
       <form action={signOut}>
         <Button type="submit" variant="secondary" className={small}>
           Sair
         </Button>
       </form>
+      )}
     </nav>
   );
 }

@@ -118,3 +118,30 @@ export const cartCount = (cart: Cart | null) =>
 
 export const cartSubtotalCents = (cart: Cart | null) =>
   cart ? cart.items.reduce((total, item) => total + item.unitPriceCents * item.quantity, 0) : 0;
+
+// ------------------------------------------------------------------ coupon
+
+const COUPON_KEY = "chego_coupon";
+
+function readCoupon(): string {
+  try {
+    return window.localStorage.getItem(COUPON_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function writeCoupon(code: string) {
+  try {
+    if (code) window.localStorage.setItem(COUPON_KEY, code);
+    else window.localStorage.removeItem(COUPON_KEY);
+  } catch {
+    // The coupon just has to be typed again.
+  }
+  window.dispatchEvent(new Event(EVENT));
+}
+
+/** The coupon code the customer typed, kept on the device. Empty on the server. */
+export function useCoupon(): string {
+  return useSyncExternalStore(subscribe, readCoupon, () => "");
+}

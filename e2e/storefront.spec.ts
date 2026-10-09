@@ -118,6 +118,7 @@ test("favoritar e desfavoritar uma loja", async ({ page }) => {
 
   await page.goto("/loja/acai-tropical");
   await page.getByRole("button", { name: "Tirar dos favoritos" }).click();
+  await expect(page.getByRole("button", { name: "Adicionar aos favoritos" })).toBeVisible();
   await page.goto("/favoritos");
   await expect(page.getByText("Você ainda não tem lojas favoritas.")).toBeVisible();
 });

@@ -11,6 +11,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: [["list"]],
+  // The dev server compiles each page on its first visit, which can take a few seconds.
+  timeout: 120_000,
+  expect: { timeout: 20_000 },
   use: {
     baseURL: `http://localhost:${PORT}`,
     locale: "pt-BR",

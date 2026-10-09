@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/layout/SiteHeader";
 import { Button } from "@/components/ui/Button";
 import { requireUser } from "@/lib/auth/session";
 import { formatPhone } from "@/lib/format";
+import { signOut } from "@/app/entrar/actions";
 import { signOutEverywhere } from "./actions";
 
 export const metadata: Metadata = { title: "Meu perfil" };
@@ -42,6 +43,9 @@ async function ProfileContent() {
           <dd className="text-lg font-semibold">{profile.phone ? formatPhone(profile.phone) : "Não informado"}</dd>
         </div>
       </dl>
+      <form action={signOut}>
+        <Button type="submit" className="w-full">Sair</Button>
+      </form>
       <form action={signOutEverywhere}>
         <Button type="submit" variant="secondary">Sair de todos os aparelhos</Button>
       </form>

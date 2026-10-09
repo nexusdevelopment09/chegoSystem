@@ -12,7 +12,7 @@ test("o painel do admin exige login", async ({ page }) => {
 });
 
 test("senha errada não entra", async ({ page }) => {
-  await page.goto("/entrar");
+  await page.goto("/entrar/senha");
   await page.getByLabel("Usuário ou e-mail").fill("admin");
   await page.getByLabel("Senha").fill("errada");
   await page.getByRole("button", { name: "Entrar" }).click();
@@ -20,7 +20,7 @@ test("senha errada não entra", async ({ page }) => {
 });
 
 test("admin entra, vê o painel e sai", async ({ page }) => {
-  await page.goto("/entrar");
+  await page.goto("/entrar/senha");
   await page.getByLabel("Usuário ou e-mail").fill("admin");
   await page.getByLabel("Senha").fill("admin");
   await page.getByRole("button", { name: "Entrar" }).click();

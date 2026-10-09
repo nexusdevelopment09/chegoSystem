@@ -26,7 +26,7 @@ export async function loginAs(formData: FormData) {
   if (!profile) throw new Error("Test user not found.");
 
   await createSession(profile.id);
-  redirect(profile.role === "admin" ? "/admin" : "/");
+  redirect(profile.role === "admin" ? "/admin" : profile.role === "merchant" ? "/lojista" : "/");
 }
 
 export async function setClock(formData: FormData) {

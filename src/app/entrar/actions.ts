@@ -3,11 +3,102 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { verifyPassword } from "@/lib/auth/password";
-import { createSession, destroySession, type UserRole } from "@/lib/auth/session";
+import { requestLoginCode, verifyLoginCode } from "@/lib/auth/phone-login";
+import { createSession, destroySession, getCurrentProfile, type UserRole } from "@/lib/auth/session";
 import { isDatabaseOffline, sql } from "@/lib/db";
 import { isLocalEnv } from "@/lib/env";
+import { toE164 } from "@/lib/format";
+import { acceptPendingLegalDocuments } from "@/lib/legal";
+import { clientIp, rateLimit, TOO_MANY_ATTEMPTS } from "@/lib/rate-limit";
 
-const loginSchema = z.object({
+const homeFor = (role: UserRole) => (role === "admin" ? "/admin" : role === "merchant" ? "/lojista" : "/");
+
+// ------------------------------------------------------------ phone + code
+
+export type PhoneLoginState = { step: "phone" | "code"; phone?: string; error?: string };
+
+/** Step 1: receives the phone and sends the code. Step 2: checks the code. */
+export async function phoneLogin(previous: PhoneLoginState, formData: FormData): Promise<PhoneLoginState> {
+  const intent = formData.get("intent");
+
+  if (intent === "send") {
+    const phone = toE164(String(formData.get("phone") ?? ""));
+    if (!phone) return { step: "phone", error: "Oxe, esse telefone não parece certo. Use DDD + número." };
+
+    const allowed =
+      (await rateLimit(`login-code:phone:${phone}`, 5, 600)) &&
+      (await rateLimit(`login-code:ip:${await clientIp()}`, 30, 600));
+    if (!allowed) return { step: "phone", error: TOO_MANY_ATTEMPTS };
+
+    await requestLoginCode(phone);
+    return { step: "code", phone };
+  }
+
+  const parsed = z
+    .object({ phone: z.string().regex(/^\+55\d{10,11}$/), code: z.string().trim().regex(/^\d{6}$/) })
+    .safeParse({ phone: formData.get("phone"), code: formData.get("code") });
+  if (!parsed.success) {
+    return { step: "code", phone: previous.phone, error: "Digite os 6 números do código." };
+  }
+  const { phone, code } = parsed.data;
+
+  if (!(await rateLimit(`login-verify:${phone}`, 10, 600))) {
+    return { step: "code", phone, error: TOO_MANY_ATTEMPTS };
+  }
+
+  const result = await verifyLoginCode(phone, code);
+  if (!result.ok) {
+    return {
+      step: "code",
+      phone,
+      error: result.reason === "invalid" ? "Código errado. Confere e tenta de novo." : "Esse código venceu. Peça um novo.",
+    };
+  }
+
+  await createSession(result.profileId);
+  const [profile] = await sql<{ role: UserRole; full_name: string }[]>`
+    select role, full_name from profiles where id = ${result.profileId}`;
+  redirect(profile.full_name ? homeFor(profile.role) : "/cadastro");
+}
+
+// ------------------------------------------------------------------ sign-up
+
+export type SignupState = { error?: string };
+
+const signupSchema = z.object({
+  fullName: z.string().trim().min(3, "Diga seu nome completo.").max(80),
+  accepted: z.literal("on", { error: "Para continuar, aceite os termos." }),
+});
+
+/** Finishes the sign-up: name and acceptance of the current terms. */
+export async function completeSignup(_previous: SignupState, formData: FormData): Promise<SignupState> {
+  const profile = await getCurrentProfile();
+  if (!profile) redirect("/entrar");
+
+  const parsed = signupSchema.safeParse({
+    fullName: formData.get("fullName"),
+    accepted: formData.get("accepted"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  await sql`update profiles set full_name = ${parsed.data.fullName} where id = ${profile.id}`;
+  await acceptPendingLegalDocuments(profile.id, profile.role);
+  redirect(homeFor(profile.role));
+}
+
+/** Accepts a new version of the terms. */
+export async function acceptTerms(_previous: SignupState, formData: FormData): Promise<SignupState> {
+  const profile = await getCurrentProfile();
+  if (!profile) redirect("/entrar");
+  if (formData.get("accepted") !== "on") return { error: "Para continuar, aceite os termos." };
+
+  await acceptPendingLegalDocuments(profile.id, profile.role);
+  redirect(homeFor(profile.role));
+}
+
+// -------------------------------------------------------- e-mail + password
+
+const passwordSchema = z.object({
   identifier: z.string().trim().toLowerCase().min(1).max(254),
   password: z.string().min(1).max(72),
 });
@@ -15,8 +106,8 @@ const loginSchema = z.object({
 export type LoginState = { error?: string };
 
 /**
- * Locally "admin" is accepted as a shortcut for "admin@chego.local"
- * (LOGIN_USERNAME_DOMAIN). Without that variable only e-mails are accepted.
+ * In the test environment "admin" is accepted as a shortcut for
+ * "admin@chego.local" (LOGIN_USERNAME_DOMAIN).
  */
 function toEmail(identifier: string): string | null {
   if (identifier.includes("@")) return identifier;
@@ -32,28 +123,22 @@ type LoginRow = {
   deleted_at: Date | null;
 };
 
-export async function signIn(
-  _previous: LoginState,
-  formData: FormData,
-): Promise<LoginState> {
-  const parsed = loginSchema.safeParse({
+export async function signIn(_previous: LoginState, formData: FormData): Promise<LoginState> {
+  const parsed = passwordSchema.safeParse({
     identifier: formData.get("identifier"),
     password: formData.get("password"),
   });
   if (!parsed.success) return { error: "Preencha o usuário e a senha." };
 
   const email = toEmail(parsed.data.identifier);
-  if (!email || !z.email().safeParse(email).success) {
-    return { error: "Digite um e-mail válido." };
-  }
+  if (!email || !z.email().safeParse(email).success) return { error: "Digite um e-mail válido." };
+
+  if (!(await rateLimit(`login-password:${email}`, 10, 600))) return { error: TOO_MANY_ATTEMPTS };
 
   let profile: LoginRow | undefined;
   try {
     [profile] = await sql<LoginRow[]>`
-      select id, role, password_hash, blocked_at, deleted_at
-      from profiles
-      where email = ${email}
-    `;
+      select id, role, password_hash, blocked_at, deleted_at from profiles where email = ${email}`;
   } catch (error) {
     console.error("[login] database error", error);
     return {
@@ -72,7 +157,7 @@ export async function signIn(
   }
 
   await createSession(profile.id);
-  redirect(profile.role === "admin" ? "/admin" : "/");
+  redirect(homeFor(profile.role));
 }
 
 export async function signOut() {

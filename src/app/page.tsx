@@ -1,20 +1,11 @@
-import Link from "next/link";
-import { Logo } from "@/components/brand/Logo";
 import { LogoIcon } from "@/components/brand/LogoIcon";
-import { buttonClass } from "@/components/ui/Button";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 
-// Placeholder home. The real storefront (categories, stores, search) is Etapa 4.
+// Placeholder home. The real storefront (categories, stores, search) is Etapa 5.
 export default function Home() {
   return (
     <>
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4">
-        <Link href="/" aria-label="Chegô, página inicial">
-          <Logo size={40} />
-        </Link>
-        <Link href="/entrar" className={buttonClass("secondary", "min-h-11 px-5")}>
-          Entrar
-        </Link>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center gap-6 px-4 py-12 text-center">
         <LogoIcon size={112} title="Chegô" />

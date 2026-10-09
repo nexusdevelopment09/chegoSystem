@@ -49,3 +49,32 @@ export async function chooseNeighborhood(page: Page, name: string) {
   await page.getByRole("button", { name: "Ver as lojas" }).click();
   await page.waitForURL((url) => url.pathname === "/");
 }
+
+/** Only what is on screen: Next keeps the previous page mounted but hidden. */
+export const visible = (page: Page, testId: string) => page.locator(`[data-testid="${testId}"]:visible`);
+
+/** Adds a product that needs no choices and lands back on the store page. */
+export async function addSimple(page: Page, storeSlug: string, product: string) {
+  await page.goto(await productUrl(storeSlug, product));
+  await page.getByRole("button", { name: /^Adicionar/ }).click();
+  await page.waitForURL(new RegExp(`/loja/${storeSlug}$`));
+}
+
+/**
+ * A customer orders the given simple products and the payment is approved.
+ * Returns the order id. The customer must already have an address.
+ */
+export async function placePaidOrder(page: Page, customer: string, storeSlug: string, products: string[], beforeSubmit?: () => Promise<void>) {
+  await db`delete from carts`;
+  await loginAs(page, customer);
+  await page.evaluate(() => window.localStorage.clear());
+  for (const product of products) await addSimple(page, storeSlug, product);
+  await page.goto("/checkout");
+  if (beforeSubmit) await beforeSubmit();
+  await page.getByRole("button", { name: /^Fazer pedido/ }).click();
+  await page.waitForURL(/\/pedidos\/[0-9a-f-]+\/pagamento$/);
+  const orderId = page.url().match(/pedidos\/([0-9a-f-]+)\//)![1];
+  await page.getByRole("button", { name: "Simular pagamento aprovado" }).click();
+  await page.waitForURL(new RegExp(`/pedidos/${orderId}$`));
+  return orderId;
+}

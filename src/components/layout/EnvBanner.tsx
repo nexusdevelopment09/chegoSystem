@@ -6,7 +6,7 @@ export function EnvBanner() {
   return (
     <div
       role="status"
-      className="bg-coffee px-4 py-1 text-center text-xs font-semibold tracking-wide text-peach"
+      className="bg-coffee px-4 py-1 text-center text-xs font-semibold tracking-wide text-peach print:hidden"
     >
       Ambiente de testes
     </div>

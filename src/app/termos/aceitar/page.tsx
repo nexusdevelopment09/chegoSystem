@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Logo } from "@/components/brand/Logo";
 import { TermsForm } from "@/app/cadastro/TermsForm";
+import { homeFor } from "@/lib/auth/home";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { pendingLegalDocuments, slugOfLegalType } from "@/lib/legal";
 
@@ -32,7 +33,8 @@ async function AcceptContent() {
   if (!profile.fullName) redirect("/cadastro");
 
   const pending = await pendingLegalDocuments(profile.id, profile.role);
-  if (pending.length === 0) redirect("/");
+  // Nothing left to accept (e.g. the browser came back here from its cache): go on.
+  if (pending.length === 0) redirect(homeFor(profile.role));
 
   return (
     <TermsForm

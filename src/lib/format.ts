@@ -49,3 +49,11 @@ export function toE164(phone: string): string | null {
   if (digits.length !== 10 && digits.length !== 11) return null;
   return `+55${digits}`;
 }
+
+/** "12,50", "R$ 1.234,56" or "12.5" -> cents. Null when it is not a valid amount. */
+export function parseMoney(text: string): number | null {
+  const clean = text.replace(/[R$\s]/g, "");
+  if (!/^\d{1,3}(\.\d{3})*(,\d{1,2})?$|^\d+([.,]\d{1,2})?$/.test(clean)) return null;
+  const normalized = clean.includes(",") ? clean.replace(/\./g, "").replace(",", ".") : clean;
+  return Math.round(Number(normalized) * 100);
+}

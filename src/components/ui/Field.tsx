@@ -3,6 +3,9 @@ import type { InputHTMLAttributes, ReactNode } from "react";
 export const inputClass =
   "min-h-12 w-full rounded-2xl border-2 border-peach bg-white px-4 text-base text-coffee placeholder:text-coffee-soft/70 focus:border-brand-dark focus:outline-none";
 
+/** File pickers have a wide built-in size; this keeps them inside narrow screens. */
+export const fileInputClass = "block w-full min-w-0 max-w-full text-sm font-normal";
+
 type FieldProps = InputHTMLAttributes<HTMLInputElement> & {
   label: string;
   hint?: ReactNode;

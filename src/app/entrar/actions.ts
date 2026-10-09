@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { homeFor } from "@/lib/auth/home";
 import { verifyPassword } from "@/lib/auth/password";
 import { requestLoginCode, verifyLoginCode } from "@/lib/auth/phone-login";
 import { createSession, destroySession, getCurrentProfile, type UserRole } from "@/lib/auth/session";
@@ -11,7 +12,6 @@ import { toE164 } from "@/lib/format";
 import { acceptPendingLegalDocuments } from "@/lib/legal";
 import { clientIp, rateLimit, TOO_MANY_ATTEMPTS } from "@/lib/rate-limit";
 
-const homeFor = (role: UserRole) => (role === "admin" ? "/admin" : role === "merchant" ? "/lojista" : "/");
 
 // ------------------------------------------------------------ phone + code
 

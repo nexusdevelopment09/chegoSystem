@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "./Button";
 
-export type ActionState = { error?: string; ok?: boolean };
+export type ActionState = { error?: string; ok?: boolean; message?: string };
 type Action = (previous: ActionState, formData: FormData) => Promise<ActionState>;
 
 type Props = {
@@ -33,6 +33,11 @@ export function ActionForm({ action, children, className, onSuccess, resetOnSucc
   return (
     <form ref={form} action={formAction} className={className}>
       {children}
+      {state.ok && state.message && (
+        <p role="status" className="mt-1 w-full text-sm font-bold text-success">
+          {state.message}
+        </p>
+      )}
       {state.error && (
         <p role="alert" className="mt-1 w-full text-sm font-bold text-danger">
           {state.error}

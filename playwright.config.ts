@@ -1,23 +1,28 @@
 import { defineConfig, devices } from "@playwright/test";
+import { TEST_DATABASE_URL } from "./tests/reset-test-db";
 
-// End-to-end tests run against the dev server and the local database.
-// The database must be on (`npm run db:start`) before running them.
+// End-to-end tests start their own copy of the app on port 3100, connected to
+// the test database, so they never touch the data you are testing by hand.
+const PORT = 3100;
+
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./tests/reset-test-db.ts",
   fullyParallel: false,
   workers: 1,
   reporter: [["list"]],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: `http://localhost:${PORT}`,
     locale: "pt-BR",
     timezoneId: "America/Maceio",
     trace: "retain-on-failure",
   },
   projects: [{ name: "celular", use: { ...devices["Pixel 7"] } }],
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: true,
+    command: `npx next dev -p ${PORT}`,
+    url: `http://localhost:${PORT}`,
+    reuseExistingServer: false,
     timeout: 120_000,
+    env: { DATABASE_URL: TEST_DATABASE_URL, NEXT_DIST_DIR: ".next-e2e" },
   },
 });

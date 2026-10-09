@@ -1,10 +1,8 @@
 import postgres from "postgres";
+import { TEST_DATABASE_URL } from "../reset-test-db";
 
-// Integration tests talk to the local database (`npm run db:start`).
-export const sql = postgres(
-  process.env.DATABASE_URL ?? "postgres://chego@127.0.0.1:54329/chego",
-  { max: 2, onnotice: () => {} },
-);
+// Integration tests talk to the test database (see tests/reset-test-db.ts).
+export const sql = postgres(TEST_DATABASE_URL, { max: 2, onnotice: () => {} });
 
 type Tx = postgres.TransactionSql;
 

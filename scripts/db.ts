@@ -11,7 +11,7 @@ import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
-import { seed } from "../db/seed.ts";
+import { seed } from "../db/seed/index.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BIN = join(ROOT, "node_modules", "@embedded-postgres", "windows-x64", "native", "bin");
@@ -22,7 +22,9 @@ const MIGRATIONS_DIR = join(ROOT, "db", "migrations");
 
 const PORT = 54329;
 const USER = "chego";
-const DATABASE = "chego";
+// The automated tests use their own database (CHEGO_DB=chego_test), so they
+// never touch the data you are testing by hand.
+const DATABASE = process.env.CHEGO_DB ?? "chego";
 const url = (database: string) => `postgres://${USER}@127.0.0.1:${PORT}/${database}`;
 
 function run(exe: string, args: string[], quiet = false) {

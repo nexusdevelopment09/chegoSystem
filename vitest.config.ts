@@ -6,8 +6,9 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   test: {
-    // Unit tests live next to the code; integration tests need the local
-    // database running (`npm run db:start`).
+    // Unit tests live next to the code. Integration tests run against the
+    // test database, recreated with the seed before each run.
     include: ["src/**/*.test.ts", "tests/integration/**/*.test.ts"],
+    globalSetup: ["tests/reset-test-db.ts"],
   },
 });

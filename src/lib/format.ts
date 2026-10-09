@@ -9,6 +9,25 @@ export function formatCents(cents: number): string {
   return brl.format(cents / 100).replace(/ /g, " ");
 }
 
+const dateTime = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Maceio",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** Date and time in Maceió: "09/10/2026, 14:30". */
+export function formatDateTime(date: Date): string {
+  return dateTime.format(date);
+}
+
+/** Value for an <input type="datetime-local">, in Maceió time (UTC-3 all year). */
+export function toDateTimeLocal(date: Date): string {
+  return new Date(date.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 16);
+}
+
 /** "+5582900000001" or "82900000001" -> "(82) 90000-0001". */
 export function formatPhone(phone: string): string {
   let digits = phone.replace(/\D/g, "");

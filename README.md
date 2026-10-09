@@ -7,11 +7,18 @@ Este guia é para rodar o sistema **neste computador (Windows)**, só para teste
 
 ## Logins de teste
 
-| Perfil | Usuário | Senha | Onde entra |
-|---|---|---|---|
-| Admin | `admin` | `admin` | http://localhost:3000/entrar |
+Abra **http://localhost:3000/dev** e clique em **Entrar como** ao lado de qualquer usuário de teste (admin, lojistas, atendentes, entregador e 10 clientes). A lista completa, com o que cada um serve para testar, está em [docs/USUARIOS_DE_TESTE.md](docs/USUARIOS_DE_TESTE.md).
 
-O usuário `admin` é um atalho para o e-mail `admin@chego.local` e só existe no ambiente de testes.
+O admin também entra em http://localhost:3000/entrar com usuário `admin` e senha `admin`.
+
+## Página de ferramentas de teste (`/dev`)
+
+Só existe no ambiente de testes. Nela você encontra:
+
+- **Relógio simulado:** muda a data e a hora que o sistema enxerga.
+- **Login rápido:** entra como qualquer usuário de teste.
+- **Pagamentos pendentes:** aprova, recusa ou expira o pagamento de um pedido.
+- **Caixa de mensagens:** mostra os SMS, WhatsApp, e-mails e notificações que o sistema "enviou". Nada sai de verdade.
 
 ## 1. O que instalar (uma vez só)
 
@@ -51,11 +58,14 @@ O banco desliga quando o computador é desligado. Se você abrir o app com o ban
 | `npm run db:reset` | Apaga tudo e recria o banco com os dados de teste |
 | `npm run db:status` | Diz se o banco está ligado |
 | `npm run db:types` | Gera de novo os tipos TypeScript do banco (depois de criar uma migration) |
-| `npm test` | Roda os testes unitários e de integração (o banco precisa estar ligado) |
-| `npm run test:e2e` | Roda os testes no navegador (o banco precisa estar ligado) |
+| `npm run seed:images` | Gera de novo as fotos falsas de produtos, lojas e banners |
+| `npm test` | Roda os testes unitários e de integração |
+| `npm run test:e2e` | Roda os testes no navegador |
 | `npm run test:all` | Roda todos os testes |
 | `npm run lint` / `npm run typecheck` | Verifica o código |
 | `npm run icons` | Gera de novo os ícones do app (só se o logo mudar) |
+
+Os testes usam um banco separado (`chego_test`), recriado a cada execução. Eles nunca mexem nos dados que você está testando à mão, e ligam o banco sozinhos se estiver desligado.
 
 Na primeira vez que for rodar os testes de navegador, instale o navegador de teste:
 
@@ -89,7 +99,9 @@ Se não abrir, o Firewall do Windows pode estar bloqueando: Painel de Controle �
 ```
 db/
   migrations/          tabelas e regras do banco, numeradas (nunca editar uma já aplicada)
-  seed.ts              dados de teste
+  seed/                dados de teste: lojas, cardápios, pessoas, pedidos e imagens
+docs/                  usuários de teste e outros guias
+storage/               fotos de produtos, lojas e banners (geradas pelo seed)
 e2e/                   testes no navegador (Playwright)
 tests/integration/     testes contra o banco (regras de quem vê o quê)
 scripts/

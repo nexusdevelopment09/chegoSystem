@@ -9,6 +9,8 @@ const lanAddresses = Object.values(networkInterfaces())
   .map((net) => net!.address);
 
 const nextConfig: NextConfig = {
+  // The end-to-end tests run a second dev server with its own build folder.
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
   cacheComponents: true,
   partialPrefetching: true,
   allowedDevOrigins: lanAddresses,

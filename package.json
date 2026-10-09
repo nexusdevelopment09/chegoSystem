@@ -17,13 +17,15 @@
     "icons": "node scripts/generate-icons.mjs",
     "test:e2e": "playwright test",
     "test:all": "npm run test && npm run test:e2e",
-    "db:types": "node scripts/db-types.ts"
+    "db:types": "node scripts/db-types.ts",
+    "seed:images": "node db/seed/images.ts"
   },
   "dependencies": {
     "next": "16.4.0",
     "postgres": "^3.4.9",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "sharp": "^0.35.5",
     "zod": "^4.6.5"
   },
   "devDependencies": {

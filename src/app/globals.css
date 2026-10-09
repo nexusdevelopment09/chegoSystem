@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* Brand tokens. Use these names (bg-brand, text-coffee...) instead of raw hex. */
+@theme {
+  --color-brand: #e8611a;
+  --color-brand-dark: #b4480f;
+  --color-brand-darker: #8f380a;
+  --color-peach: #ffe9d6;
+  --color-cream: #fff8f1;
+  --color-coffee: #24160c;
+  --color-coffee-soft: #5c4632;
+
+  --font-display: var(--font-fredoka), ui-rounded, system-ui, sans-serif;
+  --font-sans: var(--font-dm-sans), system-ui, sans-serif;
+
+  --radius-card: 1.25rem;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-coffee);
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-brand-dark);
+  outline-offset: 2px;
+}

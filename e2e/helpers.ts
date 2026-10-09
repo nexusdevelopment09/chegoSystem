@@ -20,3 +20,24 @@ export async function loginWithPhone(page: Page, phone: string, code = "123456")
   await page.getByLabel("Código de 6 números").fill(code);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
 }
+
+/** Moves the system clock (Maceió time, e.g. "2026-10-09T11:30"), or back to real time with null. */
+export async function setClock(localDateTime: string | null) {
+  if (localDateTime === null) {
+    await db`delete from platform_settings where key = 'dev_clock_offset_ms'`;
+    return;
+  }
+  const offset = new Date(`${localDateTime}:00-03:00`).getTime() - Date.now();
+  await db`
+    insert into platform_settings (key, value) values ('dev_clock_offset_ms', ${db.json(offset)})
+    on conflict (key) do update set value = excluded.value`;
+}
+
+/** Address of a product page, found by store slug and product name. */
+export async function productUrl(storeSlug: string, productName: string) {
+  const [row] = await db`
+    select p.id from products p join stores s on s.id = p.store_id
+    where s.slug = ${storeSlug} and p.name = ${productName}`;
+  if (!row) throw new Error(`Produto não encontrado: ${productName}`);
+  return `/loja/${storeSlug}/produto/${row.id}`;
+}

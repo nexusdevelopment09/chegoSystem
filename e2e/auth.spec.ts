@@ -12,7 +12,7 @@ test("cliente novo se cadastra com telefone, nome e aceite dos termos", async ({
   // A brand-new customer has no address yet, so they choose where they are.
   await expect(page).toHaveURL(/\/boas-vindas$/);
   await page.goto("/perfil");
-  await expect(page.getByText("Maria Teste da Silva")).toBeVisible();
+  await expect(page.getByLabel("Nome completo")).toHaveValue("Maria Teste da Silva");
   await expect(page.getByText("(82) 98888-1234")).toBeVisible();
 
   const [profile] = await db`
@@ -36,7 +36,7 @@ test("cliente que já existe entra direto com o código", async ({ page }) => {
   await loginWithPhone(page, "82940000001");
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/perfil");
-  await expect(page.getByText("Ana Clara Souza")).toBeVisible();
+  await expect(page.getByLabel("Nome completo")).toHaveValue("Ana Clara Souza");
 });
 
 test("código errado e telefone inválido mostram o motivo", async ({ page }) => {
@@ -69,8 +69,8 @@ test("cada papel só entra no seu painel", async ({ page }) => {
   }
 
   await loginAs(page, "Robson Entregas");
-  await expect(page).toHaveURL(/\/lojista$/);
-  await expect(page.getByText("Pizzaria Forno de Barro · Entregador")).toBeVisible();
+  await expect(page).toHaveURL(/\/lojista\/entregas$/);
+  await expect(page.getByRole("heading", { name: "Minhas entregas" })).toBeVisible();
   // A courier has no address, so the home page sends him on to choose a city.
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/boas-vindas$/);

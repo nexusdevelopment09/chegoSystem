@@ -99,7 +99,7 @@ type StoreRow = {
   offers_delivery: boolean; offers_pickup: boolean; accepts_scheduled: boolean;
   schedule_min_lead_minutes: number; schedule_max_days: number;
   same_day_cutoff: string | null; delivery_window_start: string | null; delivery_window_end: string | null;
-  commission_rate: string; shifts: Shift[]; closures: { startsAt: string; endsAt: string }[];
+  commission_rate: string; maintenance_mode: boolean; shifts: Shift[]; closures: { startsAt: string; endsAt: string }[];
 };
 
 const UNAVAILABLE = "Essa loja não está mais disponível.";
@@ -131,7 +131,7 @@ export async function buildQuote(
            s.paused_until, s.prep_time_minutes, s.busy_extra_minutes, s.min_order_cents, s.offers_delivery,
            s.offers_pickup, s.accepts_scheduled, s.schedule_min_lead_minutes, s.schedule_max_days,
            s.same_day_cutoff::text, s.delivery_window_start::text, s.delivery_window_end::text,
-           sp.commission_rate,
+           sp.commission_rate, ci.maintenance_mode,
            coalesce((select json_agg(json_build_object('weekday', h.weekday, 'opensAt', h.opens_at::text,
              'closesAt', h.closes_at::text, 'pickupOnly', h.pickup_only)) from store_hours h where h.store_id = s.id), '[]') as shifts,
            coalesce((select json_agg(json_build_object('startsAt', cl.starts_at, 'endsAt', cl.ends_at))
@@ -142,6 +142,7 @@ export async function buildQuote(
     join store_private sp on sp.store_id = s.id
     where s.id = ${input.storeId} and s.status in ('active', 'paused')`;
   if (!store) return { fatal: UNAVAILABLE };
+  if (store.maintenance_mode) return { fatal: "O Chegô está em manutenção nesta cidade. Volta já já." };
 
   const errors: string[] = [];
   const warnings: string[] = [];

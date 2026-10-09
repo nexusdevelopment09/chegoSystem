@@ -12,7 +12,7 @@ export const CITY_COOKIE = "chego_city";
 export const HOOD_COOKIE = "chego_hood";
 
 export type ShoppingContext = {
-  city: { id: string; name: string; state: string } | null;
+  city: { id: string; name: string; state: string; maintenance: boolean } | null;
   neighborhood: { id: string; name: string; isRural: boolean } | null;
   /** True when the visitor never chose a city and has no saved address (first visit). */
   firstVisit: boolean;
@@ -48,8 +48,8 @@ export const getShoppingContext = cache(async (): Promise<ShoppingContext> => {
   }
 
   const [city] = cityId
-    ? await sql<{ id: string; name: string; state: string }[]>`
-        select id, name, state from cities where id = ${cityId} and active`
+    ? await sql<{ id: string; name: string; state: string; maintenance: boolean }[]>`
+        select id, name, state, maintenance_mode as maintenance from cities where id = ${cityId} and active`
     : [];
 
   const [hood] = city && hoodId

@@ -17,3 +17,26 @@ export const CATEGORY_EMOJI: Record<string, string> = {
   pill: "💊",
   leaf: "🥗",
 };
+
+export const TICKET_REASON_LABELS = {
+  delay: "Atraso",
+  missing_item: "Item faltando",
+  wrong_item: "Item errado",
+  damaged_item: "Item danificado",
+  billing: "Cobrança",
+  other: "Outro",
+} as const;
+
+export const TICKET_STATUS_LABELS = {
+  open: "Aberto",
+  in_progress: "Em andamento",
+  waiting_customer: "Aguardando você",
+  resolved: "Resolvido",
+} as const;
+
+export const STORE_STATUS_LABELS = {
+  pending: "Pendente",
+  active: "Ativa",
+  paused: "Pausada",
+  suspended: "Suspensa",
+} as const;

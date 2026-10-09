@@ -2,6 +2,7 @@ import "server-only";
 import type postgres from "postgres";
 import { sql } from "@/lib/db";
 import type { Channel } from "./outbound";
+import { sendPush } from "./push";
 
 type Db = postgres.Sql | postgres.TransactionSql;
 
@@ -34,6 +35,10 @@ export async function notify(notice: Notice, db: Db = sql) {
       ${notice.promotional ? db`and promo_notifications` : db``}`;
 
   const at = notice.at ?? new Date();
+  if (notice.channels?.includes("push")) {
+    // Not awaited on purpose: the push service is on the internet and must not slow the order down.
+    void sendPush(recipients.map((person) => person.id), { title: notice.title, body: notice.body, url: notice.link });
+  }
   for (const person of recipients) {
     await db`
       insert into notifications (profile_id, type, title, body, link, order_id, promotional, created_at)

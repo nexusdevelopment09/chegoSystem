@@ -5,6 +5,7 @@ import { Logo } from "@/components/brand/Logo";
 import { CartSync } from "@/components/cart/CartSync";
 import { Button, buttonClass } from "@/components/ui/Button";
 import { getCurrentProfile } from "@/lib/auth/session";
+import { sql } from "@/lib/db";
 
 const small = "min-h-11 px-4 text-sm";
 
@@ -33,6 +34,9 @@ async function UserArea() {
     );
   }
 
+  const [{ unread }] = await sql<{ unread: number }[]>`
+    select count(*)::int as unread from notifications where profile_id = ${profile.id} and read_at is null`;
+
   const panel =
     profile.role === "admin"
       ? { href: "/admin", label: "Painel" }
@@ -46,6 +50,15 @@ async function UserArea() {
       <span className="hidden text-sm text-coffee-soft sm:inline" data-testid="user-greeting">
         Oi, {profile.fullName.split(" ")[0] || "você"}
       </span>
+      <Link href="/notificacoes" data-testid="bell" aria-label={unread > 0 ? `Notificações: ${unread} não lida${unread > 1 ? "s" : ""}` : "Notificações"}
+        className={buttonClass("secondary", "relative min-h-11 px-3 text-sm")}>
+        <span aria-hidden="true">🔔</span>
+        {unread > 0 && (
+          <span aria-hidden="true" className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-danger px-1 text-xs font-bold text-white">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </Link>
       {profile.role === "customer" && (
         <Link href="/pedidos" className={buttonClass("secondary", small)}>
           Pedidos

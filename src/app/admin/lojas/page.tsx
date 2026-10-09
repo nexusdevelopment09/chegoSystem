@@ -1,0 +1,88 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Suspense } from "react";
+import { buttonClass } from "@/components/ui/Button";
+import { requireRole } from "@/lib/auth/session";
+import { now } from "@/lib/clock";
+import { sql } from "@/lib/db";
+import { STORE_STATUS_LABELS } from "@/lib/labels";
+
+export const metadata: Metadata = { title: "Lojas" };
+
+type SearchParams = Promise<{ situacao?: string; q?: string }>;
+
+export default function AdminStoresPage({ searchParams }: { searchParams: SearchParams }) {
+  return (
+    <Suspense fallback={<div className="h-96 animate-pulse rounded-card bg-peach" aria-busy="true" />}>
+      <Stores searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function Stores({ searchParams }: { searchParams: SearchParams }) {
+  await requireRole("admin");
+  const { situacao, q } = await searchParams;
+  const status = Object.keys(STORE_STATUS_LABELS).includes(situacao ?? "") ? situacao! : null;
+  const at = await now();
+
+  const stores = await sql<{
+    id: string; name: string; status: keyof typeof STORE_STATUS_LABELS; city: string; category: string; commission_rate: string;
+    featured: boolean; products: number; overdue: number;
+  }[]>`
+    select s.id, s.name, s.status, c.name as city, cat.name as category, sp.commission_rate,
+           coalesce(s.featured_until > ${at}, false) as featured,
+           (select count(*)::int from products p where p.store_id = s.id and p.deleted_at is null) as products,
+           (select count(*)::int from invoices i where i.store_id = s.id and i.status = 'overdue') as overdue
+    from stores s
+    join cities c on c.id = s.city_id
+    join categories cat on cat.id = s.category_id
+    join store_private sp on sp.store_id = s.id
+    where true
+      ${status ? sql`and s.status = ${status}::store_status` : sql``}
+      ${q ? sql`and unaccent(s.name) ilike unaccent(${`%${q.replace(/[\\%_]/g, "\\$&")}%`})` : sql``}
+    order by (s.status = 'pending') desc, s.name`;
+
+  const chip = (value: string | null, label: string) => (
+    <Link key={label} href={value ? `/admin/lojas?situacao=${value}` : "/admin/lojas"} aria-current={status === value ? "true" : undefined}
+      className={buttonClass(status === value ? "primary" : "secondary", "min-h-11 px-4 text-sm")}>{label}</Link>
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-3xl">Lojas</h1>
+      <div className="flex flex-wrap gap-2">
+        {chip(null, "Todas")}
+        {Object.entries(STORE_STATUS_LABELS).map(([value, label]) => chip(value, label))}
+      </div>
+      <form className="flex gap-2" role="search">
+        <input type="search" name="q" defaultValue={q ?? ""} placeholder="Buscar loja pelo nome" aria-label="Buscar loja pelo nome"
+          className="min-h-11 flex-1 rounded-full border-2 border-peach bg-white px-4" />
+        {status && <input type="hidden" name="situacao" value={status} />}
+        <button type="submit" className={buttonClass("secondary", "min-h-11 px-4 text-sm")}>Buscar</button>
+      </form>
+
+      <ul className="flex flex-col gap-2">
+        {stores.map((store) => (
+          <li key={store.id}>
+            <Link href={`/admin/lojas/${store.id}`} data-testid="admin-store" className="flex flex-wrap items-center justify-between gap-2 rounded-card bg-white p-4 ring-1 ring-peach hover:ring-brand">
+              <span>
+                <strong className="font-display text-lg">{store.name}</strong>
+                <span className="block text-sm text-coffee-soft">
+                  {store.category} · {store.city} · comissão {(Number(store.commission_rate) * 100).toFixed(1).replace(".", ",")}% · {store.products} produtos
+                </span>
+              </span>
+              <span className="flex flex-wrap gap-1 text-sm font-bold">
+                {store.featured && <span className="rounded-full bg-peach px-3 py-1">Destaque pago</span>}
+                {store.overdue > 0 && <span className="rounded-full bg-danger px-3 py-1 text-white">Fatura vencida</span>}
+                <span className={`rounded-full px-3 py-1 ${store.status === "active" ? "bg-success text-white" : store.status === "pending" ? "bg-brand text-coffee" : "bg-coffee text-peach"}`}>
+                  {STORE_STATUS_LABELS[store.status]}
+                </span>
+              </span>
+            </Link>
+          </li>
+        ))}
+        {stores.length === 0 && <li className="rounded-card bg-white p-6 text-center text-coffee-soft ring-1 ring-peach">Nenhuma loja encontrada.</li>}
+      </ul>
+    </div>
+  );
+}

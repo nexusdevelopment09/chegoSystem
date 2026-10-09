@@ -6,12 +6,20 @@ import { z } from "zod";
 import { OrderSummary } from "@/components/cart/OrderSummary";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { AutoRefresh } from "@/components/orders/AutoRefresh";
+import { OrderChat } from "@/components/orders/OrderChat";
 import { OrderTimeline } from "@/components/orders/OrderTimeline";
+import { ReorderButton } from "@/components/orders/ReorderButton";
+import { ReviewForm } from "@/components/orders/ReviewForm";
 import { Button, buttonClass } from "@/components/ui/Button";
 import { requireUser } from "@/lib/auth/session";
+import { now } from "@/lib/clock";
+import { withUser } from "@/lib/db";
 import { formatCents, formatDateTime } from "@/lib/format";
+import { chatOpen } from "@/lib/orders/moderation";
 import { loadOrder } from "@/lib/orders/queries";
 import { canTransition, IN_PROGRESS, STATUS_LABELS } from "@/lib/orders/status";
+import { getSettings } from "@/lib/settings";
+import { DAY_MS } from "@/lib/time";
 import { cancelOrder } from "../actions";
 
 export const metadata: Metadata = { title: "Acompanhar pedido" };
@@ -41,6 +49,12 @@ async function OrderContent({ params }: { params: Params }) {
 
   const live = order.status === "awaiting_payment" || IN_PROGRESS.includes(order.status);
   const canCancel = order.status === "paid" && canTransition(order.status, "cancelled", "customer", order.fulfillment);
+
+  const [at, settings] = await Promise.all([now(), getSettings()]);
+  const [review] = await withUser(profile.id, (tx) => tx<{ rating: number; comment: string | null; reply: string | null }[]>`
+    select rating, comment, reply from reviews where order_id = ${order.id}`);
+  const canReview = order.completedAt !== null && !review
+    && at.getTime() <= order.completedAt.getTime() + settings.review_window_days * DAY_MS;
 
   return (
     <div className="flex flex-col gap-4">
@@ -114,6 +128,34 @@ async function OrderContent({ params }: { params: Params }) {
           <p>{order.address.street}, {order.address.number} · {order.address.neighborhood}</p>
           {order.address.reference && <p className="text-sm text-coffee-soft">Referência: {order.address.reference}</p>}
         </section>
+      )}
+
+      {order.paidAt && (
+        <OrderChat orderId={order.id} viewerId={profile.id} side="customer"
+          open={chatOpen({ paidAt: order.paidAt, completedAt: order.completedAt, status: order.status }, at)} />
+      )}
+
+      {(review || canReview) && (
+        <section className="rounded-card bg-white p-5 shadow-sm ring-1 ring-peach" data-testid="review-box">
+          <h2 className="mb-2 text-xl">Avaliação</h2>
+          {review ? (
+            <>
+              <p className="font-bold text-brand-dark" aria-label={`Você deu ${review.rating} de 5 estrelas`}>
+                {"★".repeat(review.rating)}<span className="text-peach">{"★".repeat(5 - review.rating)}</span>
+              </p>
+              {review.comment && <p>{review.comment}</p>}
+              {review.reply && <p className="mt-2 rounded-2xl bg-cream px-3 py-2 text-sm"><strong>Resposta da loja:</strong> {review.reply}</p>}
+            </>
+          ) : (
+            <ReviewForm orderId={order.id} storeName={order.storeName} />
+          )}
+        </section>
+      )}
+
+      {!live && <ReorderButton orderId={order.id} />}
+
+      {order.paidAt && (
+        <Link href={`/pedidos/${order.id}/ajuda`} className={buttonClass("secondary")}>Preciso de ajuda</Link>
       )}
 
       {canCancel && (

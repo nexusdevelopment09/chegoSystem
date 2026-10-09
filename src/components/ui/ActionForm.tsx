@@ -1,11 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useRef, type ReactNode } from "react";
+import { createContext, startTransition, use, useActionState, useEffect, useRef, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "./Button";
 
 export type ActionState = { error?: string; ok?: boolean; message?: string };
 type Action = (previous: ActionState, formData: FormData) => Promise<ActionState>;
+
+const PendingContext = createContext<boolean | null>(null);
 
 type Props = {
   action: Action;
@@ -17,9 +19,16 @@ type Props = {
   resetOnSuccess?: boolean;
 };
 
-/** A form bound to a server action that shows the action's error message under it. */
+/**
+ * A form bound to a server action that shows the action's message under it.
+ *
+ * The action is called by hand instead of through the form's `action`
+ * attribute, because that would clear every field when the action finishes,
+ * and losing what you typed because of a validation error is the worst
+ * moment to lose it. Fields are only cleared on success, when asked.
+ */
 export function ActionForm({ action, children, className, onSuccess, resetOnSuccess }: Props) {
-  const [state, formAction] = useActionState(action, {});
+  const [state, formAction, pending] = useActionState(action, {});
   const form = useRef<HTMLFormElement>(null);
   const handled = useRef<ActionState | null>(null);
 
@@ -31,8 +40,18 @@ export function ActionForm({ action, children, className, onSuccess, resetOnSucc
   }, [state, onSuccess, resetOnSuccess]);
 
   return (
-    <form ref={form} action={formAction} className={className}>
-      {children}
+    <form
+      ref={form}
+      className={className}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (pending) return;
+        // The clicked button goes along, so its name and value reach the action.
+        const data = new FormData(event.currentTarget, (event.nativeEvent as SubmitEvent).submitter);
+        startTransition(() => formAction(data));
+      }}
+    >
+      <PendingContext value={pending}>{children}</PendingContext>
       {state.ok && state.message && (
         <p role="status" className="mt-1 w-full text-sm font-bold text-success">
           {state.message}
@@ -57,9 +76,10 @@ type SubmitProps = {
 
 /** Submit button that disables itself while its form is being sent. */
 export function SubmitButton({ children, variant, className, name, value }: SubmitProps) {
-  const { pending } = useFormStatus();
+  const fromActionForm = use(PendingContext);
+  const { pending: fromPlainForm } = useFormStatus();
   return (
-    <Button type="submit" variant={variant} className={className} name={name} value={value} disabled={pending}>
+    <Button type="submit" variant={variant} className={className} name={name} value={value} disabled={fromActionForm ?? fromPlainForm}>
       {children}
     </Button>
   );

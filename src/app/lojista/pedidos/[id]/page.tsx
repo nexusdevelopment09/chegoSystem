@@ -6,10 +6,12 @@ import { z } from "zod";
 import { OrderSummary } from "@/components/cart/OrderSummary";
 import { OrderActions, RemoveItemButton } from "@/components/merchant/OrderActions";
 import { AutoRefresh } from "@/components/orders/AutoRefresh";
+import { OrderChat } from "@/components/orders/OrderChat";
 import { OrderTimeline } from "@/components/orders/OrderTimeline";
 import { buttonClass } from "@/components/ui/Button";
 import { formatCents, formatDateTime, formatPhone } from "@/lib/format";
 import { getMerchantContext, getTeam } from "@/lib/merchant/context";
+import { chatOpen } from "@/lib/orders/moderation";
 import { loadOrder } from "@/lib/orders/queries";
 import { STATUS_LABELS } from "@/lib/orders/status";
 
@@ -31,7 +33,7 @@ async function OrderDetail({ params }: { params: Params }) {
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
 
-  const { profile, membership, store } = await getMerchantContext(["owner", "attendant"]);
+  const { profile, membership, store, at } = await getMerchantContext(["owner", "attendant"]);
   const order = await loadOrder(profile.id, id);
   if (!order || order.storeId !== store.id) notFound();
 
@@ -118,6 +120,9 @@ async function OrderDetail({ params }: { params: Params }) {
           <p className="mt-2 text-sm font-bold text-danger" data-testid="merchant-refunded">Reembolsado ao cliente: {formatCents(order.refundedCents)}</p>
         )}
       </section>
+
+      <OrderChat orderId={order.id} viewerId={profile.id} side="store"
+        open={chatOpen({ paidAt: order.paidAt, completedAt: order.completedAt, status: order.status }, at)} />
 
       <section className="rounded-card bg-white p-4 ring-1 ring-peach">
         <h2 className="mb-2 text-xl">Andamento</h2>

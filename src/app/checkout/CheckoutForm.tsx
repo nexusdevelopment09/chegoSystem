@@ -150,7 +150,14 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
             ))}
 
             {addingAddress ? (
-              <form action={addAddress} className="flex flex-col gap-3 rounded-2xl bg-cream p-3">
+              <form
+                className="flex flex-col gap-3 rounded-2xl bg-cream p-3"
+                onSubmit={(event) => {
+                  // Sent by hand so the fields are not cleared if the address is refused.
+                  event.preventDefault();
+                  void addAddress(new FormData(event.currentTarget));
+                }}
+              >
                 <Field label="Rua" name="street" required maxLength={120} autoComplete="address-line1" />
                 <Field label="Número" name="number" maxLength={20} placeholder="S/N" />
                 <label className="flex flex-col gap-1.5 text-sm font-semibold">

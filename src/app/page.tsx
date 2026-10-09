@@ -48,6 +48,15 @@ async function HomeContent() {
   const context = await getShoppingContext();
   if (!context.city || context.firstVisit) redirect("/boas-vindas");
 
+  if (context.city.maintenance) {
+    return (
+      <div role="status" data-testid="maintenance" className="rounded-card bg-white p-8 text-center ring-1 ring-peach">
+        <p className="text-2xl font-semibold">Estamos arrumando a casa em {context.city.name}.</p>
+        <p className="text-coffee-soft">O Chegô está em manutenção nesta cidade. Volta já já que a gente abre de novo.</p>
+      </div>
+    );
+  }
+
   const at = await now();
   const profile = await getCurrentProfile();
   const hoodName = context.neighborhood?.name ?? null;

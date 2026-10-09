@@ -46,6 +46,7 @@ test("aprovar loja pendente exige o checklist e coloca a loja no ar", async ({ p
 
   await page.getByRole("button", { name: "Aprovar e colocar no ar" }).click();
   await expect(page.getByText(/^Falta conferir:/)).toBeVisible();
+  await expect(page.getByRole("checkbox")).toHaveCount(6);
   for (const box of await page.getByRole("checkbox").all()) await box.check();
   await page.getByRole("button", { name: "Aprovar e colocar no ar" }).click();
   await expect(visible(page, "admin-store-status")).toHaveText("Ativa");

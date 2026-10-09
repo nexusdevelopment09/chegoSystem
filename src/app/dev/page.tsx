@@ -9,6 +9,7 @@ import { sql } from "@/lib/db";
 import { isLocalEnv } from "@/lib/env";
 import { formatCents, formatDateTime, formatPhone, toDateTimeLocal } from "@/lib/format";
 import { loginAs, resetClock, setClock, simulatePayment } from "./actions";
+import { DevTools } from "./DevTools";
 
 export const metadata: Metadata = { title: "Ferramentas de teste" };
 
@@ -34,6 +35,9 @@ export default function DevPage() {
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 pb-12">
         <Suspense fallback={<p className="text-coffee-soft">Carregando...</p>}>
           <ClockSection />
+          <Section title="Atalhos" hint="Tarefas agendadas, pedido de teste e recomeçar do zero.">
+            <DevTools />
+          </Section>
           <QuickLoginSection />
           <PendingPaymentsSection />
           <MessagesSection />

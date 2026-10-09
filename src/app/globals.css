@@ -9,6 +9,9 @@
   --color-cream: #fff8f1;
   --color-coffee: #24160c;
   --color-coffee-soft: #5c4632;
+  /* Only for success and error states, never as brand colors. */
+  --color-success: #1e7b4f;
+  --color-danger: #b42318;
 
   --font-display: var(--font-fredoka), ui-rounded, system-ui, sans-serif;
   --font-sans: var(--font-dm-sans), system-ui, sans-serif;

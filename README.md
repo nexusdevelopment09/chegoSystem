@@ -50,7 +50,8 @@ O banco desliga quando o computador é desligado. Se você abrir o app com o ban
 | `npm run db:stop` | Desliga o banco (os dados ficam guardados) |
 | `npm run db:reset` | Apaga tudo e recria o banco com os dados de teste |
 | `npm run db:status` | Diz se o banco está ligado |
-| `npm test` | Roda os testes unitários |
+| `npm run db:types` | Gera de novo os tipos TypeScript do banco (depois de criar uma migration) |
+| `npm test` | Roda os testes unitários e de integração (o banco precisa estar ligado) |
 | `npm run test:e2e` | Roda os testes no navegador (o banco precisa estar ligado) |
 | `npm run test:all` | Roda todos os testes |
 | `npm run lint` / `npm run typecheck` | Verifica o código |
@@ -90,6 +91,7 @@ db/
   migrations/          tabelas e regras do banco, numeradas (nunca editar uma já aplicada)
   seed.ts              dados de teste
 e2e/                   testes no navegador (Playwright)
+tests/integration/     testes contra o banco (regras de quem vê o quê)
 scripts/
   db.ts                liga, desliga e recria o banco local
 src/

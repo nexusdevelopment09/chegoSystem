@@ -85,6 +85,12 @@ async function migrate() {
 }
 
 async function start() {
+  await boot();
+  await migrate();
+}
+
+/** Turns the server on and makes sure the database exists. */
+async function boot() {
   initCluster();
   if (isRunning()) {
     console.log("O banco já estava ligado.");
@@ -96,7 +102,6 @@ async function start() {
     console.log(`Banco ligado em localhost:${PORT}.`);
   }
   await ensureDatabase();
-  await migrate();
 }
 
 function stop() {
@@ -109,7 +114,7 @@ function stop() {
 }
 
 async function reset() {
-  await start();
+  await boot();
   const admin = postgres(url("postgres"), { max: 1, onnotice: () => {} });
   try {
     await admin.unsafe(`drop database if exists ${DATABASE} with (force)`);

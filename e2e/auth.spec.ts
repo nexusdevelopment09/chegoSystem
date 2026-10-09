@@ -1,8 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { db, loginAs, loginWithPhone } from "./helpers";
 
-test.afterAll(() => db.end());
-
 test("cliente novo se cadastra com telefone, nome e aceite dos termos", async ({ page }) => {
   await loginWithPhone(page, "(82) 98888-1234");
 
@@ -11,7 +9,8 @@ test("cliente novo se cadastra com telefone, nome e aceite dos termos", async ({
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Criar minha conta" }).click();
 
-  await expect(page).toHaveURL(/\/$/);
+  // A brand-new customer has no address yet, so they choose where they are.
+  await expect(page).toHaveURL(/\/boas-vindas$/);
   await page.goto("/perfil");
   await expect(page.getByText("Maria Teste da Silva")).toBeVisible();
   await expect(page.getByText("(82) 98888-1234")).toBeVisible();
@@ -72,8 +71,9 @@ test("cada papel só entra no seu painel", async ({ page }) => {
   await loginAs(page, "Robson Entregas");
   await expect(page).toHaveURL(/\/lojista$/);
   await expect(page.getByText("Pizzaria Forno de Barro · Entregador")).toBeVisible();
+  // A courier has no address, so the home page sends him on to choose a city.
   await page.goto("/admin");
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/boas-vindas$/);
 
   await loginWithPhone(page, "82900000000");
   await expect(page).toHaveURL(/\/admin$/);

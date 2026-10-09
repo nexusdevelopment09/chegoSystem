@@ -41,3 +41,11 @@ export async function productUrl(storeSlug: string, productName: string) {
   if (!row) throw new Error(`Produto não encontrado: ${productName}`);
   return `/loja/${storeSlug}/produto/${row.id}`;
 }
+
+/** First-visit step: tells the app which neighborhood the customer is in. */
+export async function chooseNeighborhood(page: Page, name: string) {
+  await page.goto("/boas-vindas");
+  await page.getByLabel("Seu bairro ou comunidade").selectOption({ label: name });
+  await page.getByRole("button", { name: "Ver as lojas" }).click();
+  await page.waitForURL((url) => url.pathname === "/");
+}

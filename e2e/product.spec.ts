@@ -1,10 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { db, productUrl, setClock } from "./helpers";
+import { productUrl, setClock } from "./helpers";
 
-test.afterAll(async () => {
-  await setClock(null);
-  await db.end();
-});
+test.afterAll(() => setClock(null));
 
 const addButton = (page: import("@playwright/test").Page) => page.getByRole("button", { name: /^Adicionar/ });
 

@@ -125,7 +125,7 @@ Com `APP_ENV=local` aparecem a faixa "Ambiente de testes" e a página `/dev`. Em
 | Tipo | Onde | O que cobre |
 |---|---|---|
 | Unitário | `src/**/*.test.ts` | As funções puras da tabela acima |
-| Integração | `tests/integration/` | Regras de acesso por linha e a coerência do seed, direto no banco |
+| Integração | `tests/integration/` | Direto no banco: regras de acesso por linha, coerência do seed e o caminho do dinheiro (webhook repetido, preço adulterado, taxa por bairro, estoque e estornos do reembolso parcial) |
 | Navegador | `e2e/` | Os caminhos completos de cliente, lojista, entregador e admin, além de acessibilidade e segurança |
 
 Cada arquivo de teste de navegador recria o banco `chego_test` antes de começar, para não depender do que outro arquivo alterou.

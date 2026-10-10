@@ -109,10 +109,10 @@ Se não abrir, o Firewall do Windows pode estar bloqueando: Painel de Controle �
 db/
   migrations/          tabelas e regras do banco, numeradas (nunca editar uma já aplicada)
   seed/                dados de teste: lojas, cardápios, pessoas, pedidos e imagens
-docs/                  arquitetura, regras de negócio, usuários de teste, roteiro de testes e notas para o futuro
+docs/                  especificação original, arquitetura, regras de negócio, usuários de teste, roteiro de testes e notas para o futuro
 storage/               fotos de produtos, lojas e banners (geradas pelo seed e pelos envios)
 e2e/                   testes no navegador, em tela de celular (Playwright)
-tests/integration/     testes contra o banco (regras de quem vê o quê, pagamentos)
+tests/integration/     testes contra o banco (regras de quem vê o quê, pagamentos, estoque, reembolsos)
 scripts/
   db.ts                liga, desliga e recria o banco local
 src/
@@ -151,7 +151,7 @@ public/
 
 ## 8. Qualidade
 
-- **Testes automáticos:** regras de preço, cupons, horários e estados do pedido (unitários); regras de acesso e pagamentos direto no banco (integração); e os caminhos principais no navegador em tela de celular.
+- **Testes automáticos:** regras de preço, cupons, horários e estados do pedido (unitários); regras de acesso, webhook de pagamento, preço adulterado, taxa por bairro, estoque e reembolso direto no banco (integração); e os caminhos principais no navegador em tela de celular.
 - **Acessibilidade:** as telas são conferidas automaticamente (contraste, nomes dos botões, rótulos dos campos), nada pode passar da largura do celular, toda área de toque tem pelo menos 44 px e o painel do lojista funciona só com o teclado.
 - **Segurança:** o cookie de sessão não é lido por scripts, cada tabela tem regras de quem pode ver o quê, o webhook de pagamento só aceita avisos assinados e não processa o mesmo aviso duas vezes.
 

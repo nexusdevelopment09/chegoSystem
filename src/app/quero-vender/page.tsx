@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { DocumentField } from "@/components/forms/DocumentField";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
 import { Field, inputClass } from "@/components/ui/Field";
@@ -70,16 +71,7 @@ async function SellForm() {
       <h2 className="mt-2 text-xl">Sobre você</h2>
       <Field label="Nome do responsável" name="ownerName" required maxLength={80} autoComplete="name" />
       <Field label="Telefone com DDD" name="phone" type="tel" required placeholder="(82) 90000-0000" hint="É com ele que você vai entrar no painel da loja." />
-      <div className="grid grid-cols-[1fr_2fr] gap-3">
-        <label className="flex flex-col gap-1.5 text-sm font-semibold">
-          Documento
-          <select name="documentType" defaultValue="cpf" className={inputClass}>
-            <option value="cpf">CPF</option>
-            <option value="cnpj">CNPJ</option>
-          </select>
-        </label>
-        <Field label="Número do documento" name="documentNumber" required inputMode="numeric" maxLength={18} />
-      </div>
+      <DocumentField />
 
       <label className="flex min-h-11 items-start gap-3 text-sm">
         <input type="checkbox" name="accepted" className="mt-1 size-5 shrink-0 accent-brand-dark" />

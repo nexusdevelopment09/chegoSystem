@@ -83,7 +83,7 @@ export async function placeOrder(
           subtotal_cents, discount_cents, discount_paid_by, coupon_id, delivery_fee_cents, service_fee_cents,
           commission_rate, commission_cents, store_amount_cents, platform_amount_cents, total_cents,
           payment_method, age_confirmed, requires_age_check, missing_item_policy, notes, delivery_code,
-          payment_expires_at, created_at
+          payment_expires_at, created_at, delivery_provider, courier_fee_cents
         ) values (
           ${code}, ${internals.cityId}, ${profile.id}, ${quote.store.id}, 'awaiting_payment', ${quote.fulfillment},
           ${profile.fullName}, ${profile.phone},
@@ -103,7 +103,7 @@ export async function placeOrder(
           ${input.paymentMethod}, ${quote.requiresAgeCheck && input.ageConfirmed}, ${quote.requiresAgeCheck},
           ${quote.store.isMarket ? input.missingItemPolicy ?? null : null}, ${input.notes || null},
           ${quote.fulfillment === "delivery" ? String(randomInt(0, 10000)).padStart(4, "0") : null},
-          ${expiresAt}, ${at}
+          ${expiresAt}, ${at}, ${internals.deliveryProvider}::delivery_provider, ${internals.courierFeeCents}
         ) returning id`;
 
       for (const line of quote.lines) {

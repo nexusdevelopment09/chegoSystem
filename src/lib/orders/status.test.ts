@@ -15,7 +15,7 @@ const ALLOWED: [OrderStatus, OrderStatus, Actor[], ("delivery" | "pickup")?][] =
   ["accepted", "cancelled", ["admin"]],
   ["preparing", "ready", ["staff"]],
   ["preparing", "cancelled", ["admin"]],
-  ["ready", "out_for_delivery", ["staff"], "delivery"],
+  ["ready", "out_for_delivery", ["staff", "courier"], "delivery"],
   ["ready", "picked_up", ["staff"], "pickup"],
   ["ready", "cancelled", ["admin"]],
   ["out_for_delivery", "delivered", ["courier", "staff", "admin"], "delivery"],

@@ -1,6 +1,6 @@
 import "server-only";
 import type postgres from "postgres";
-import { adminIds, notify, storeStaffIds } from "@/lib/notifications/notify";
+import { adminIds, availableCourierIds, notify, storeStaffIds } from "@/lib/notifications/notify";
 import { refundOrder } from "@/lib/payments/refunds";
 import {
   canTransition, CUSTOMER_MESSAGES, RELEASES_STOCK,
@@ -29,6 +29,7 @@ type OrderRow = {
   id: string; code: string; status: OrderStatus; fulfillment: Fulfillment; customer_id: string; store_id: string;
   store_amount_cents: number; platform_amount_cents: number; total_cents: number; refunded_cents: number;
   coupon_id: string | null; paid_at: Date | null;
+  city_id: string; delivery_provider: "store" | "platform"; courier_id: string | null; courier_fee_cents: number;
 };
 
 /**
@@ -40,7 +41,7 @@ type OrderRow = {
 export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<OrderRow> {
   const [order] = await tx<OrderRow[]>`
     select id, code, status, fulfillment, customer_id, store_id, store_amount_cents, platform_amount_cents,
-           total_cents, refunded_cents, coupon_id, paid_at
+           total_cents, refunded_cents, coupon_id, paid_at, city_id, delivery_provider, courier_id, courier_fee_cents
     from orders where id = ${input.orderId} for update`;
   if (!order) throw new TransitionError("Pedido não encontrado.");
 
@@ -77,6 +78,32 @@ export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<O
       body: `Pedido ${order.code} chegou. Aceite em poucos minutos.`, link: "/lojista/pedidos",
       orderId: order.id, channels: ["push"], at,
     }, tx);
+  }
+
+  const byNetwork = order.delivery_provider === "platform" && order.fulfillment === "delivery";
+
+  // Entrega pela rede do Chegô: assim que a loja aceita, os entregadores disponíveis da cidade são avisados.
+  if (to === "accepted" && byNetwork && !order.courier_id) {
+    await notify({
+      profileIds: await availableCourierIds(order.city_id, tx), type: "delivery_offer", title: "Nova entrega disponível",
+      body: `Pedido ${order.code} esperando um entregador. Toque para ver.`, link: "/entregador",
+      orderId: order.id, channels: ["push"], at,
+    }, tx);
+  }
+
+  // Entrega concluída pela rede: o ganho do entregador é registrado, saindo da parte da plataforma.
+  const courierId = input.courierId ?? order.courier_id;
+  if (to === "delivered" && byNetwork && courierId && order.courier_fee_cents > 0) {
+    const earned = await tx`
+      insert into courier_earnings (order_id, courier_id, amount_cents, created_at)
+      values (${order.id}, ${courierId}, ${order.courier_fee_cents}, ${at})
+      on conflict (order_id) do nothing returning id`;
+    if (earned.length > 0) {
+      await tx`
+        insert into ledger_entries (account, courier_id, direction, amount_cents, reason, order_id, created_at) values
+          ('platform', null, 'debit', ${order.courier_fee_cents}, 'delivery', ${order.id}, ${at}),
+          ('courier', ${courierId}, 'credit', ${order.courier_fee_cents}, 'delivery', ${order.id}, ${at})`;
+    }
   }
 
   // O dinheiro volta por inteiro sempre que um pedido pago é recusado ou cancelado.

@@ -92,6 +92,7 @@ async function OrdersBoard() {
                     <OrderActions
                       orderId={order.id} status={order.status} fulfillment={order.fulfillment}
                       defaultPrepMinutes={store.prepMinutes + store.busyExtraMinutes} couriers={couriers}
+                      deliveryProvider={order.deliveryProvider} courierName={order.courierName}
                       canRunCounter isOwner={membership.role === "owner"} autoPrint={store.autoPrint} printWidth={store.printerWidth}
                     />
                   </article>

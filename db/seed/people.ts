@@ -70,6 +70,18 @@ export const CUSTOMERS: CustomerDef[] = [
   { key: "joao", name: "João Pedro Barros", neighborhood: "Povoado Lagoa Seca", street: "Rua da Igreja", number: "S/N", reference: "Ao lado da mercearia do povoado", weight: 6, scenario: "Zona rural. Tem um pedido recusado com reembolso." },
 ];
 
+/**
+ * Rede de entregadores do Chegô: os da própria plataforma e os parceiros autônomos.
+ * Um parceiro está em análise e outro bloqueado, para testar a aprovação pelo admin.
+ */
+export const COURIERS = [
+  { name: "Wesley Santana", kind: "platform", status: "active", vehicle: "motorcycle", plate: "QWE1A23", available: true, scenario: "Entregador do próprio Chegô, disponível." },
+  { name: "Patrícia Lopes", kind: "platform", status: "active", vehicle: "bicycle", plate: null, available: false, scenario: "Entregadora do próprio Chegô, parada no momento." },
+  { name: "Jonas Ferreira", kind: "partner", status: "active", vehicle: "motorcycle", plate: "RTY4B56", available: true, scenario: "Parceiro aprovado, disponível, com ganhos a receber." },
+  { name: "Kelly Araújo", kind: "partner", status: "pending", vehicle: "bicycle", plate: null, available: false, scenario: "Parceira esperando a aprovação do admin." },
+  { name: "Marcelo Dias", kind: "partner", status: "blocked", vehicle: "car", plate: "UIO7C89", available: false, scenario: "Parceiro bloqueado pelo admin." },
+] as const;
+
 export const GOOD_COMMENTS = [
   "Chegou rapidinho e quentinho!", "Muito bom, como sempre.", "Tudo certinho, recomendo.",
   "Entrega no prazo e bem embalado.", "Gostei demais, vou pedir de novo.", "Atendimento nota dez.",

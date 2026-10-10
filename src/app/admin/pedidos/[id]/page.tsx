@@ -8,15 +8,19 @@ import { OrderTimeline } from "@/components/orders/OrderTimeline";
 import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
 import { Field, inputClass } from "@/components/ui/Field";
 import { requireRole } from "@/lib/auth/session";
+import { OFFER_STATUSES } from "@/lib/couriers";
 import { sql } from "@/lib/db";
 import { formatCents, formatDateTime, formatPhone } from "@/lib/format";
 import { loadOrder } from "@/lib/orders/queries";
 import { ALL_STATUSES, STATUS_LABELS } from "@/lib/orders/status";
 import { adminRefund, adminSetStatus } from "../../actions";
+import { assignCourier } from "../../entregadores/actions";
 
 export const metadata: Metadata = { title: "Pedido" };
 
 const card = "flex flex-col gap-3 rounded-card bg-white p-4 ring-1 ring-peach";
+const LEDGER_ACCOUNTS: Record<string, string> = { store: "Loja", platform: "Plataforma", courier: "Entregador" };
+const LEDGER_REASONS: Record<string, string> = { sale: "venda", refund: "reembolso", delivery: "entrega", payout: "repasse" };
 const PAYMENT_LABELS: Record<string, string> = {
   pending: "Pendente", approved: "Aprovado", declined: "Recusado", expired: "Expirado", refunded: "Reembolsado", partially_refunded: "Reembolsado em parte",
 };
@@ -53,6 +57,13 @@ async function OrderDetail({ params }: { params: Params }) {
       from order_status_history h left join profiles p on p.id = h.changed_by where h.order_id = ${id} order by h.created_at`,
   ]);
   const remaining = order.totals.totalCents - order.refundedCents;
+  // Entrega pela rede do Chegô que ainda não saiu da loja: o admin pode definir (ou trocar) o entregador.
+  const canAssign = order.deliveryProvider === "platform" && order.fulfillment === "delivery" && OFFER_STATUSES.includes(order.status);
+  const networkCouriers = canAssign
+    ? await sql<{ id: string; full_name: string; available: boolean }[]>`
+        select p.id, p.full_name, c.available from couriers c join profiles p on p.id = c.profile_id
+        where c.status = 'active' and p.deleted_at is null order by c.available desc, p.full_name`
+    : [];
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4">
@@ -77,6 +88,29 @@ async function OrderDetail({ params }: { params: Params }) {
         {order.deliveryCode && <p className="text-sm">Código de entrega: <strong>{order.deliveryCode}</strong></p>}
         {order.requiresAgeCheck && <p className="font-bold text-danger">Bebida alcoólica: conferir documento na entrega.</p>}
       </section>
+
+      {order.fulfillment === "delivery" && (
+        <section className={card} data-testid="admin-delivery">
+          <h2 className="text-xl">Quem entrega</h2>
+          <p>
+            {order.deliveryProvider === "platform" ? "Rede de entregadores do Chegô" : "Entregador da própria loja"}
+            {order.courierName ? ` · ${order.courierName}` : order.deliveryProvider === "platform" ? " · ainda sem entregador" : ""}
+          </p>
+          {canAssign && (
+            <ActionForm action={assignCourier} className="flex flex-wrap items-end gap-2">
+              <input type="hidden" name="orderId" value={order.id} />
+              <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-semibold">
+                Definir o entregador
+                <select name="courierId" required defaultValue="" className={inputClass}>
+                  <option value="" disabled>Escolha</option>
+                  {networkCouriers.map((courier) => <option key={courier.id} value={courier.id}>{courier.full_name}{courier.available ? "" : " (parado)"}</option>)}
+                </select>
+              </label>
+              <SubmitButton variant="secondary" className="min-h-12 px-4 text-sm">Definir entregador</SubmitButton>
+            </ActionForm>
+          )}
+        </section>
+      )}
 
       <section className={card}>
         <h2 className="text-xl">Itens e valores</h2>
@@ -125,7 +159,7 @@ async function OrderDetail({ params }: { params: Params }) {
         <ul className="text-sm" data-testid="ledger">
           {ledger.map((entry) => (
             <li key={entry.id} className="flex justify-between gap-2 border-b border-cream py-1">
-              <span>{entry.account === "store" ? "Loja" : "Plataforma"} · {entry.reason === "sale" ? "venda" : entry.reason === "refund" ? "reembolso" : entry.reason}</span>
+              <span>{LEDGER_ACCOUNTS[entry.account] ?? entry.account} · {LEDGER_REASONS[entry.reason] ?? entry.reason}</span>
               <span className={entry.direction === "credit" ? "font-semibold text-success" : "font-semibold text-danger"}>
                 {entry.direction === "credit" ? "+" : "−"} {formatCents(entry.amount_cents)}
               </span>

@@ -14,6 +14,12 @@ export type TotalsInput = {
   serviceFeeCents: number;
   /** 0.10 = 10%. A taxa da loja no momento do pedido. */
   commissionRate: number;
+  /**
+   * Quem faz a entrega. "store" (padrão): a loja entrega e fica com a taxa.
+   * "platform": um entregador da rede do Chegô entrega, e a taxa passa pela
+   * plataforma, que paga o entregador.
+   */
+  deliveryBy?: "store" | "platform";
 };
 
 export type Totals = {
@@ -41,9 +47,11 @@ export function computeTotals(input: TotalsInput): Totals {
     input.subtotalCents - discountCents + input.deliveryFeeCents + input.serviceFeeCents;
 
   // A plataforma fica com a comissão e a taxa de serviço, e paga os próprios cupons.
-  // A loja fica com todo o resto, incluindo a taxa de entrega inteira.
+  // A loja fica com todo o resto, incluindo a taxa de entrega inteira quando é ela que entrega.
+  // Quando a entrega é da rede do Chegô, a taxa de entrega fica do lado da plataforma.
   const platformAmountCents =
-    commissionCents + input.serviceFeeCents - (storePays ? 0 : discountCents);
+    commissionCents + input.serviceFeeCents - (storePays ? 0 : discountCents) +
+    (input.deliveryBy === "platform" ? input.deliveryFeeCents : 0);
 
   return {
     subtotalCents: input.subtotalCents,
@@ -92,6 +100,11 @@ function ledgerLines(
       ? []
       : [{ account, direction: cents > 0 ? positive : negative, amountCents: Math.abs(cents), reason }];
   return [...line("store", storeCents), ...line("platform", platformCents)];
+}
+
+/** Quanto o entregador da rede ganha: a parte dele (em %) da taxa de entrega do bairro. */
+export function courierFee(deliveryFeeCents: number, percent: number): number {
+  return Math.round((deliveryFeeCents * Math.min(100, Math.max(0, percent))) / 100);
 }
 
 /** Divide um reembolso entre os lados na mesma proporção da venda. */

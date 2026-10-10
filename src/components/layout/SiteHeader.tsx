@@ -42,7 +42,9 @@ async function UserArea() {
       ? { href: "/admin", label: "Painel" }
       : profile.role === "merchant"
         ? { href: "/lojista", label: "Minha loja" }
-        : { href: "/perfil", label: "Perfil" };
+        : profile.role === "courier"
+          ? { href: "/entregador", label: "Entregas" }
+          : { href: "/perfil", label: "Perfil" };
 
   return (
     <nav aria-label="Sua conta" className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">

@@ -1,10 +1,13 @@
 // GENERATED FILE. Do not edit: run `npm run db:types` after changing migrations.
 
 export type CouponType = "fixed" | "percent" | "free_delivery";
+export type CourierKind = "platform" | "partner";
+export type CourierStatus = "pending" | "active" | "blocked";
+export type DeliveryProvider = "store" | "platform";
 export type DiscountPayer = "platform" | "store";
 export type FulfillmentType = "delivery" | "pickup";
 export type InvoiceStatus = "open" | "paid" | "overdue" | "cancelled";
-export type LedgerAccount = "store" | "platform";
+export type LedgerAccount = "store" | "platform" | "courier";
 export type LedgerDirection = "credit" | "debit";
 export type LegalDocumentType = "terms" | "merchant_terms" | "privacy";
 export type MessageChannel = "sms" | "whatsapp" | "email" | "push";
@@ -21,7 +24,7 @@ export type StoreMemberRole = "owner" | "attendant" | "courier";
 export type StoreStatus = "pending" | "active" | "paused" | "suspended";
 export type TicketReason = "delay" | "missing_item" | "wrong_item" | "damaged_item" | "billing" | "other";
 export type TicketStatus = "open" | "in_progress" | "waiting_customer" | "resolved";
-export type UserRole = "customer" | "merchant" | "admin";
+export type UserRole = "customer" | "merchant" | "admin" | "courier";
 
 export interface AddressesRow {
   id: string;
@@ -145,6 +148,32 @@ export interface CouponsRow {
   created_at: Date;
 }
 
+export interface CourierEarningsRow {
+  id: string;
+  order_id: string;
+  courier_id: string;
+  amount_cents: number;
+  paid_at: Date | null;
+  paid_by: string | null;
+  created_at: Date;
+}
+
+export interface CouriersRow {
+  profile_id: string;
+  kind: CourierKind;
+  status: CourierStatus;
+  city_id: string;
+  document_type: string;
+  document_number: string;
+  vehicle: string;
+  plate: string | null;
+  available: boolean;
+  approved_at: Date | null;
+  blocked_reason: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
 export interface FavoritesRow {
   profile_id: string;
   store_id: string;
@@ -182,6 +211,7 @@ export interface LedgerEntriesRow {
   refund_id: string | null;
   invoice_id: string | null;
   created_at: Date;
+  courier_id: string | null;
 }
 
 export interface LegalAcceptancesRow {
@@ -336,6 +366,9 @@ export interface OrdersRow {
   completed_at: Date | null;
   created_at: Date;
   updated_at: Date;
+  delivery_provider: DeliveryProvider;
+  courier_fee_cents: number;
+  courier_assigned_at: Date | null;
 }
 
 export interface OutboundMessagesRow {
@@ -607,6 +640,7 @@ export interface StoresRow {
   rating_count: number;
   created_at: Date;
   updated_at: Date;
+  delivery_provider: DeliveryProvider;
 }
 
 export interface SubscriptionPlansRow {

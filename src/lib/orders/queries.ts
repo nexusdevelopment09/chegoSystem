@@ -39,6 +39,10 @@ export type OrderView = {
   notes: string | null;
   deliveryCode: string | null;
   courierId: string | null;
+  /** Primeiro nome de quem está entregando, quando já há um entregador. */
+  courierName: string | null;
+  /** "platform" = a entrega é da rede do Chegô; "store" = a própria loja entrega. */
+  deliveryProvider: "store" | "platform";
   paymentExpiresAt: Date | null;
   paidAt: Date | null;
   completedAt: Date | null;
@@ -55,7 +59,8 @@ type OrderRow = {
   commission_cents: number; store_amount_cents: number; platform_amount_cents: number; total_cents: number;
   refunded_cents: number; payment_method: OrderView["paymentMethod"]; requires_age_check: boolean;
   missing_item_policy: OrderView["missingItemPolicy"]; notes: string | null; delivery_code: string | null;
-  courier_id: string | null; payment_expires_at: Date | null; paid_at: Date | null;
+  courier_id: string | null; courier_name: string | null; delivery_provider: "store" | "platform";
+  payment_expires_at: Date | null; paid_at: Date | null;
   completed_at: Date | null; created_at: Date;
 };
 
@@ -75,6 +80,7 @@ export async function loadOrders(
              o.subtotal_cents, o.discount_cents, o.delivery_fee_cents, o.service_fee_cents, o.commission_cents,
              o.store_amount_cents, o.platform_amount_cents, o.total_cents, o.refunded_cents, o.payment_method,
              o.requires_age_check, o.missing_item_policy, o.notes, o.delivery_code, o.courier_id,
+             courier_first_name(o.courier_id) as courier_name, o.delivery_provider,
              o.payment_expires_at, o.paid_at, o.completed_at, o.created_at
       from orders o
       join stores s on s.id = o.store_id
@@ -116,7 +122,7 @@ export async function loadOrders(
       },
       refundedCents: order.refunded_cents, paymentMethod: order.payment_method, requiresAgeCheck: order.requires_age_check,
       missingItemPolicy: order.missing_item_policy, notes: order.notes, deliveryCode: order.delivery_code,
-      courierId: order.courier_id,
+      courierId: order.courier_id, courierName: order.courier_name, deliveryProvider: order.delivery_provider,
       paymentExpiresAt: order.payment_expires_at, paidAt: order.paid_at, completedAt: order.completed_at, createdAt: order.created_at,
       items: items.filter((item) => item.order_id === order.id).map((item) => ({
         id: item.id, productId: item.product_id, name: item.name, quantity: item.quantity,

@@ -32,7 +32,8 @@ const RULES: Record<OrderStatus, Rule[]> = {
     { to: "cancelled", by: ["admin"] },
   ],
   ready: [
-    { to: "out_for_delivery", by: ["staff"], only: "delivery" },
+    // "courier": o entregador da rede do Chegô, quando retira o pedido na loja.
+    { to: "out_for_delivery", by: ["staff", "courier"], only: "delivery" },
     { to: "picked_up", by: ["staff"], only: "pickup" },
     { to: "cancelled", by: ["admin"] },
   ],

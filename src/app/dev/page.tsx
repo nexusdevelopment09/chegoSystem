@@ -93,9 +93,10 @@ type TestUser = {
   id: string;
   full_name: string;
   phone: string | null;
-  role: "customer" | "merchant" | "admin";
+  role: "customer" | "merchant" | "admin" | "courier";
   blocked_at: Date | null;
   stores: string | null;
+  courier: string | null;
 };
 
 const STORE_ROLE_LABELS: Record<string, string> = { owner: "dono", attendant: "atendente", courier: "entregador" };
@@ -107,14 +108,16 @@ async function QuickLoginSection() {
         select string_agg(s.name || '|' || m.role, ';' order by s.name)
         from store_members m join stores s on s.id = m.store_id
         where m.profile_id = p.id
-      ) as stores
+      ) as stores,
+      (select c.kind || '|' || c.status from couriers c where c.profile_id = p.id) as courier
     from profiles p
     where p.deleted_at is null
     order by p.phone`;
 
   const groups = [
     { title: "Admin", users: users.filter((user) => user.role === "admin") },
-    { title: "Lojistas, atendentes e entregadores", users: users.filter((user) => user.role === "merchant") },
+    { title: "Lojistas, atendentes e entregadores das lojas", users: users.filter((user) => user.role === "merchant") },
+    { title: "Entregadores da rede do Chegô", users: users.filter((user) => user.role === "courier") },
     { title: "Clientes", users: users.filter((user) => user.role === "customer") },
   ];
 

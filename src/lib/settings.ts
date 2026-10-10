@@ -12,6 +12,8 @@ const DEFAULTS = {
   review_window_days: 7,
   referral_referred_cents: 500,
   referral_referrer_cents: 500,
+  // Parte da taxa de entrega que fica com o entregador da rede do Chegô (0 a 100).
+  courier_fee_percent: 100,
 };
 
 export type Settings = typeof DEFAULTS;

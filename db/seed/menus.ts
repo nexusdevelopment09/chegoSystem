@@ -60,6 +60,8 @@ export type StoreDef = {
   pizzaPricing?: "highest" | "average";
   featured?: boolean;
   founder?: boolean;
+  /** "platform": quem entrega é a rede de entregadores do Chegô, e não a equipe da loja. */
+  deliveryBy?: "platform";
   /** Participação relativa no histórico de pedidos gerado. */
   weight: number;
   groups?: GroupDef[];
@@ -203,7 +205,7 @@ export const STORES: StoreDef[] = [
     ],
   },
   {
-    key: "lasanha", name: "Casa da Lasanha", slug: "casa-da-lasanha", category: "restaurantes",
+    key: "lasanha", deliveryBy: "platform", name: "Casa da Lasanha", slug: "casa-da-lasanha", category: "restaurantes",
     description: "Lasanhas artesanais, prontas ou congeladas.", color: "#A63D2F",
     hours: [{ days: ALL_DAYS, open: "11:00", close: "14:00" }, { days: ALL_DAYS, open: "18:00", close: "22:00" }],
     commission: 0.10, prepMinutes: 40, minOrder: c(20), areas: "urban", weight: 6,
@@ -247,7 +249,7 @@ export const STORES: StoreDef[] = [
     ],
   },
   {
-    key: "sushi", name: "Sushi Maré", slug: "sushi-mare", category: "restaurantes",
+    key: "sushi", deliveryBy: "platform", name: "Sushi Maré", slug: "sushi-mare", category: "restaurantes",
     description: "Combinados, temakis e hot rolls.", color: "#1F6F78",
     hours: [{ days: [3, 4, 5, 6, 0], open: "18:00", close: "23:00" }],
     commission: 0.12, prepMinutes: 45, minOrder: c(30), areas: "urban", weight: 5,
@@ -427,7 +429,7 @@ export const STORES: StoreDef[] = [
     ] as const).map(([name, price]): ProductDef => ({ name, price: c(price), section: name.startsWith("Chá") ? "Chás" : "Grãos e castanhas", art: "jar" })),
   },
   {
-    key: "suplementos", name: "Força Total Suplementos", slug: "forca-total-suplementos", category: "saudavel",
+    key: "suplementos", deliveryBy: "platform", name: "Força Total Suplementos", slug: "forca-total-suplementos", category: "saudavel",
     description: "Suplementos para o seu treino.", color: "#374151",
     hours: [{ days: MON_SAT, open: "09:00", close: "19:00" }],
     commission: 0.10, prepMinutes: 15, minOrder: c(20), areas: "urban", weight: 3,

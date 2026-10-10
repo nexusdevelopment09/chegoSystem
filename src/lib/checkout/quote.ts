@@ -7,7 +7,7 @@ import { describeOptions, resolveSelection, toSnapshot, type ResolvedGroup } fro
 import { validateCoupon, type CouponRules } from "@/lib/coupons/validate";
 import { sql } from "@/lib/db";
 import { formatCents } from "@/lib/format";
-import { computeTotals, type DiscountPayer, type Totals } from "@/lib/orders/totals";
+import { computeTotals, courierFee, type DiscountPayer, type Totals } from "@/lib/orders/totals";
 import { getSettings } from "@/lib/settings";
 import { storeAvailability, type Shift, type StoreSchedule } from "@/lib/stores/hours";
 import { canOrderNow, isValidSlot, scheduleSlots, type ScheduleRules, type Slot } from "./schedule";
@@ -81,6 +81,9 @@ export type QuoteInternals = {
   resolved: Map<string, { product: ProductDetail; groups: ResolvedGroup[] }>;
   cityId: string;
   commissionRate: number;
+  /** Quem entrega este pedido e quanto o entregador da rede ganha (0 quando a loja entrega). */
+  deliveryProvider: "store" | "platform";
+  courierFeeCents: number;
   neighborhoodId: string | null;
   address: AddressRow | null;
   coupon: { id: string | null; paidBy: DiscountPayer; referrerId: string | null } | null;
@@ -99,7 +102,7 @@ type StoreRow = {
   offers_delivery: boolean; offers_pickup: boolean; accepts_scheduled: boolean;
   schedule_min_lead_minutes: number; schedule_max_days: number;
   same_day_cutoff: string | null; delivery_window_start: string | null; delivery_window_end: string | null;
-  commission_rate: string; maintenance_mode: boolean; shifts: Shift[]; closures: { startsAt: string; endsAt: string }[];
+  commission_rate: string; delivery_provider: "store" | "platform"; maintenance_mode: boolean; shifts: Shift[]; closures: { startsAt: string; endsAt: string }[];
 };
 
 const UNAVAILABLE = "Essa loja não está mais disponível.";
@@ -131,7 +134,7 @@ export async function buildQuote(
            s.paused_until, s.prep_time_minutes, s.busy_extra_minutes, s.min_order_cents, s.offers_delivery,
            s.offers_pickup, s.accepts_scheduled, s.schedule_min_lead_minutes, s.schedule_max_days,
            s.same_day_cutoff::text, s.delivery_window_start::text, s.delivery_window_end::text,
-           sp.commission_rate, ci.maintenance_mode,
+           sp.commission_rate, s.delivery_provider, ci.maintenance_mode,
            coalesce((select json_agg(json_build_object('weekday', h.weekday, 'opensAt', h.opens_at::text,
              'closesAt', h.closes_at::text, 'pickupOnly', h.pickup_only)) from store_hours h where h.store_id = s.id), '[]') as shifts,
            coalesce((select json_agg(json_build_object('startsAt', cl.starts_at, 'endsAt', cl.ends_at))
@@ -304,7 +307,10 @@ export async function buildQuote(
   }
 
   const settings = await getSettings();
+  // Retirada no balcão não tem entregador; só a entrega pode ser da rede do Chegô.
+  const deliveryProvider = fulfillment === "delivery" ? store.delivery_provider : "store";
   const totals = computeTotals({
+    deliveryBy: deliveryProvider,
     subtotalCents, deliveryFeeCents, serviceFeeCents: settings.service_fee_cents,
     commissionRate: Number(store.commission_rate),
     productDiscountCents: discount.productCents, deliveryDiscountCents: discount.deliveryCents,
@@ -325,7 +331,8 @@ export async function buildQuote(
       coupon: couponView,
     },
     internals: {
-      resolved, cityId: store.city_id, commissionRate: Number(store.commission_rate),
+      resolved, cityId: store.city_id, commissionRate: Number(store.commission_rate), deliveryProvider,
+      courierFeeCents: deliveryProvider === "platform" ? courierFee(deliveryFeeCents, settings.courier_fee_percent) : 0,
       neighborhoodId: fulfillment === "delivery" ? neighborhoodId : null, address, coupon: couponInternal, when,
     },
   };

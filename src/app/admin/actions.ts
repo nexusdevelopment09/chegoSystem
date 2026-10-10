@@ -519,6 +519,7 @@ export async function saveSettings(_previous: ActionState, formData: FormData): 
       : key === "default_commission_rate" ? Number(text.replace(",", ".")) / 100 : Number(text);
     if (value === null || !Number.isFinite(value) || value < 0) return { error: `Valor inválido em ${key}.` };
     if (key === "default_commission_rate" && value > 0.5) return { error: "A comissão padrão vai de 0 a 50%." };
+    if (key === "courier_fee_percent" && value > 100) return { error: "A parte do entregador vai de 0 a 100%." };
     values[key] = value;
   }
 

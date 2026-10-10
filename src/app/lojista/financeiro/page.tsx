@@ -121,6 +121,7 @@ async function Finance() {
           </table>
         </div>
         {lines.length === 0 && <p className="text-sm text-coffee-soft">Nenhuma venda nos últimos 30 dias.</p>}
+        <p className="mt-2 text-sm text-coffee-soft">Nos pedidos entregues pelos entregadores do Chegô, a taxa de entrega paga o entregador e não entra no seu líquido.</p>
       </section>
     </div>
   );

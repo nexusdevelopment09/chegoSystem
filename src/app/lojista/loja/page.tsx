@@ -32,9 +32,11 @@ async function StoreSettings() {
       description: string; min_order_cents: number; offers_delivery: boolean; offers_pickup: boolean; accepts_scheduled: boolean;
       schedule_min_lead_minutes: number; schedule_max_days: number; same_day_cutoff: string | null;
       delivery_window_start: string | null; delivery_window_end: string | null; pizza_pricing: string;
+      delivery_provider: "store" | "platform";
     }[]>`
       select description, min_order_cents, offers_delivery, offers_pickup, accepts_scheduled, schedule_min_lead_minutes,
-             schedule_max_days, same_day_cutoff::text, delivery_window_start::text, delivery_window_end::text, pizza_pricing
+             schedule_max_days, same_day_cutoff::text, delivery_window_start::text, delivery_window_end::text, pizza_pricing,
+             delivery_provider
       from stores where id = ${store.id}`,
     sql<{ weekday: number; opens_at: string; closes_at: string; pickup_only: boolean }[]>`
       select weekday, opens_at::text, closes_at::text, pickup_only from store_hours where store_id = ${store.id} order by weekday, opens_at`,
@@ -67,6 +69,18 @@ async function StoreSettings() {
           <Field label="Pedido mínimo (R$)" name="minOrder" inputMode="decimal" defaultValue={money(details.min_order_cents)} hint="Não conta a taxa de entrega." />
         </div>
         <label className="flex min-h-11 items-center gap-3"><input type="checkbox" name="offersDelivery" defaultChecked={details.offers_delivery} className={check} /> Faz entrega</label>
+        <fieldset className="flex flex-col gap-2 rounded-2xl bg-cream p-3">
+          <legend className="text-sm font-semibold">Quem faz a entrega</legend>
+          <label className="flex min-h-11 items-start gap-3">
+            <input type="radio" name="deliveryProvider" value="store" defaultChecked={details.delivery_provider === "store"} className={`${check} mt-1`} />
+            <span><strong>Meu entregador</strong><span className="block text-sm text-coffee-soft">A loja entrega com a própria equipe e fica com a taxa de entrega.</span></span>
+          </label>
+          <label className="flex min-h-11 items-start gap-3">
+            <input type="radio" name="deliveryProvider" value="platform" defaultChecked={details.delivery_provider === "platform"} className={`${check} mt-1`} />
+            <span><strong>Entregadores do Chegô</strong><span className="block text-sm text-coffee-soft">Um entregador da rede do Chegô busca o pedido na loja. A taxa de entrega paga o entregador e não entra no seu extrato.</span></span>
+          </label>
+          <p className="text-sm text-coffee-soft">A mudança vale para os próximos pedidos. Os que já foram feitos continuam como estavam.</p>
+        </fieldset>
         <label className="flex min-h-11 items-center gap-3"><input type="checkbox" name="offersPickup" defaultChecked={details.offers_pickup} className={check} /> Aceita retirada no balcão</label>
 
         <fieldset className="grid gap-3 rounded-2xl bg-cream p-3 sm:grid-cols-2">

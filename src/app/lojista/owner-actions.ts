@@ -34,6 +34,7 @@ const storeSchema = z.object({
   cutoff: time, windowStart: time, windowEnd: time,
   pizzaPricing: z.enum(["highest", "average"]),
   printerWidth: z.enum(["58", "80"]),
+  deliveryProvider: z.enum(["store", "platform"]),
 });
 
 export async function saveStore(_previous: ActionState, formData: FormData): Promise<ActionState> {
@@ -43,6 +44,7 @@ export async function saveStore(_previous: ActionState, formData: FormData): Pro
     scheduleLeadMinutes: formData.get("scheduleLeadMinutes") || 0, scheduleMaxDays: formData.get("scheduleMaxDays") || 0,
     cutoff: formData.get("cutoff") ?? "", windowStart: formData.get("windowStart") ?? "", windowEnd: formData.get("windowEnd") ?? "",
     pizzaPricing: formData.get("pizzaPricing"), printerWidth: formData.get("printerWidth"),
+    deliveryProvider: formData.get("deliveryProvider") ?? "store",
   });
   if (!parsed.success) return { error: "Confira os campos: algum valor não é válido." };
   const minOrderCents = parseMoney(String(formData.get("minOrder") || "0"));
@@ -69,7 +71,7 @@ export async function saveStore(_previous: ActionState, formData: FormData): Pro
     await tx`
       update stores set
         description = ${data.description}, prep_time_minutes = ${data.prepMinutes}, min_order_cents = ${minOrderCents},
-        offers_delivery = ${delivery}, offers_pickup = ${pickup},
+        offers_delivery = ${delivery}, offers_pickup = ${pickup}, delivery_provider = ${data.deliveryProvider}::delivery_provider,
         accepts_scheduled = ${formData.get("acceptsScheduled") === "on"},
         schedule_min_lead_minutes = ${data.scheduleLeadMinutes}, schedule_max_days = ${data.scheduleMaxDays},
         same_day_cutoff = ${data.cutoff || null}, delivery_window_start = ${data.windowStart || null},
@@ -82,7 +84,10 @@ export async function saveStore(_previous: ActionState, formData: FormData): Pro
       update product_option_groups l set price_mode = ${data.pizzaPricing}::option_price_mode
       from products p
       where p.id = l.product_id and p.store_id = ${membership.storeId} and l.price_mode in ('highest', 'average')`;
-    await audit({ actorId: profile.id, action: "store.update", entityType: "store", entityId: membership.storeId, storeId: membership.storeId }, tx);
+    await audit({
+      actorId: profile.id, action: "store.update", entityType: "store", entityId: membership.storeId, storeId: membership.storeId,
+      details: { deliveryProvider: data.deliveryProvider },
+    }, tx);
   });
   done();
   return { ok: true, message: "Dados da loja salvos." };

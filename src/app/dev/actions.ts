@@ -4,7 +4,8 @@ import { execFile } from "node:child_process";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createSession } from "@/lib/auth/session";
+import { homeFor } from "@/lib/auth/home";
+import { createSession, type UserRole } from "@/lib/auth/session";
 import { placeOrder } from "@/lib/checkout/place-order";
 import { cartInputSchema } from "@/lib/checkout/quote";
 import { now, setSimulatedNow } from "@/lib/clock";
@@ -26,12 +27,12 @@ export async function loginAs(formData: FormData) {
   assertLocal();
   const profileId = uuid.parse(formData.get("profileId"));
 
-  const [profile] = await sql<{ id: string; role: string }[]>`
+  const [profile] = await sql<{ id: string; role: UserRole }[]>`
     select id, role from profiles where id = ${profileId} and deleted_at is null`;
   if (!profile) throw new Error("Test user not found.");
 
   await createSession(profile.id);
-  redirect(profile.role === "admin" ? "/admin" : profile.role === "merchant" ? "/lojista" : "/");
+  redirect(homeFor(profile.role));
 }
 
 export async function setClock(formData: FormData) {

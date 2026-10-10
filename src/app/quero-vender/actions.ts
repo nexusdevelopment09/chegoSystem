@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
+import { parseDocument } from "@/lib/documents";
 import { toE164 } from "@/lib/format";
 import { adminIds, notify } from "@/lib/notifications/notify";
 import { sendOutbound } from "@/lib/notifications/outbound";
@@ -43,10 +44,9 @@ export async function requestStore(_previous: SignupState, formData: FormData): 
 
   const phone = toE164(String(formData.get("phone") ?? ""));
   if (!phone) return { error: "Telefone inválido. Use DDD + número." };
-  const document = String(formData.get("documentNumber") ?? "").replace(/\D/g, "");
-  if (document.length !== (data.documentType === "cpf" ? 11 : 14)) {
-    return { error: data.documentType === "cpf" ? "O CPF tem 11 números." : "O CNPJ tem 14 números." };
-  }
+  const checked = parseDocument(data.documentType, formData.get("documentNumber"));
+  if (!checked.ok) return { error: checked.error };
+  const document = checked.digits;
   if (formData.get("accepted") !== "on") return { error: "Para continuar, aceite os Termos do Lojista." };
 
   const [place] = await sql<{ city_id: string }[]>`

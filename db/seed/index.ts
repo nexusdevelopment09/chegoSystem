@@ -5,11 +5,12 @@ import { randomUUID } from "node:crypto";
 import type { Sql } from "postgres";
 import { hashPassword } from "../../src/lib/auth/password.ts";
 import { itemUnitPriceCents, type ChosenGroup, type PriceMode } from "../../src/lib/catalog/pricing.ts";
-import { computeTotals, refundLedgerLines, refundShares, saleLedgerLines } from "../../src/lib/orders/totals.ts";
+import { completeCnpj, completeCpf } from "../../src/lib/documents.ts";
+import { computeTotals, courierFee, refundLedgerLines, refundShares, saleLedgerLines } from "../../src/lib/orders/totals.ts";
 import { BANNERS, bannerImageUrl, CATEGORY_COLORS, generateImages, productImageUrl, storeCoverUrl, storeLogoUrl } from "./images.ts";
 import { STORES, type ProductDef, type StoreDef } from "./menus.ts";
 import {
-  BAD_COMMENTS, CATEGORIES, CUSTOMERS, GOOD_COMMENTS, NEIGHBOR_CITY, OK_COMMENTS,
+  BAD_COMMENTS, CATEGORIES, COURIERS, CUSTOMERS, GOOD_COMMENTS, NEIGHBOR_CITY, OK_COMMENTS,
   OWNER_NAMES, REJECT_REASONS, REPLIES, RURAL, URBAN, type CustomerDef,
 } from "./people.ts";
 
@@ -187,6 +188,20 @@ export async function seed(sql: Sql) {
   const marketAttendantId = profile({ name: "Cícero Vieira", phone: "+5582920000002", role: "merchant" });
   const pizzaCourierId = profile({ name: "Robson Entregas", phone: "+5582930000001", role: "merchant" });
 
+  // Entregadores da rede do Chegô: +55 82 95000-00NN.
+  const courierRows: Row[] = COURIERS.map((def, index) => {
+    const id = profile({ name: def.name, phone: `+55829500000${String(index + 1).padStart(2, "0")}`, role: "courier" });
+    return {
+      profile_id: id, kind: def.kind, status: def.status, city_id: cityId, document_type: "cpf",
+      document_number: completeCpf(String(310200300 + index * 7919)), vehicle: def.vehicle, plate: def.plate,
+      available: def.available, approved_at: def.status === "pending" ? null : plus(START, -60 * DAY),
+      blocked_reason: def.status === "blocked" ? "Duas entregas não concluídas sem aviso" : null,
+      created_at: plus(START, -70 * DAY),
+    };
+  });
+  const networkCourierIds = courierRows.filter((row) => row.status === "active").map((row) => row.profile_id as string);
+  const jonasId = courierRows[COURIERS.findIndex((def) => def.name === "Jonas Ferreira")].profile_id as string;
+
   const customers = new Map<string, SeedCustomer>();
   const seventeenYearsAgo = new Date(Date.UTC(today.getUTCFullYear() - 17, today.getUTCMonth() - 3, 15));
   CUSTOMERS.forEach((def, index) => {
@@ -209,6 +224,7 @@ export async function seed(sql: Sql) {
   });
 
   await insert(sql, "profiles", profiles);
+  await insert(sql, "couriers", courierRows);
   await insert(sql, "addresses", [...customers.values()].map((customer) => customer.address));
   await insert(sql, "legal_acceptances", profiles.flatMap((row) => [
     { profile_id: row.id, document_id: legalIds.terms, accepted_at: row.accepted_terms_at },
@@ -252,14 +268,14 @@ export async function seed(sql: Sql) {
       same_day_cutoff: def.scheduled?.cutoff ?? null,
       delivery_window_start: def.scheduled?.windowStart ?? null,
       delivery_window_end: def.scheduled?.windowEnd ?? null,
-      pizza_pricing: def.pizzaPricing ?? "highest",
+      pizza_pricing: def.pizzaPricing ?? "highest", delivery_provider: def.deliveryBy ?? "store",
       featured_until: def.featured ? plus(START, 30 * DAY) : null,
       created_at: plus(START, -110 * DAY),
     });
     rows.store_private.push({
       store_id: id, internal_phone: `+558233330${String(100 + storeIndex)}`,
       document_type: storeIndex % 3 === 0 ? "cpf" : "cnpj",
-      document_number: storeIndex % 3 === 0 ? `000.000.0${String(10 + storeIndex)}-00` : `00.000.0${String(10 + storeIndex)}/0001-00`,
+      document_number: storeIndex % 3 === 0 ? completeCpf(String(111222300 + storeIndex * 4337)) : completeCnpj(`${String(11222300 + storeIndex * 911)}0001`),
       commission_rate: def.commission, payment_recipient_id: status === "pending" ? null : `mock_recipient_${def.key}`,
       status_reason: status === "suspended" ? "Fatura da mensalidade vencida há mais de 10 dias" : null,
       approved_at: status === "pending" ? null : plus(START, -105 * DAY),
@@ -406,6 +422,7 @@ export async function seed(sql: Sql) {
   const out = {
     orders: [] as Row[], order_items: [] as Row[], order_item_options: [] as Row[], order_status_history: [] as Row[],
     payments: [] as Row[], refunds: [] as Row[], ledger_entries: [] as Row[], coupon_redemptions: [] as Row[], reviews: [] as Row[],
+    courier_earnings: [] as Row[],
   };
   const built: BuiltOrder[] = [];
 
@@ -425,6 +442,8 @@ export async function seed(sql: Sql) {
   function buildOrder(input: {
     store: SeedStore; customer: SeedCustomer; createdAt: Date; final: FinalStatus;
     coupon?: CouponUse; scheduledFor?: Date; live?: boolean; forcePickup?: boolean; products?: string[];
+    /** Só para lojas da rede do Chegô: o entregador da entrega, ou null para deixá-la sem entregador (oferta). */
+    networkCourier?: string | null;
   }): BuiltOrder | null {
     const { store, customer, createdAt, final } = input;
     const local = new Date(createdAt.getTime() - UTC_OFFSET_HOURS * HOUR);
@@ -476,6 +495,11 @@ export async function seed(sql: Sql) {
     const area = store.areas.get(customer.neighborhoodId);
     const fulfillment = input.forcePickup || !area || shift?.pickupOnly ? "pickup" : "delivery";
     const deliveryFeeCents = fulfillment === "delivery" ? area!.fee : 0;
+    // Lojas que usam a rede do Chegô: a taxa de entrega vai para o lado da plataforma, que paga o entregador.
+    const byNetwork = store.def.deliveryBy === "platform" && fulfillment === "delivery";
+    // Sem usar o gerador aleatório, para o resto do histórico continuar igual.
+    const networkCourierId = !byNetwork ? null
+      : input.networkCourier !== undefined ? input.networkCourier : networkCourierIds[out.orders.length % networkCourierIds.length];
 
     const coupon = input.coupon;
     const productDiscount = coupon?.productCents
@@ -483,8 +507,9 @@ export async function seed(sql: Sql) {
     const totals = computeTotals({
       subtotalCents, deliveryFeeCents, serviceFeeCents: SERVICE_FEE_CENTS, commissionRate: store.def.commission,
       productDiscountCents: productDiscount, deliveryDiscountCents: coupon?.freeDelivery ? deliveryFeeCents : 0,
-      discountPaidBy: coupon?.paidBy ?? null,
+      discountPaidBy: coupon?.paidBy ?? null, deliveryBy: byNetwork ? "platform" : "store",
     });
+    const courierFeeCents = byNetwork ? courierFee(deliveryFeeCents, 100) : 0;
 
     // Linha do tempo.
     const step = (min: number, max: number) => (input.live ? random.int(1, 2) : random.int(min, max)) * MINUTE;
@@ -511,8 +536,8 @@ export async function seed(sql: Sql) {
         if (status === "accepted") { advance(status, step(2, 6), store.ownerId); stamps.accepted_at = clock; }
         if (status === "preparing") advance(status, step(1, 2), store.ownerId);
         if (status === "ready") { advance(status, step(store.def.prepMinutes - 5, store.def.prepMinutes + 10), store.ownerId); stamps.ready_at = clock; }
-        if (status === "out_for_delivery") { advance(status, step(2, 6), store.ownerId); stamps.dispatched_at = clock; }
-        if (status === "delivered") { advance(status, step(area?.min ?? 15, area?.max ?? 30) / 2, store.courierId ?? store.ownerId); stamps.completed_at = clock; }
+        if (status === "out_for_delivery") { advance(status, step(2, 6), networkCourierId ?? store.ownerId); stamps.dispatched_at = clock; }
+        if (status === "delivered") { advance(status, step(area?.min ?? 15, area?.max ?? 30) / 2, networkCourierId ?? store.courierId ?? store.ownerId); stamps.completed_at = clock; }
         if (status === "picked_up") { advance(status, step(8, 25), store.ownerId); stamps.completed_at = clock; }
         if (status === target || ((final === "rejected" || final === "cancelled") && status === "paid")) break;
       }
@@ -535,7 +560,7 @@ export async function seed(sql: Sql) {
       for (const line of refundLedgerLines(shares)) {
         out.ledger_entries.push({
           account: line.account, store_id: line.account === "store" ? store.id : null, direction: line.direction,
-          amount_cents: line.amountCents, reason: line.reason, order_id: orderId, refund_id: refundId, invoice_id: null, created_at: at,
+          amount_cents: line.amountCents, reason: line.reason, order_id: orderId, refund_id: refundId, invoice_id: null, courier_id: null, created_at: at,
         });
       }
     };
@@ -583,7 +608,10 @@ export async function seed(sql: Sql) {
       missing_item_policy: store.def.key === "mercado" ? random.pick(["call", "substitute", "remove"]) : null,
       notes: null,
       delivery_code: fulfillment === "delivery" ? String(random.int(0, 9999)).padStart(4, "0") : null,
-      courier_id: stamps.dispatched_at ? store.courierId : null,
+      // Na rede do Chegô o entregador pega a entrega logo depois do aceite da loja.
+      courier_id: byNetwork ? (stamps.accepted_at ? networkCourierId : null) : stamps.dispatched_at ? store.courierId : null,
+      delivery_provider: byNetwork ? "platform" : "store", courier_fee_cents: courierFeeCents,
+      courier_assigned_at: byNetwork && stamps.accepted_at ? plus(stamps.accepted_at, MINUTE) : null,
       payment_expires_at: plus(createdAt, 15 * MINUTE),
       ...stamps, created_at: createdAt, updated_at: clock,
     };
@@ -617,8 +645,28 @@ export async function seed(sql: Sql) {
       for (const line of saleLedgerLines(totals)) {
         out.ledger_entries.push({
           account: line.account, store_id: line.account === "store" ? store.id : null, direction: line.direction,
-          amount_cents: line.amountCents, reason: line.reason, order_id: orderId, refund_id: null, invoice_id: null, created_at: stamps.paid_at,
+          amount_cents: line.amountCents, reason: line.reason, order_id: orderId, refund_id: null, invoice_id: null, courier_id: null, created_at: stamps.paid_at,
         });
+      }
+    }
+
+    // Entrega concluída pela rede: o ganho do entregador sai da parte da plataforma.
+    // As entregas com mais de duas semanas já foram repassadas.
+    if (byNetwork && networkCourierId && courierFeeCents > 0 && history.some((entry) => entry.status === "delivered")) {
+      const deliveredAt = stamps.completed_at!;
+      const paidOut = deliveredAt.getTime() < START.getTime() - 14 * DAY;
+      const payoutAt = plus(deliveredAt, 3 * DAY);
+      out.courier_earnings.push({
+        order_id: orderId, courier_id: networkCourierId, amount_cents: courierFeeCents,
+        paid_at: paidOut ? payoutAt : null, paid_by: paidOut ? adminId : null, created_at: deliveredAt,
+      });
+      const entry = { store_id: null, amount_cents: courierFeeCents, order_id: orderId, refund_id: null, invoice_id: null };
+      out.ledger_entries.push(
+        { ...entry, account: "platform", direction: "debit", reason: "delivery", courier_id: null, created_at: deliveredAt },
+        { ...entry, account: "courier", direction: "credit", reason: "delivery", courier_id: networkCourierId, created_at: deliveredAt },
+      );
+      if (paidOut) {
+        out.ledger_entries.push({ ...entry, order_id: null, account: "courier", direction: "debit", reason: "payout", courier_id: networkCourierId, created_at: payoutAt });
       }
     }
     if (totals.discountCents > 0) {
@@ -690,6 +738,10 @@ export async function seed(sql: Sql) {
     outForDelivery: buildOrder({ store: stores.get("pizzaria")!, customer: customers.get("felipe")!, createdAt: plus(START, -25 * MINUTE), final: "out_for_delivery", live: true, products: ["Pizza Média (6 fatias)"] })!,
     scheduled: buildOrder({ store: stores.get("delicias")!, customer: customers.get("ana")!, createdAt: plus(START, -2 * HOUR), final: "accepted", live: true, scheduledFor: localTime(-1, "15:00"), products: ["Cento de salgadinhos"] })!,
     rejected: buildOrder({ store: stores.get("deposito")!, customer: customers.get("joao")!, createdAt: localTime(2, "19:30"), final: "rejected", products: ["Cerveja pilsen — caixa com 12 latas", "Gelo 5 kg"] })!,
+    // Rede de entregadores do Chegô: duas entregas esperando alguém pegar e uma já na rua com o Jonas.
+    offerReady: buildOrder({ store: stores.get("sushi")!, customer: customers.get("bruno")!, createdAt: plus(START, -30 * MINUTE), final: "ready", live: true, networkCourier: null })!,
+    offerPreparing: buildOrder({ store: stores.get("lasanha")!, customer: customers.get("felipe")!, createdAt: plus(START, -10 * MINUTE), final: "preparing", live: true, networkCourier: null })!,
+    networkOnTheWay: buildOrder({ store: stores.get("suplementos")!, customer: customers.get("ana")!, createdAt: plus(START, -40 * MINUTE), final: "out_for_delivery", live: true, networkCourier: jonasId })!,
     ticket: buildOrder({ store: stores.get("mercado")!, customer: customers.get("gabriela")!, createdAt: localTime(1, "10:15"), final: "done", products: ["Arroz branco 1 kg", "Feijão carioca 1 kg", "Leite integral 1 L", "Sabão em pó 800 g"] })!,
   };
 
@@ -804,7 +856,7 @@ export async function seed(sql: Sql) {
         });
         invoiceLedger.push({
           account: "platform", store_id: null, direction: "credit", amount_cents: amount, reason: "subscription",
-          order_id: null, refund_id: null, invoice_id: invoiceId, created_at: plus(dueDate, -2 * DAY),
+          order_id: null, refund_id: null, invoice_id: invoiceId, courier_id: null, created_at: plus(dueDate, -2 * DAY),
         });
       }
     }

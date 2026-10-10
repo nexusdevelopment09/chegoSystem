@@ -27,9 +27,11 @@ async function Live() {
   const orders = await sql<{
     id: string; code: string; status: OrderStatus; store_name: string; customer_name: string; total_cents: number;
     created_at: Date; paid_at: Date | null; estimated_at: Date | null; scheduled_for: Date | null; payment_status: string | null;
+    ready_at: Date | null; waiting_courier: boolean;
   }[]>`
     select o.id, o.code, o.status, s.name as store_name, o.customer_name, o.total_cents, o.created_at, o.paid_at, o.estimated_at, o.scheduled_for,
-           (select p.status from payments p where p.order_id = o.id order by p.created_at desc limit 1) as payment_status
+           (select p.status from payments p where p.order_id = o.id order by p.created_at desc limit 1) as payment_status,
+           o.ready_at, (o.delivery_provider = 'platform' and o.fulfillment = 'delivery' and o.courier_id is null) as waiting_courier
     from orders o join stores s on s.id = o.store_id
     where o.status in ('awaiting_payment', 'paid', 'accepted', 'preparing', 'ready', 'out_for_delivery')
     order by o.created_at`;
@@ -39,6 +41,11 @@ async function Live() {
     if (order.status === "paid") {
       const waited = (at.getTime() - (order.paid_at?.getTime() ?? at.getTime())) / MINUTE_MS;
       if (waited >= settings.acceptance_alert_minutes) return `Sem aceite há ${Math.round(waited)} min`;
+    }
+    // Entrega pela rede do Chegô: pedido pronto na loja e nenhum entregador pegou.
+    if (order.status === "ready" && order.waiting_courier && order.ready_at) {
+      const waited = (at.getTime() - order.ready_at.getTime()) / MINUTE_MS;
+      if (waited >= 5) return `Pronto há ${Math.round(waited)} min sem entregador`;
     }
     if (!order.scheduled_for && order.estimated_at && at.getTime() > order.estimated_at.getTime() + 10 * MINUTE_MS) {
       return `Atrasado ${Math.round((at.getTime() - order.estimated_at.getTime()) / MINUTE_MS)} min`;

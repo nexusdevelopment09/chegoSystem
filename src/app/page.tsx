@@ -24,6 +24,7 @@ export default function Home() {
       <footer className="flex flex-wrap justify-center gap-x-4 gap-y-1 px-4 py-6 text-center text-sm text-coffee-soft">
         <span>Chegô · Pediu, Chegô.</span>
         <Link href="/quero-vender" className="font-semibold text-brand-dark underline">Quero vender no Chegô</Link>
+        <Link href="/quero-entregar" className="font-semibold text-brand-dark underline">Quero entregar</Link>
         <Link href="/termos/uso" className="underline">Termos</Link>
         <Link href="/termos/privacidade" className="underline">Privacidade</Link>
         <Link href="/ajuda" className="underline">Ajuda</Link>

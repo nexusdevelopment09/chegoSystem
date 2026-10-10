@@ -69,3 +69,10 @@ export async function adminIds(db: Db = sql): Promise<string[]> {
   const rows = await db<{ id: string }[]>`select id from profiles where role = 'admin' and deleted_at is null`;
   return rows.map((row) => row.id);
 }
+
+/** Entregadores da rede do Chegô aprovados e disponíveis agora em uma cidade. */
+export async function availableCourierIds(cityId: string, db: Db = sql): Promise<string[]> {
+  const rows = await db<{ profile_id: string }[]>`
+    select profile_id from couriers where city_id = ${cityId} and status = 'active' and available`;
+  return rows.map((row) => row.profile_id);
+}

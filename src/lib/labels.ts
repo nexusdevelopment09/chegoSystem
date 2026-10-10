@@ -40,3 +40,10 @@ export const STORE_STATUS_LABELS = {
   paused: "Pausada",
   suspended: "Suspensa",
 } as const;
+
+// Rede de entregadores do Chegô.
+export const VEHICLE_LABELS = { motorcycle: "Moto", bicycle: "Bicicleta", car: "Carro", on_foot: "A pé" } as const;
+export type Vehicle = keyof typeof VEHICLE_LABELS;
+export const COURIER_KIND_LABELS = { platform: "Entregador do Chegô", partner: "Entregador parceiro" } as const;
+export const COURIER_STATUS_LABELS = { pending: "Em análise", active: "Aprovado", blocked: "Bloqueado" } as const;
+export const DELIVERY_PROVIDER_LABELS = { store: "Entregador da loja", platform: "Entregadores do Chegô" } as const;

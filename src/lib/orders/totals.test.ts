@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeTotals, refundLedgerLines, refundShares, saleLedgerLines } from "./totals";
+import { computeTotals, courierFee, refundLedgerLines, refundShares, saleLedgerLines } from "./totals";
 
 const base = { subtotalCents: 5000, deliveryFeeCents: 400, serviceFeeCents: 99, commissionRate: 0.1 };
 
@@ -80,5 +80,37 @@ describe("ledger lines", () => {
       { account: "store", direction: "debit", amountCents: 891, reason: "refund" },
       { account: "platform", direction: "debit", amountCents: 109, reason: "refund" },
     ]);
+  });
+});
+
+describe("entrega pela rede do Chegô", () => {
+  it("a taxa de entrega fica do lado da plataforma, que paga o entregador; a loja fica com os produtos menos a comissão", () => {
+    const totals = computeTotals({ ...base, deliveryBy: "platform" });
+    // O cliente paga o mesmo: 50,00 + 4,00 + 0,99.
+    expect(totals.totalCents).toBe(5499);
+    expect(totals.storeAmountCents).toBe(4500);
+    expect(totals.platformAmountCents).toBe(500 + 99 + 400);
+    expect(totals.storeAmountCents + totals.platformAmountCents).toBe(totals.totalCents);
+  });
+
+  it("frete grátis pago pela loja: quem banca a entrega é a loja, e o entregador recebe do mesmo jeito", () => {
+    const totals = computeTotals({ ...base, deliveryBy: "platform", deliveryDiscountCents: 400, discountPaidBy: "store" });
+    expect(totals.totalCents).toBe(5099);
+    expect(totals.platformAmountCents).toBe(500 + 99 + 400);
+    expect(totals.storeAmountCents).toBe(4500 - 400);
+  });
+
+  it("frete grátis pago pela plataforma: a loja não perde nada", () => {
+    const totals = computeTotals({ ...base, deliveryBy: "platform", deliveryDiscountCents: 400, discountPaidBy: "platform" });
+    expect(totals.storeAmountCents).toBe(4500);
+    expect(totals.platformAmountCents).toBe(500 + 99);
+  });
+
+  it("o entregador ganha a parte dele da taxa, arredondada ao centavo", () => {
+    expect(courierFee(400, 100)).toBe(400);
+    expect(courierFee(500, 80)).toBe(400);
+    expect(courierFee(333, 50)).toBe(167);
+    expect(courierFee(400, 0)).toBe(0);
+    expect(courierFee(400, 150)).toBe(400);
   });
 });

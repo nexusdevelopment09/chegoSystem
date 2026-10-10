@@ -13,6 +13,10 @@ type Props = {
   fulfillment: Fulfillment;
   defaultPrepMinutes: number;
   couriers: { id: string; name: string }[];
+  /** "platform": a entrega é da rede do Chegô, e não da equipe da loja. */
+  deliveryProvider: "store" | "platform";
+  /** Primeiro nome do entregador que já está com a entrega, se houver. */
+  courierName: string | null;
   canRunCounter: boolean;
   isOwner: boolean;
   autoPrint: boolean;
@@ -24,6 +28,12 @@ export function OrderActions(props: Props) {
   const { orderId, status, fulfillment, couriers } = props;
   if (!props.canRunCounter) return null;
   const id = <input type="hidden" name="orderId" value={orderId} />;
+  const byNetwork = props.deliveryProvider === "platform" && fulfillment === "delivery";
+  const network = byNetwork && (
+    <p data-testid="network-courier" className="rounded-2xl bg-cream px-3 py-2 text-sm font-semibold">
+      {props.courierName ? `Entregador do Chegô: ${props.courierName}` : "Entrega pelo Chegô: procurando um entregador."}
+    </p>
+  );
 
   if (status === "paid") {
     return (
@@ -65,11 +75,14 @@ export function OrderActions(props: Props) {
 
   if (status === "accepted" || status === "preparing") {
     return (
-      <ActionForm action={advanceOrder}>
-        {id}
-        <input type="hidden" name="to" value={status === "accepted" ? "preparing" : "ready"} />
-        <SubmitButton className={small}>{status === "accepted" ? "Começar o preparo" : "Marcar como pronto"}</SubmitButton>
-      </ActionForm>
+      <div className="flex flex-col gap-2">
+        {network}
+        <ActionForm action={advanceOrder}>
+          {id}
+          <input type="hidden" name="to" value={status === "accepted" ? "preparing" : "ready"} />
+          <SubmitButton className={small}>{status === "accepted" ? "Começar o preparo" : "Marcar como pronto"}</SubmitButton>
+        </ActionForm>
+      </div>
     );
   }
 
@@ -81,6 +94,22 @@ export function OrderActions(props: Props) {
         <SubmitButton className={small}>Cliente retirou</SubmitButton>
       </ActionForm>
     );
+  }
+
+  // Rede do Chegô: o próprio entregador marca "Retirei o pedido" quando chega à loja.
+  if (status === "ready" && byNetwork) {
+    return (
+      <div className="flex flex-col gap-2">
+        {network}
+        <p className="text-sm text-coffee-soft">
+          {props.courierName ? "Entregue o pedido quando ele chegar. Ele mesmo marca a retirada." : "Assim que um entregador aceitar, o nome dele aparece aqui."}
+        </p>
+      </div>
+    );
+  }
+
+  if (status === "out_for_delivery" && byNetwork) {
+    return <div className="flex flex-col gap-2">{network}<p className="text-sm text-coffee-soft">O pedido saiu com o entregador. Ele conclui com o código do cliente.</p></div>;
   }
 
   if (status === "ready") {

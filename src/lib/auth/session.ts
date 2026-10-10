@@ -6,7 +6,7 @@ import { cache } from "react";
 import { sql } from "@/lib/db";
 import { pendingLegalDocuments } from "@/lib/legal";
 
-export type UserRole = "customer" | "merchant" | "admin";
+export type UserRole = "customer" | "merchant" | "admin" | "courier";
 export type StoreRole = "owner" | "attendant" | "courier";
 
 export type CurrentProfile = {

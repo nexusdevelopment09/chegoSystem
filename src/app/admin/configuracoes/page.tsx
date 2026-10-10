@@ -45,6 +45,7 @@ async function Settings() {
           <Field label="Avaliar até (dias depois da entrega)" name="review_window_days" type="number" min={1} defaultValue={settings.review_window_days} />
           <Field label="Alerta forte sem aceite (minutos)" name="acceptance_alert_minutes" type="number" min={1} defaultValue={settings.acceptance_alert_minutes} />
           <Field label="Recusa automática sem aceite (minutos)" name="auto_reject_minutes" type="number" min={1} defaultValue={settings.auto_reject_minutes} />
+          <Field label="Parte do entregador na taxa de entrega (%)" name="courier_fee_percent" type="number" min={0} max={100} defaultValue={settings.courier_fee_percent} hint="Vale para as entregas feitas pela rede do Chegô. O resto fica com a plataforma." />
           <Field label="Indique e ganhe: cupom de quem foi indicado (R$)" name="referral_referred_cents" inputMode="decimal" defaultValue={money(settings.referral_referred_cents)} />
           <Field label="Indique e ganhe: cupom de quem indicou (R$)" name="referral_referrer_cents" inputMode="decimal" defaultValue={money(settings.referral_referrer_cents)} />
         </div>

@@ -191,6 +191,51 @@ describe("Row Level Security", () => {
       expect(renamed).toHaveLength(1);
     }));
 
+  it("a rede de entregadores: cada um vê só o próprio cadastro e os próprios ganhos", () =>
+    inRolledBackTransaction(async (tx) => {
+      const w = await createWorld(tx);
+      const courier = async (name: string) => {
+        const [row] = await tx`insert into profiles (full_name, role) values (${name}, 'courier') returning id`;
+        await tx`
+          insert into couriers (profile_id, kind, status, city_id, document_type, document_number, vehicle)
+          values (${row.id}, 'partner', 'active', ${w.city}, 'cpf', '12345678909', 'motorcycle')`;
+        return row.id as string;
+      };
+      const first = await courier("Entregador 1");
+      const second = await courier("Entregador 2");
+      await tx`insert into courier_earnings (order_id, courier_id, amount_cents) values (${w.orderA1}, ${first}, 300), (${w.orderB}, ${second}, 400)`;
+      await tx`
+        insert into ledger_entries (account, courier_id, direction, amount_cents, reason, order_id) values
+          ('courier', ${first}, 'credit', 300, 'delivery', ${w.orderA1}),
+          ('courier', ${second}, 'credit', 400, 'delivery', ${w.orderB})`;
+
+      const count = (who: string | null, table: string) =>
+        asUser(tx, who, async (q) => Number((await q`select count(*) as total from ${q(table)}`)[0].total));
+
+      expect(await count(first, "couriers")).toBe(1);
+      expect(await count(first, "courier_earnings")).toBe(1);
+      expect(await count(first, "ledger_entries")).toBe(1);
+      expect(await count(second, "courier_earnings")).toBe(1);
+      // Cliente, dono de loja e visitante não veem nada da rede; o admin vê tudo.
+      for (const who of [w.customerA, w.ownerA, null]) {
+        expect(await count(who, "couriers")).toBe(0);
+        expect(await count(who, "courier_earnings")).toBe(0);
+      }
+      // (O banco de teste já traz os entregadores do seed, por isso "pelo menos".)
+      expect(await count(w.admin, "couriers")).toBeGreaterThanOrEqual(2);
+      expect(await count(w.admin, "courier_earnings")).toBeGreaterThanOrEqual(2);
+
+      // Sem estar na entrega, o entregador não vê o pedido; com a entrega, vê.
+      const seen = () => asUser(tx, first, (q) => q`select id from orders where id = ${w.orderB}`);
+      expect(await seen()).toHaveLength(0);
+      await tx`update orders set courier_id = ${first}, delivery_provider = 'platform' where id = ${w.orderB}`;
+      expect(await seen()).toHaveLength(1);
+
+      // Ninguém aprova a si mesmo nem mexe no próprio ganho pelo navegador.
+      await expect(asUser(tx, first, (q) => q`update couriers set kind = 'platform' where profile_id = ${first}`)).rejects.toThrow(/permission denied/);
+      await expect(asUser(tx, first, (q) => q`update courier_earnings set amount_cents = 99999 where courier_id = ${first}`)).rejects.toThrow(/permission denied/);
+    }));
+
   it("internal tables cannot even be read", () =>
     inRolledBackTransaction(async (tx) => {
       const w = await createWorld(tx);

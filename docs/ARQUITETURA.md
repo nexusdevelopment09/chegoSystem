@@ -77,6 +77,10 @@ As regras usam funções do banco como `current_user_id()`, `is_admin()`, `is_st
 
 O resto do sistema só conhece a interface `PaymentProvider` (`src/lib/payments/types.ts`). Hoje existe apenas o `MockPaymentProvider`, que não usa dinheiro nem rede, mas assina os avisos como um gateway de verdade. Trocar de gateway significa escrever outro provedor nessa pasta.
 
+## Rede de entregadores
+
+Além do entregador de cada loja (um membro da equipe dela), existe a rede do Chegô: perfis com o papel global `courier` e uma linha na tabela `couriers` (tipo `platform` ou `partner`, situação, cidade, documento, veículo). O pedido guarda `delivery_provider` (`store` ou `platform`), copiado da loja na compra, e `courier_fee_cents`. As entregas sem entregador são listadas por `listOffers` (`src/lib/couriers.ts`), pela conexão dona do banco e sem os dados do cliente; depois de pegar a entrega, o entregador lê o pedido pelas regras de acesso normais. O ganho fica em `courier_earnings` e nos lançamentos, na conta `courier`.
+
 ## Regras em funções puras
 
 As contas que mais importam não dependem do banco nem do Next.js, e por isso têm testes unitários rápidos:
@@ -92,6 +96,7 @@ As contas que mais importam não dependem do banco nem do Next.js, e por isso t�
 | `src/lib/orders/status.ts` | Máquina de estados do pedido |
 | `src/lib/orders/moderation.ts` | Bloqueio de telefones, links e contatos nas mensagens |
 | `src/lib/coupons/validate.ts` | Regras e mensagens dos cupons |
+| `src/lib/documents.ts` | Conferência e pontuação de CPF e CNPJ |
 
 ## Relógio único
 
@@ -110,7 +115,9 @@ Ficam em `src/lib/tasks/run.ts` e são chamadas por `POST /api/tarefas`. No ambi
 
 ## Fotos
 
-O envio (`src/lib/uploads.ts`) confere o tipo real do arquivo e o limite de 5 MB, regrava em WebP nos tamanhos necessários e, com isso, apaga os metadados da foto. As fotos do seed são desenhadas pelo próprio projeto (`db/seed/images.ts`), sem baixar nada.
+O campo de foto (`src/components/forms/ImageInput.tsx`) reduz a imagem no próprio aparelho antes de enviar. O servidor (`src/lib/uploads.ts`) aceita qualquer formato de imagem até 15 MB, confere pelo conteúdo que é mesmo uma imagem, regrava em WebP nos tamanhos necessários e, com isso, apaga os metadados. Capas, banners e logos ganham uma versão pequena, escolhida pelo navegador no celular (`WideImage`).
+
+As fotos do seed são desenhadas pelo próprio projeto (`db/seed/images.ts`), sem baixar nada: um desenho colorido por produto, escolhido pelo nome, mais logo e capa de cada loja e uma imagem por segmento. Os testes automáticos gravam em `storage-test/`, separado do `storage/` de quem testa à mão.
 
 ## PWA
 
@@ -126,6 +133,7 @@ Com `APP_ENV=local` aparecem a faixa "Ambiente de testes" e a página `/dev`. Em
 |---|---|---|
 | Unitário | `src/**/*.test.ts` | As funções puras da tabela acima |
 | Integração | `tests/integration/` | Direto no banco: regras de acesso por linha, coerência do seed e o caminho do dinheiro (webhook repetido, preço adulterado, taxa por bairro, estoque e estornos do reembolso parcial) |
+| Simulação | `tests/simulation/` | Um pedido completo em cada loja ativa, do carrinho à entrega, conferindo o dinheiro (`npm run simulate`) |
 | Navegador | `e2e/` | Os caminhos completos de cliente, lojista, entregador e admin, além de acessibilidade e segurança |
 
 Cada arquivo de teste de navegador recria o banco `chego_test` antes de começar, para não depender do que outro arquivo alterou.

@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import type { Page } from "@playwright/test";
 import postgres from "postgres";
-import { TEST_DATABASE, TEST_DATABASE_URL } from "../tests/reset-test-db";
+import { TEST_DATABASE, TEST_DATABASE_URL, TEST_STORAGE } from "../tests/reset-test-db";
 
 /** Acesso direto ao banco de teste, para preparar ou conferir um cenário. */
 export const db = postgres(TEST_DATABASE_URL, { max: 2, onnotice: () => {} });
@@ -85,7 +85,7 @@ export async function placePaidOrder(page: Page, customer: string, storeSlug: st
  * Cada arquivo de teste começa com isso, para nenhum depender do que outro alterou.
  */
 export async function freshDatabase(localDateTime: string | null = null) {
-  execFileSync(process.execPath, ["scripts/db.ts", "reset"], { env: { ...process.env, CHEGO_DB: TEST_DATABASE }, stdio: "ignore" });
+  execFileSync(process.execPath, ["scripts/db.ts", "reset"], { env: { ...process.env, CHEGO_DB: TEST_DATABASE, STORAGE_DIR: TEST_STORAGE }, stdio: "ignore" });
   // Recriar o banco derruba todas as conexões abertas (as nossas e as do app):
   // dá um instante para elas perceberem e espera até uma consulta passar de novo.
   for (let attempt = 0; ; attempt += 1) {

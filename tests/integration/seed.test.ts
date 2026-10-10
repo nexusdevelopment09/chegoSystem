@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
+import { TEST_STORAGE } from "../reset-test-db";
 import { sql } from "./helpers";
 
 afterAll(() => sql.end());
@@ -129,7 +130,7 @@ describe("development seed", () => {
       union all select logo_url from stores
       union all select cover_url from stores
       union all select image_url from banners`;
-    const missing = urls.filter(({ url }) => !existsSync(`storage/${url.replace("/files/", "")}`));
+    const missing = urls.filter(({ url }) => !existsSync(`${TEST_STORAGE}/${url.replace("/files/", "")}`));
     expect(missing).toHaveLength(0);
     expect(await count(sql`select count(*) as total from products where image_url is null`)).toBeGreaterThan(0);
   });

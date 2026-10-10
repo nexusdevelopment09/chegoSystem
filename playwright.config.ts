@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { TEST_DATABASE_URL } from "./tests/reset-test-db";
+import { TEST_DATABASE_URL, TEST_STORAGE } from "./tests/reset-test-db";
 
 // Os testes de ponta a ponta sobem a própria cópia do app na porta 3100, ligada
 // ao banco de teste, então nunca mexem nos dados que você está testando à mão.
@@ -27,6 +27,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 120_000,
-    env: { DATABASE_URL: TEST_DATABASE_URL, NEXT_DIST_DIR: ".next-e2e", DISABLE_TASK_RUNNER: "1" },
+    env: { DATABASE_URL: TEST_DATABASE_URL, NEXT_DIST_DIR: ".next-e2e", DISABLE_TASK_RUNNER: "1", STORAGE_DIR: TEST_STORAGE },
   },
 });

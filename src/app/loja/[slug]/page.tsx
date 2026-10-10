@@ -8,6 +8,7 @@ import { SiteHeader } from "@/components/layout/SiteHeader";
 import { CartBar } from "@/components/store/CartBar";
 import { deliveryText, Rating, StoreLogo } from "@/components/store/StoreCard";
 import { Button } from "@/components/ui/Button";
+import { WideImage } from "@/components/ui/WideImage";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
@@ -80,8 +81,7 @@ async function StoreContent({ params }: { params: Params }) {
   return (
     <div className="flex flex-col gap-5">
       {store.coverUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={store.coverUrl} alt="" width={1200} height={400} className="aspect-[3/1] w-full rounded-card object-cover" />
+        <WideImage url={store.coverUrl} alt="" width={1200} height={400} priority className="aspect-[3/1] w-full rounded-card" />
       )}
 
       <header className="-mt-12 flex flex-col gap-2 px-2">

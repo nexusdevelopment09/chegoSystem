@@ -117,6 +117,46 @@ Neste exemplo a plataforma fica no negativo porque bancou o cupom: a loja recebe
 
 Onde: `src/lib/orders/totals.ts` e `src/lib/payments/refunds.ts`.
 
+### Entrega pela rede do Chegô
+
+A loja escolhe, em **Minha loja**, quem faz as entregas dela:
+
+| Opção | Quem entrega | Para quem vai a taxa de entrega |
+|---|---|---|
+| Meu entregador (padrão) | A equipe da própria loja | Inteira para a loja |
+| Entregadores do Chegô | Um entregador da rede: do próprio Chegô ou parceiro autônomo | Fica do lado da plataforma, que paga o entregador |
+
+- A escolha é copiada para o pedido na hora da compra. Mudar depois não altera os pedidos já feitos.
+- O cliente paga o mesmo valor nos dois casos.
+- O entregador ganha uma parte da taxa de entrega do bairro: **100% por padrão** (configurável pelo admin; o resto fica com a plataforma).
+- O ganho é registrado quando a entrega é concluída: sai da conta da plataforma e entra na conta do entregador nos lançamentos. O admin marca o repasse em **Entregadores**; o pagamento em si é feito fora do sistema.
+- Se o pedido for reembolsado depois de entregue, o entregador mantém o ganho: ele fez a entrega.
+
+**Exemplo** (mesmo pedido de R$ 64,00 com entrega de R$ 3,00, comissão de 12%, sem cupom):
+
+| Linha | Loja entrega | Rede do Chegô entrega |
+|---|---|---|
+| Total do cliente | R$ 67,99 | R$ 67,99 |
+| Parte da loja | R$ 59,32 | R$ 56,32 |
+| Parte da plataforma | R$ 8,67 | R$ 11,67 |
+| Ganho do entregador (sai da plataforma) | — | R$ 3,00 |
+| O que sobra para a plataforma | R$ 8,67 | R$ 8,67 |
+
+Onde: `src/lib/orders/totals.ts` (divisão) e `src/lib/orders/transitions.ts` (ganho na entrega).
+
+### Como funciona a rede de entregadores
+
+- Entregador **do Chegô** é cadastrado pelo admin e já entra aprovado. Entregador **parceiro** se cadastra em "Quero entregar", com CPF ou CNPJ, e fica em análise até o admin aprovar.
+- Só recebe ofertas quem está aprovado e marcou "Ficar disponível".
+- A entrega é oferecida assim que a loja aceita o pedido. A oferta mostra a loja, o bairro de destino e o ganho. **O nome, o telefone e o endereço do cliente só aparecem para o entregador que retirou o pedido.**
+- Quem clica primeiro em "Pegar entrega" leva. Cada entregador carrega no máximo **2 entregas** ao mesmo tempo.
+- Antes de retirar o pedido ele pode desistir, e a entrega volta para a fila. É o entregador que marca "Retirei o pedido" na loja; a loja não tem o botão "Saiu para entrega" nesses pedidos.
+- A entrega é concluída com o código de 4 dígitos do cliente.
+- Pedido pronto há mais de 5 minutos sem entregador aparece como alerta em **Ao vivo**, e o admin pode definir o entregador no pedido.
+- O admin pode bloquear um entregador, com motivo. As entregas que ele ainda não retirou voltam para a fila.
+
+Onde: `src/lib/couriers.ts`, `src/app/entregador/` e `src/app/admin/entregadores/`.
+
 ## 6. Mensalidade das lojas
 
 - Cada loja tem um plano com valor mensal e uma fatura por mês, paga pelo app.
@@ -220,6 +260,16 @@ Onde: `src/lib/orders/moderation.ts`.
 - Termos de Uso, Termos do Lojista e Política de Privacidade são versionados. Publicada uma nova versão, todos precisam aceitar de novo no próximo acesso. Os textos atuais são provisórios.
 - O cliente pode baixar os seus dados e excluir a conta. Na exclusão os pedidos ficam para a contabilidade, mas os dados pessoais são anonimizados.
 
+## 16-B. Documentos e fotos
+
+- **CPF ou CNPJ:** nos cadastros de loja e de entregador a pessoa escolhe o tipo, o campo ajusta o tamanho e a pontuação, e o sistema confere os dígitos verificadores. Número inventado é recusado.
+- **Fotos sempre por envio de arquivo**, nunca por endereço (URL). Vale qualquer formato de imagem (JPG, PNG, WebP, GIF, AVIF, TIFF, SVG...), com até 15 MB.
+- A foto é reduzida no próprio aparelho antes de enviar e regravada no servidor em WebP, nos tamanhos que as telas usam. O arquivo original nunca é servido.
+- Metadados da foto (como a localização do GPS) são apagados.
+- Capas, banners e logos têm uma versão pequena, que o celular baixa no lugar da grande.
+
+Onde: `src/lib/documents.ts`, `src/lib/uploads.ts` e `src/components/forms/`.
+
 ## 17. Limites de tentativas
 
 | Ação | Limite |
@@ -232,6 +282,7 @@ Onde: `src/lib/orders/moderation.ts`.
 | Mensagens no pedido | 30 a cada 5 minutos |
 | Abrir chamado | 5 por hora |
 | Cadastro de loja | 5 por hora |
+| Cadastro de entregador | 5 por hora |
 
 Onde: `src/lib/rate-limit.ts`.
 

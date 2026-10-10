@@ -67,6 +67,20 @@ Cada loja tem um dono. A Pizzaria Forno de Barro e o Mercado Boa Compra têm tam
 | Robson Entregas | (82) 93000-0001 | Pizzaria Forno de Barro | Entregador (só as próprias entregas) |
 | Cícero Vieira | (82) 92000-0002 | Mercado Boa Compra | Atendente |
 
+## Entregadores da rede do Chegô
+
+São os entregadores que não pertencem a nenhuma loja: os do próprio Chegô e os parceiros autônomos. Eles atendem as lojas que escolheram "Entregadores do Chegô" em **Minha loja**: no seed, a **Casa da Lasanha**, o **Sushi Maré** e a **Força Total Suplementos**.
+
+| Nome | Telefone | Tipo | Situação | Para testar |
+|---|---|---|---|---|
+| Wesley Santana | (82) 95000-0001 | Do Chegô | Aprovado, disponível | Pegar uma entrega e concluir com o código do cliente. |
+| Patrícia Lopes | (82) 95000-0002 | Do Chegô | Aprovada, parada | Clicar em "Ficar disponível" para ver as entregas. |
+| Jonas Ferreira | (82) 95000-0003 | Parceiro | Aprovado, disponível | Já tem uma entrega na rua e ganhos repassados. |
+| Kelly Araújo | (82) 95000-0004 | Parceira | Em análise | O admin aprova em Entregadores. |
+| Marcelo Dias | (82) 95000-0005 | Parceiro | Bloqueado | Entra, mas só vê o aviso de bloqueio. |
+
+Há duas entregas esperando entregador (Sushi Maré, já pronta, e Casa da Lasanha, em preparo).
+
 ## Cupons
 
 | Código | O que faz | Para testar |

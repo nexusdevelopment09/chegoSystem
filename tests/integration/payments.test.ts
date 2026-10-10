@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { TEST_DATABASE } from "../reset-test-db";
+import { TEST_DATABASE, TEST_STORAGE } from "../reset-test-db";
 import { sql } from "./helpers";
 
 // `now()` pede ao Next uma requisição em andamento; aqui não há Next rodando.
@@ -86,7 +86,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await Promise.all([appSql.end(), sql.end()]);
   // Devolve o banco de teste ao estado do seed, para os outros arquivos não verem estes pedidos.
-  execFileSync(process.execPath, ["scripts/db.ts", "reset"], { env: { ...process.env, CHEGO_DB: TEST_DATABASE }, stdio: "ignore" });
+  execFileSync(process.execPath, ["scripts/db.ts", "reset"], { env: { ...process.env, CHEGO_DB: TEST_DATABASE, STORAGE_DIR: TEST_STORAGE }, stdio: "ignore" });
 });
 
 describe("webhook de pagamento", () => {

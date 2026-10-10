@@ -264,7 +264,7 @@ test("marketing: banner novo aparece no início e cupom da plataforma funciona",
   await page.goto("/admin/marketing");
   await page.getByLabel("Título do banner").fill("Banner de teste do admin");
   await page.getByLabel("Link ao tocar (opcional)").fill("/loja/brasa-burger");
-  await page.locator('input[name="image"]:visible').setInputFiles("storage/banners/sexta-da-pizza.webp");
+  await page.locator('input[name="image"]:visible').setInputFiles("storage-test/banners/sexta-da-pizza.webp");
   await page.getByRole("button", { name: "Publicar banner" }).click();
   await expect(page.locator('[data-testid="admin-banner"]:visible').filter({ hasText: "Banner de teste do admin" })).toHaveCount(1);
 

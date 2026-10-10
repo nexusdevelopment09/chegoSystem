@@ -50,6 +50,7 @@ test("telas do cliente: acessíveis e sem estourar a tela do celular", async ({ 
   await check(page, "/boas-vindas", () => page.getByRole("button", { name: "Ver as lojas" }).waitFor());
   await check(page, "/entrar", () => page.getByRole("button", { name: "Receber código" }).waitFor());
   await check(page, "/quero-vender", () => page.getByRole("button", { name: "Enviar cadastro" }).waitFor());
+  await check(page, "/quero-entregar", () => page.getByRole("button", { name: "Enviar cadastro" }).waitFor());
   await check(page, "/ajuda", () => page.getByRole("heading", { name: "Ajuda" }).waitFor());
 
   await chooseNeighborhood(page, "Centro");
@@ -97,6 +98,8 @@ test("painéis do lojista e do admin: acessíveis e sem estourar a tela do celul
   await check(page, "/admin/lojas", () => page.locator('[data-testid="admin-store"]:visible').first().waitFor());
   await check(page, "/admin/pedidos", () => page.locator('[data-testid="admin-order"]:visible').first().waitFor());
   await check(page, "/admin/clientes", () => page.locator('[data-testid="admin-customer"]:visible').first().waitFor());
+  await check(page, "/admin/entregadores", () => page.locator('[data-testid="admin-courier"]:visible').first().waitFor());
+  await check(page, "/admin/pedidos?periodo=30&situacao=vendidos", () => page.locator('[data-testid="active-filters"]:visible').waitFor());
   await check(page, "/admin/suporte", () => page.getByRole("heading", { name: "Suporte" }).waitFor());
   await check(page, "/admin/moderacao", () => page.getByRole("heading", { name: "Moderação" }).waitFor());
   await check(page, "/admin/financeiro", () => page.locator('[data-testid="reconciliation"]:visible').waitFor());
@@ -105,6 +108,10 @@ test("painéis do lojista e do admin: acessíveis e sem estourar a tela do celul
   await check(page, "/admin/configuracoes", () => page.getByRole("button", { name: "Salvar configurações" }).waitFor());
   await check(page, "/admin/auditoria", () => page.locator('[data-testid="audit-row"]:visible').first().waitFor());
   await check(page, "/dev", () => page.getByRole("heading", { name: "Caixa de mensagens" }).waitFor());
+
+  // O painel do entregador da rede, com uma entrega na rua e ofertas esperando.
+  await loginAs(page, "Jonas Ferreira");
+  await check(page, "/entregador", () => page.locator('[data-testid="courier-offer"]:visible').first().waitFor());
 });
 
 test("painel do lojista funciona só com o teclado", async ({ page }) => {

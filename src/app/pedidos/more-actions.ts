@@ -136,7 +136,7 @@ export async function openTicket(_previous: ActionState, formData: FormData): Pr
   let photoUrl: string | null = null;
   try {
     const photo = pickedFile(formData.get("photo"));
-    if (photo) photoUrl = await saveImage(photo, "products", "suporte", [{ suffix: "", width: 1000, height: 1000 }]);
+    if (photo) photoUrl = await saveImage(photo, "products", "suporte", [{ suffix: "", width: 1200, height: 1200, fit: "inside" }]);
   } catch (error) {
     if (error instanceof UploadError) return { error: error.message };
     throw error;

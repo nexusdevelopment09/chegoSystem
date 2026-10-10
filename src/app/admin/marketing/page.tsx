@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { ImageInput } from "@/components/forms/ImageInput";
 import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
 import { Button } from "@/components/ui/Button";
-import { Field, fileInputClass, inputClass } from "@/components/ui/Field";
+import { Field, inputClass } from "@/components/ui/Field";
+import { WideImage } from "@/components/ui/WideImage";
 import { requireRole } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
@@ -61,8 +63,7 @@ async function Marketing() {
         <ul className="grid gap-3 sm:grid-cols-2">
           {banners.map((banner) => (
             <li key={banner.id} data-testid="admin-banner" className={`flex flex-col gap-2 rounded-2xl bg-cream p-2 ${banner.active ? "" : "grayscale"}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={banner.image_url} alt="" width={1200} height={500} loading="lazy" className="aspect-[12/5] w-full rounded-xl object-cover" />
+              <WideImage url={banner.image_url} alt="" width={1200} height={500} className="aspect-[12/5] w-full rounded-xl" />
               <p className="text-sm">
                 <strong>{banner.title}</strong> · {banner.city ?? "todas as cidades"}
                 {banner.ends_at && ` · até ${formatDateTime(banner.ends_at)}`}{banner.link_url && ` · ${banner.link_url}`}
@@ -77,10 +78,7 @@ async function Marketing() {
         <ActionForm action={saveBanner} resetOnSuccess className="grid gap-3 rounded-2xl border-2 border-dashed border-peach p-3 sm:grid-cols-2">
           <Field label="Título do banner" name="title" required maxLength={80} />
           <Field label="Link ao tocar (opcional)" name="link" placeholder="/loja/nome-da-loja" maxLength={200} />
-          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-semibold sm:col-span-2">
-            Imagem (1200 × 500)
-            <input type="file" name="image" accept="image/jpeg,image/png,image/webp" required className={fileInputClass} />
-          </label>
+          <ImageInput name="image" label="Imagem do banner" required className="sm:col-span-2" hint="Qualquer formato de imagem, de preferência deitada (proporção 12 × 5). Ela é cortada e reduzida sozinha." />
           <label className="flex flex-col gap-1.5 text-sm font-semibold">
             Cidade
             <select name="cityId" defaultValue="" className={inputClass}>

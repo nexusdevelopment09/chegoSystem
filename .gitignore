@@ -50,4 +50,5 @@ next-env.d.ts
 
 # uploaded and generated pictures
 /storage/
+/storage-test/
 /.next-e2e/

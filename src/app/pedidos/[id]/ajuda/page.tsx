@@ -5,8 +5,9 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { AutoRefresh } from "@/components/orders/AutoRefresh";
+import { ImageInput } from "@/components/forms/ImageInput";
 import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
-import { fileInputClass, inputClass } from "@/components/ui/Field";
+import { inputClass } from "@/components/ui/Field";
 import { requireUser } from "@/lib/auth/session";
 import { withUser } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
@@ -105,10 +106,7 @@ async function Help({ params }: { params: Params }) {
             Conte o que aconteceu
             <textarea name="message" required minLength={5} maxLength={1000} rows={4} className={`${inputClass} py-3 font-normal`} />
           </label>
-          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-semibold">
-            Foto (opcional)
-            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" className={fileInputClass} />
-          </label>
+          <ImageInput name="photo" label="Foto (opcional)" hint="Qualquer formato de imagem. Ajuda a mostrar o que aconteceu." />
           <SubmitButton className="self-start">Abrir chamado</SubmitButton>
         </ActionForm>
       )}

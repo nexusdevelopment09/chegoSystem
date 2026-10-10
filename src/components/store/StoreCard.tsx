@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatCents } from "@/lib/format";
+import { smallVariant } from "@/lib/image-url";
 import { estimateMinutes, type StoreSummary } from "@/lib/stores/queries";
 
 /** "★ 4,6 (23)", ou "Nova" para lojas com menos de 5 avaliações. */
@@ -26,7 +27,8 @@ export function deliveryText(store: StoreSummary, neighborhoodName: string | nul
 export function StoreLogo({ store, size }: { store: Pick<StoreSummary, "logoUrl" | "name">; size: number }) {
   return store.logoUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={store.logoUrl} alt="" width={size} height={size} loading="lazy" className="shrink-0 rounded-full bg-peach" />
+    <img src={size <= 64 ? smallVariant(store.logoUrl) : store.logoUrl} srcSet={`${smallVariant(store.logoUrl)} 192w, ${store.logoUrl} 400w`} sizes={`${size}px`}
+      alt="" width={size} height={size} loading="lazy" decoding="async" className="shrink-0 rounded-full bg-peach" />
   ) : (
     <div className="shrink-0 rounded-full bg-peach" style={{ width: size, height: size }} />
   );

@@ -106,6 +106,8 @@ Entre como **Marcos Antônio Tavares** (Pizzaria Forno de Barro). Antes, faça u
 | [ ] | Clique em **+30 min** | O tempo de entrega mostrado ao cliente aumenta |
 | [ ] | Em **Cardápio**, marque um produto como esgotado | O cliente vê "esgotado" e não consegue pedir |
 | [ ] | Crie um produto novo com foto (**Novo produto** → **Criar produto**) | Aparece no cardápio da loja |
+| [ ] | No produto, escolha uma foto grande tirada no celular (qualquer formato) | Aparece a prévia e "Foto pronta para enviar: … KB", bem menor que o arquivo original |
+| [ ] | Tente enviar um arquivo que não é imagem | "Não deu para abrir esse arquivo como imagem." |
 | [ ] | Em **Cardápio → Grupos**, crie um grupo de opções e ligue a um produto | As opções aparecem na página do produto |
 | [ ] | Em **Cardápio → Planilha**, baixe a planilha, mude um preço e importe | O preço muda; linhas com erro são apontadas sem estragar o resto |
 | [ ] | Em **Minha loja**, mude horários e áreas de entrega | A página da loja mostra os novos horários e taxas |
@@ -126,6 +128,21 @@ Entre como **Marcos Antônio Tavares** (Pizzaria Forno de Barro). Antes, faça u
 | [ ] | Robson Entregas | Num pedido que saiu para entrega, clique em **Entreguei** | O pedido fica como entregue para o cliente e a loja |
 | [ ] | Robson Entregas | Abra `/lojista/cardapio` | Não tem acesso |
 
+## 6-B. Entregadores da rede do Chegô
+
+| ✔ | Usuário | O que fazer | Resultado esperado |
+|---|---|---|---|
+| [ ] | (sem entrar) | Em **Quero entregar** (rodapé da página inicial), escolha **CNPJ**, digite um número errado e envie | O campo muda de tamanho e pontuação; o app diz que o CNPJ não existe e não apaga o que você digitou |
+| [ ] | (sem entrar) | Envie o cadastro com um CPF válido, por exemplo `123.456.789-09` | "Recebemos o seu cadastro!" Ao entrar com o telefone, aparece "Seu cadastro está em análise" |
+| [ ] | Admin Chegô | Em **Entregadores**, clique em **Aprovar** na Kelly Araújo | Ela passa a poder ficar disponível |
+| [ ] | Wesley Santana | Entre e veja **Entregas disponíveis** | Cada oferta mostra de onde sai, o bairro de destino e "Você ganha R$ …", sem o nome nem o endereço do cliente |
+| [ ] | Wesley Santana | Clique em **Pegar entrega** na do Sushi Maré e depois em **Retirei o pedido** | Só agora aparecem o cliente, o endereço, o mapa e o campo do código |
+| [ ] | Wesley Santana | Digite um código errado e depois o certo (o cliente vê o código no pedido) | Código errado é recusado; com o certo, a entrega some e aparece em **Meus ganhos** como "A receber" |
+| [ ] | Renato Yamada (Sushi Maré) | Abra **Pedidos** durante a entrega | Aparece "Entregador do Chegô: Wesley" e não há botão "Saiu para entrega" |
+| [ ] | Admin Chegô | Em **Entregadores**, clique em **Marcar repasse** no Wesley | O valor a receber zera; o entregador vê "Repassado" |
+| [ ] | Thiago Bezerra (Brasa Burger) | Em **Minha loja → Quem faz a entrega**, escolha **Entregadores do Chegô** e salve | Os próximos pedidos com entrega passam a ser oferecidos à rede |
+| [ ] | Marcelo Dias | Entre no app | Só vê "Seu cadastro está bloqueado" e o motivo |
+
 ## 7. Admin
 
 Entre como **Admin Chegô**.
@@ -133,6 +150,9 @@ Entre como **Admin Chegô**.
 | ✔ | O que fazer | Resultado esperado |
 |---|---|---|
 | [ ] | Abra o **Painel** | Vendas por dia, pedidos, lojas ativas e o aviso de loja esperando aprovação |
+| [ ] | No **Painel**, escolha **30 dias** e clique no cartão **Pedidos** | Abre a lista de pedidos já filtrada ("Pagos nos últimos 30 dias", "Vendidos") com a mesma quantidade do cartão |
+| [ ] | Clique em **Faturamento**, **Clientes novos**, **Recusas e cancelamentos** e **Lojas abertas agora** | Cada um abre a lista correspondente já filtrada, e **Limpar filtros** volta à lista inteira |
+| [ ] | No gráfico **Lojas que mais venderam**, clique no nome de uma loja | Abre os pedidos só daquela loja, no mesmo período |
 | [ ] | Em **Ao vivo**, veja os alertas | Pedidos atrasados e esperando aceite aparecem em destaque |
 | [ ] | Em **Lojas**, abra **Espetinho do Zé** e clique em **Aprovar e colocar no ar** | A loja passa a aparecer para os clientes |
 | [ ] | Numa loja, mude a comissão e clique em **Salvar condições** | Os próximos pedidos usam a nova comissão; os antigos não mudam |

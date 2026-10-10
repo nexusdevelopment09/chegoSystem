@@ -41,14 +41,14 @@ test("criar produto com foto, ligar grupo de opções com preço próprio, dupli
   await page.getByLabel("Descrição").fill("Cesta com grãos e castanhas.");
   await page.getByLabel("Preço (R$)").fill("59,90");
   await page.getByLabel("Seção").selectOption({ label: "Grãos e castanhas" });
-  await page.locator('input[name="image"]:visible').setInputFiles("storage/banners/primeira-compra.webp");
+  await page.locator('input[name="image"]:visible').setInputFiles("storage-test/banners/primeira-compra.webp");
   await page.getByRole("button", { name: "Criar produto" }).click();
   await expect(page).toHaveURL(/\/lojista\/cardapio\/produto\/[0-9a-f-]{36}$/);
 
   // Um arquivo que não é imagem é recusado, seja qual for o nome.
   await page.locator('input[name="image"]:visible').setInputFiles({ name: "foto.png", mimeType: "image/png", buffer: Buffer.from("isto não é uma imagem") });
   await page.getByRole("button", { name: "Salvar produto" }).click();
-  await expect(page.getByText("Use uma imagem JPG, PNG ou WebP.")).toBeVisible();
+  await expect(page.getByText("Não deu para abrir esse arquivo como imagem.")).toBeVisible();
 
   await page.getByLabel("Ligar grupo de opções").selectOption({ label: "Embalagem" });
   await page.getByRole("button", { name: "Ligar grupo" }).click();

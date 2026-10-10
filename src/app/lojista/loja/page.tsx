@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { ImageInput } from "@/components/forms/ImageInput";
 import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
 import { Button } from "@/components/ui/Button";
-import { Field, fileInputClass, inputClass } from "@/components/ui/Field";
+import { Field, inputClass } from "@/components/ui/Field";
 import { sql } from "@/lib/db";
 import { formatDateTime, formatPhone } from "@/lib/format";
 import { STORE_ROLE_LABELS } from "@/lib/labels";
@@ -63,8 +64,8 @@ async function StoreSettings() {
           <textarea name="description" maxLength={300} rows={2} defaultValue={details.description} className={`${inputClass} py-3 font-normal`} />
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-semibold">Logo<input type="file" name="logo" accept="image/jpeg,image/png,image/webp" className={fileInputClass} /></label>
-          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-semibold">Capa<input type="file" name="cover" accept="image/jpeg,image/png,image/webp" className={fileInputClass} /></label>
+          <ImageInput name="logo" label="Logo" maxSide={800} hint="Qualquer formato de imagem, de preferência quadrada." />
+          <ImageInput name="cover" label="Capa" hint="Qualquer formato de imagem, de preferência deitada (proporção 3 × 1)." />
           <Field label="Tempo de preparo (min)" name="prepMinutes" type="number" min={0} max={600} required defaultValue={store.prepMinutes} />
           <Field label="Pedido mínimo (R$)" name="minOrder" inputMode="decimal" defaultValue={money(details.min_order_cents)} hint="Não conta a taxa de entrega." />
         </div>

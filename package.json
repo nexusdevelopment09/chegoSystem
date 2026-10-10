@@ -16,10 +16,12 @@
     "db:migrate": "node scripts/db.ts migrate",
     "icons": "node scripts/generate-icons.mjs",
     "test:e2e": "playwright test",
-    "test:all": "npm run test && npm run test:e2e",
+    "test:all": "npm run test && npm run simulate:test && npm run test:e2e",
     "db:types": "node scripts/db-types.ts",
     "seed:images": "node db/seed/images.ts",
-    "push:keys": "web-push generate-vapid-keys"
+    "push:keys": "web-push generate-vapid-keys",
+    "simulate": "vitest run --config vitest.simulate.config.ts",
+    "simulate:test": "vitest run --config vitest.simulate.config.ts --mode test-db"
   },
   "dependencies": {
     "next": "16.4.0",

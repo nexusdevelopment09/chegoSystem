@@ -4,7 +4,9 @@ import type { PriceMode } from "../../src/lib/catalog/pricing.ts";
 /** Desenho usado na foto gerada do produto. */
 export type Art =
   | "pizza" | "burger" | "acai" | "bottle" | "grocery" | "medicine"
-  | "fish" | "bread" | "lunchbox" | "sushi" | "cake" | "jar";
+  | "fish" | "bread" | "lunchbox" | "sushi" | "cake" | "jar"
+  | "can" | "package" | "carton" | "produce" | "tray" | "cleaning" | "hygiene" | "tub"
+  | "cup" | "fries" | "snack" | "dish" | "bag";
 
 export type OptionDef = { name: string; price?: number; label?: string; available?: boolean };
 export type GroupDef = { key: string; name: string; options: OptionDef[] };
@@ -474,3 +476,66 @@ export const STORES: StoreDef[] = [
     ),
   },
 ];
+
+// Produtos simples (sem opções nem horário especial) que completam os cardápios, para
+// toda loja ativa ter pelo menos uma dúzia de itens para ver, buscar e pedir.
+// Formato: [seção, nome, preço em reais, desenho quando o nome não diz o que é].
+const MORE: Record<string, [string, string, number, Art][]> = {
+  pizzaria: [
+    ["Entradas", "Esfiha de carne", 6, "snack"], ["Entradas", "Esfiha de queijo", 6, "snack"],
+    ["Entradas", "Pão de alho — 4 unidades", 12, "bread"], ["Sobremesas", "Pudim de leite — fatia", 9, "cake"],
+  ],
+  lasanha: [
+    ["Acompanhamentos", "Salada de alface e tomate", 12, "produce"], ["Acompanhamentos", "Pão de alho — 4 unidades", 12, "bread"],
+    ["Sobremesas", "Pudim de leite — fatia", 9, "cake"],
+  ],
+  quentinha: [
+    ["Bebidas e sobremesas", "Refrigerante lata", 6, "can"], ["Bebidas e sobremesas", "Água mineral 500 ml", 3, "bottle"],
+    ["Bebidas e sobremesas", "Salada de frutas 300 ml", 8, "cup"], ["Bebidas e sobremesas", "Doce de leite — fatia", 6, "cake"],
+  ],
+  sushi: [
+    ["Entradas", "Guioza — 6 unidades", 22, "snack"], ["Entradas", "Harumaki — 4 unidades", 18, "snack"],
+    ["Entradas", "Sunomono", 14, "dish"], ["Pratos quentes", "Yakisoba de frango", 36, "dish"],
+    ["Pratos quentes", "Sashimi de peixe — 10 fatias", 39, "fish"], ["Bebidas", "Refrigerante lata", 6, "can"],
+    ["Bebidas", "Chá gelado 300 ml", 7, "cup"],
+  ],
+  peixaria: [
+    ["Prontos para comer", "Isca de peixe — porção", 32, "snack"], ["Prontos para comer", "Camarão empanado — porção", 42, "snack"],
+    ["Prontos para comer", "Caldo de peixe 500 ml", 16, "cup"], ["Prontos para comer", "Pirão — porção", 12, "dish"],
+    ["Acompanhamentos", "Limão — 6 unidades", 4, "produce"], ["Acompanhamentos", "Farinha de mandioca 1 kg", 9, "package"],
+  ],
+  burger: [
+    ["Bebidas", "Refrigerante 2 L", 12, "bottle"], ["Sobremesas", "Bolo de chocolate — fatia", 10, "cake"],
+  ],
+  delicias: [
+    ["Salgados", "Empada de frango", 6, "snack"], ["Doces", "Doce de leite — fatia", 6, "cake"], ["Bebidas", "Suco natural 300 ml", 6, "cup"],
+  ],
+  padaria: [
+    ["Padaria", "Pão de queijo — 6 unidades", 9, "snack"], ["Padaria", "Bolo de cenoura — fatia", 6, "cake"],
+    ["Padaria", "Sonho de creme", 5, "cake"], ["Bebidas", "Suco de laranja 300 ml", 6, "cup"],
+  ],
+  acai: [
+    ["Sobremesas", "Bolo de pote de ninho", 12, "cake"], ["Sobremesas", "Taça de sorvete — 2 bolas", 10, "cup"],
+    ["Sobremesas", "Picolé de fruta", 4, "cup"], ["Sobremesas", "Creme de cupuaçu 300 ml", 12, "cup"],
+    ["Bebidas", "Milkshake de açaí 400 ml", 16, "cup"], ["Bebidas", "Suco de cupuaçu 400 ml", 8, "cup"],
+    ["Bebidas", "Água mineral 500 ml", 3, "bottle"], ["Bebidas", "Refrigerante lata", 6, "can"],
+  ],
+  deposito: [
+    ["Bebidas", "Refrigerante lata", 5, "can"], ["Bebidas", "Suco de caixa 1 L", 8, "carton"],
+    ["Para a festa", "Amendoim torrado 150 g", 6, "jar"], ["Para a festa", "Copos descartáveis — 50 unidades", 7, "hygiene"],
+  ],
+  emporio: [
+    ["Mercearia natural", "Açúcar mascavo 500 g", 12, "package"], ["Mercearia natural", "Óleo de coco 200 ml", 24, "package"],
+    ["Mercearia natural", "Quinoa em grãos 250 g", 18, "jar"],
+  ],
+  suplementos: [
+    ["Proteínas", "Albumina 500 g", 59, "tub"], ["Performance", "Glutamina 300 g", 79, "tub"],
+    ["Performance", "BCAA — 120 cápsulas", 69, "tub"], ["Saúde", "Multivitamínico — 60 cápsulas", 45, "medicine"],
+    ["Saúde", "Pasta de amendoim proteica 500 g", 32, "jar"], ["Acessórios", "Garrafa de água 1 L", 29, "bottle"],
+    ["Acessórios", "Barra de cereal — caixa com 12", 28, "package"],
+  ],
+};
+
+for (const store of STORES) {
+  for (const [section, name, reais, art] of MORE[store.key] ?? []) store.products.push({ name, price: c(reais), section, art });
+}

@@ -7,7 +7,7 @@ Este guia é para rodar o sistema **neste computador (Windows)**, só para teste
 
 ## Logins de teste
 
-Abra **http://localhost:3000/dev** e clique em **Entrar como** ao lado de qualquer usuário de teste (admin, lojistas, atendentes, entregador e 10 clientes).
+Abra **http://localhost:3000/dev** e clique em **Entrar como** ao lado de qualquer usuário de teste (admin, lojistas, atendentes, entregadores das lojas e da rede do Chegô, e 10 clientes).
 
 Também dá para entrar em http://localhost:3000/entrar:
 
@@ -70,6 +70,7 @@ O banco desliga quando o computador é desligado. Se você abrir o app com o ban
 | `npm test` | Roda os testes unitários e de integração |
 | `npm run test:e2e` | Roda os testes no navegador |
 | `npm run test:all` | Roda todos os testes |
+| `npm run simulate` | Faz um pedido completo em cada loja ativa, no banco que você usa, e mostra uma tabela com o resultado |
 | `npm run lint` / `npm run typecheck` | Verifica o código |
 | `npm run build` e `npm run start` | Monta e liga a versão otimizada (só para medir desempenho) |
 | `npm run icons` | Gera de novo os ícones do app (só se o logo mudar) |
@@ -110,7 +111,7 @@ db/
   migrations/          tabelas e regras do banco, numeradas (nunca editar uma já aplicada)
   seed/                dados de teste: lojas, cardápios, pessoas, pedidos e imagens
 docs/                  especificação original, arquitetura, regras de negócio, usuários de teste, roteiro de testes e notas para o futuro
-storage/               fotos de produtos, lojas e banners (geradas pelo seed e pelos envios)
+storage/               fotos de produtos, lojas, banners e segmentos (geradas pelo seed e pelos envios)
 e2e/                   testes no navegador, em tela de celular (Playwright)
 tests/integration/     testes contra o banco (regras de quem vê o quê, pagamentos, estoque, reembolsos)
 scripts/
@@ -155,11 +156,23 @@ public/
 - **Acessibilidade:** as telas são conferidas automaticamente (contraste, nomes dos botões, rótulos dos campos), nada pode passar da largura do celular, toda área de toque tem pelo menos 44 px e o painel do lojista funciona só com o teclado.
 - **Segurança:** o cookie de sessão não é lido por scripts, cada tabela tem regras de quem pode ver o quê, o webhook de pagamento só aceita avisos assinados e não processa o mesmo aviso duas vezes.
 
-- **Desempenho:** no build de produção (`npm run build` e `npm run start`), medido neste computador em 10/10/2026, as páginas respondem em menos de 0,1 s e o HTML de cada uma pesa de 4 a 15 KB comprimido; todo o JavaScript do app soma 1,1 MB antes da compressão, e as fotos são WebP com carregamento sob demanda. Não foi medido em celular de verdade nem em rede 3G.
+- **Desempenho em 3G simulado:** medido em 10/10/2026 no build de produção (`npm run build` e `npm run start`), em tela de celular, com rede "3G rápido" (1,6 Mbps, 150 ms de latência), processador 4x mais lento e sem nada em cache.
+
+  | Página | Conteúdo principal na tela | Tudo carregado | Peso total |
+  |---|---|---|---|
+  | Início | 1,2 s | 2,2 s | 411 KB |
+  | Loja com 60 produtos | 0,9 s | 1,7 s | 302 KB |
+  | Produto (pizza) | 1,1 s | 1,5 s | 257 KB |
+  | Busca | 0,7 s | 1,7 s | 284 KB |
+  | Entrar | 0,6 s | 1,4 s | 243 KB |
+
+  Cerca de 160 KB de cada página são o JavaScript do app, que fica guardado no aparelho depois da primeira visita. As fotos são WebP, em dois tamanhos, e só carregam quando chegam perto da tela. A medição foi feita neste computador, com as imagens desenhadas do seed; fotos de verdade pesam mais, e não foi medido em um celular real.
 
 ## 9. Diferenças em relação à especificação
 
 - A especificação pedia Supabase local com Docker. Como o Docker exige ligar a virtualização na BIOS (e reiniciar), o projeto usa **PostgreSQL direto no Windows**. Por isso, login, armazenamento de fotos e atualização das telas são feitos dentro do próprio app, e não pelo Supabase. As telas se atualizam sozinhas consultando o servidor a cada poucos segundos.
 - O único gateway de pagamento é o **simulado**. A integração com um gateway real (Etapa 14) e a publicação (Etapa 15) não foram feitas: o sistema roda só neste computador. O que falta para ir ao ar está em [docs/PRODUCAO.md](docs/PRODUCAO.md).
+- A especificação deixava a frota de entregadores da plataforma para o futuro. A pedido, ela foi feita: a loja escolhe entre o próprio entregador e a rede do Chegô (entregadores da plataforma e parceiros). Veja [docs/REGRAS_DE_NEGOCIO.md](docs/REGRAS_DE_NEGOCIO.md).
+- As fotos aceitam qualquer formato de imagem até 15 MB (a especificação pedia só JPG, PNG e WebP até 5 MB), sempre regravadas em tamanho pequeno.
 - A ordem dos produtos e categorias do cardápio é mudada por setas (subir e descer), e não arrastando.
 - O botão "usar minha localização" não existe: o cliente escolhe o bairro na lista.

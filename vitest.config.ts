@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
-import { TEST_DATABASE_URL } from "./tests/reset-test-db.ts";
+import { TEST_DATABASE_URL, TEST_STORAGE } from "./tests/reset-test-db.ts";
 
 export default defineConfig({
   resolve: {
@@ -15,7 +15,7 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "tests/integration/**/*.test.ts"],
     globalSetup: ["tests/reset-test-db.ts"],
     // O código do app chamado pelos testes de integração lê o banco destas variáveis.
-    env: { DATABASE_URL: TEST_DATABASE_URL, APP_ENV: "local", PAYMENT_PROVIDER: "mock" },
+    env: { DATABASE_URL: TEST_DATABASE_URL, APP_ENV: "local", PAYMENT_PROVIDER: "mock", STORAGE_DIR: TEST_STORAGE },
     // Um arquivo por vez: os de integração dividem o mesmo banco, e o de pagamentos
     // grava pedidos de verdade (depois devolve o banco ao estado do seed).
     fileParallelism: false,

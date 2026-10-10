@@ -1,13 +1,17 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SearchBox } from "@/components/store/SearchBox";
+import { WideImage } from "@/components/ui/WideImage";
 import { StoreList, StoreListSkeleton } from "@/components/store/StoreCard";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
 import { CATEGORY_EMOJI } from "@/lib/labels";
+import { STORAGE_DIR } from "@/lib/storage-dir";
 import { getShoppingContext } from "@/lib/shopping-context";
 import { listStores, type StoreSummary } from "@/lib/stores/queries";
 
@@ -100,9 +104,15 @@ async function HomeContent() {
       <nav aria-label="Categorias" className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
         {categories.map((category) => (
           <Link key={category.slug} href={`/categoria/${category.slug}`} className="flex w-20 shrink-0 flex-col items-center gap-1 text-center text-xs font-semibold">
-            <span className="flex size-16 items-center justify-center rounded-3xl bg-peach text-3xl" aria-hidden="true">
-              {CATEGORY_EMOJI[category.icon] ?? "🛍️"}
-            </span>
+            {existsSync(join(STORAGE_DIR, "categories", `${category.slug}.webp`)) ? (
+              // Imagem do segmento (240px, poucos KB). <img> comum: o arquivo já está no tamanho certo.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`/files/categories/${category.slug}.webp`} alt="" width={64} height={64} decoding="async" className="size-16 rounded-3xl bg-peach" />
+            ) : (
+              <span className="flex size-16 items-center justify-center rounded-3xl bg-peach text-3xl" aria-hidden="true">
+                {CATEGORY_EMOJI[category.icon] ?? "🛍️"}
+              </span>
+            )}
             {category.name}
           </Link>
         ))}
@@ -111,8 +121,7 @@ async function HomeContent() {
       {banners.length > 0 && (
         <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4" aria-label="Promoções" role="region">
           {banners.map((banner) => {
-            // eslint-disable-next-line @next/next/no-img-element
-            const image = <img src={banner.image_url} alt={banner.title} width={1200} height={500} className="aspect-[12/5] w-full rounded-card object-cover" />;
+            const image = <WideImage url={banner.image_url} alt={banner.title} width={1200} height={500} priority={banner.id === banners[0].id} className="aspect-[12/5] w-full rounded-card" />;
             return (
               <div key={banner.id} className="w-[85%] shrink-0 snap-center sm:w-[420px]">
                 {banner.link_url ? <Link href={banner.link_url}>{image}</Link> : image}

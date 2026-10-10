@@ -4,9 +4,10 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
 import { ProductImage } from "@/components/catalog/ProductImage";
+import { ImageInput } from "@/components/forms/ImageInput";
 import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
 import { Button } from "@/components/ui/Button";
-import { Field, fileInputClass, inputClass } from "@/components/ui/Field";
+import { Field, inputClass } from "@/components/ui/Field";
 import { withUser } from "@/lib/db";
 import { getMerchantContext } from "@/lib/merchant/context";
 import { WEEKDAY_NAMES } from "@/lib/time";
@@ -114,10 +115,7 @@ async function ProductEditor({ params }: { params: Params }) {
 
         <div className="flex items-center gap-3">
           <ProductImage url={product?.image_url ?? null} alt="" size={72} className="size-[72px] rounded-2xl" />
-          <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm font-semibold">
-            Foto (JPG, PNG ou WebP, até 5 MB)
-            <input type="file" name="image" accept="image/jpeg,image/png,image/webp" className={fileInputClass} />
-          </label>
+          <ImageInput name="image" label="Foto do produto" className="flex-1" maxSide={1200} />
         </div>
         {product?.image_url && (
           <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name="removeImage" className={check} /> Remover a foto</label>

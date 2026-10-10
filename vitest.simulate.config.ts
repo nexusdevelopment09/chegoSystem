@@ -24,6 +24,9 @@ export default defineConfig(({ mode }) => {
         ...(onTestDatabase ? { STORAGE_DIR: TEST_STORAGE } : {}),
       },
       testTimeout: 120_000,
+      // A tabela do resultado é impressa sempre, e não só quando algo falha.
+      silent: false,
+      reporters: ["verbose"],
     },
   };
 });

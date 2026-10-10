@@ -62,7 +62,7 @@ export async function simulatePayment(formData: FormData) {
   assertLocal();
   const orderId = uuid.parse(formData.get("orderId"));
   const outcome = z.enum(["approve", "decline", "expire"]).parse(formData.get("outcome"));
-  const back = z.string().startsWith("/").max(200).optional().parse(formData.get("back") ?? undefined);
+  const back = z.string().regex(/^\/(?!\/)/).max(200).optional().parse(formData.get("back") ?? undefined);
 
   const [payment] = await sql<{ provider_payment_id: string }[]>`
     select provider_payment_id from payments

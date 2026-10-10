@@ -84,7 +84,7 @@ export function CartView() {
         <label htmlFor="coupon" className="text-sm font-semibold">Cupom de desconto</label>
         <div className="flex gap-2">
           <input id="coupon" name="coupon" key={coupon} defaultValue={coupon} maxLength={30}
-            autoCapitalize="characters" autoComplete="off" className={`${inputClass} uppercase`} />
+            autoCapitalize="characters" autoComplete="off" className={`${inputClass} min-w-0 flex-1 uppercase`} />
           <Button type="submit" variant="secondary" className="shrink-0">Aplicar</Button>
         </div>
         {quote?.coupon && (

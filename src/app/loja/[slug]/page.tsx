@@ -158,7 +158,7 @@ async function StoreContent({ params }: { params: Params }) {
                 <Link
                   href={`/loja/${store.slug}/produto/${product.id}`}
                   data-testid="menu-product"
-                  className={`flex items-center gap-3 rounded-card bg-white p-3 shadow-sm ring-1 ring-peach ${product.status.orderable ? "" : "opacity-60 grayscale"}`}
+                  className={`flex items-center gap-3 rounded-card bg-white p-3 shadow-sm ring-1 ring-peach ${product.status.orderable ? "" : "grayscale"}`}
                 >
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold leading-tight">{product.name}</p>

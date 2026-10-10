@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
-import { chooseNeighborhood, db, loginAs, placePaidOrder, setClock, visible } from "./helpers";
+import { chooseNeighborhood, db, loginAs, placePaidOrder, setClock, visible, freshDatabase } from "./helpers";
 
 // A Friday at 20h: the burger place and the açaí shop are open.
-test.beforeAll(() => setClock("2026-10-09T20:00"));
+test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
 
 const ADMIN = "Admin Chegô";
@@ -291,16 +291,25 @@ test("cadastros: bairro novo aparece para o cliente e manutenção fecha a cidad
   await chooseNeighborhood(customer, "Bairro de Teste");
   await expect(customer.locator('[data-testid="current-location"]:visible')).toHaveText("Bairro de Teste, Joaquim Gomes");
 
-  await page.getByRole("button", { name: "Sem manutenção: Joaquim Gomes" }).click();
-  await expect(page.getByRole("button", { name: "Em manutenção: Joaquim Gomes" })).toBeVisible();
-  await customer.reload();
-  await expect(customer.locator('[data-testid="maintenance"]:visible')).toContainText("Estamos arrumando a casa em Joaquim Gomes.");
+  try {
+    await page.getByRole("button", { name: "Sem manutenção: Joaquim Gomes" }).click();
+    await expect(page.getByRole("button", { name: "Em manutenção: Joaquim Gomes" })).toBeVisible();
+    await expect(async () => {
+      await customer.goto("/");
+      await expect(customer.locator('[data-testid="maintenance"]:visible')).toContainText("Estamos arrumando a casa em Joaquim Gomes.", { timeout: 5_000 });
+    }).toPass({ timeout: 30_000 });
 
-  await page.getByRole("button", { name: "Em manutenção: Joaquim Gomes" }).click();
-  await expect(page.getByRole("button", { name: "Sem manutenção: Joaquim Gomes" })).toBeVisible();
-  await customer.reload();
-  await expect(customer.getByRole("heading", { name: "Abertas agora" })).toBeVisible();
-  await customer.context().close();
+    await page.getByRole("button", { name: "Em manutenção: Joaquim Gomes" }).click();
+    await expect(page.getByRole("button", { name: "Sem manutenção: Joaquim Gomes" })).toBeVisible();
+    await expect(async () => {
+      await customer.goto("/");
+      await expect(customer.getByRole("heading", { name: "Abertas agora" })).toBeVisible({ timeout: 5_000 });
+    }).toPass({ timeout: 30_000 });
+  } finally {
+    // A city left in maintenance would break every shopping test that runs after this one.
+    await db`update cities set maintenance_mode = false`;
+    await customer.context().close();
+  }
 });
 
 test("configurações: taxa de serviço nova vale no carrinho; recursos ligam e desligam", async ({ page, browser }) => {

@@ -68,12 +68,12 @@ async function Registry() {
               </div>
               <ul className="mt-2 flex flex-wrap gap-2 text-sm">
                 {hoods.filter((hood) => hood.city_id === city.id).map((hood) => (
-                  <li key={hood.id} className={`flex items-center gap-1 rounded-full bg-white py-1 pl-3 pr-1 ring-1 ring-peach ${hood.active ? "" : "opacity-50"}`}>
+                  <li key={hood.id} className={`flex items-center gap-1 rounded-full bg-white py-1 pl-3 pr-1 ring-1 ring-peach ${hood.active ? "" : "grayscale"}`}>
                     {hood.name}{hood.is_rural && " (rural)"}
                     <form action={toggleRegistry}>
                       <input type="hidden" name="id" value={hood.id} />
                       <input type="hidden" name="target" value="neighborhood" />
-                      <button type="submit" className="min-h-8 rounded-full px-2 text-xs font-bold text-brand-dark underline" aria-label={`${hood.active ? "Desativar" : "Reativar"} ${hood.name}`}>
+                      <button type="submit" className="min-h-11 rounded-full px-2 text-xs font-bold text-brand-dark underline" aria-label={`${hood.active ? "Desativar" : "Reativar"} ${hood.name}`}>
                         {hood.active ? "desativar" : "reativar"}
                       </button>
                     </form>

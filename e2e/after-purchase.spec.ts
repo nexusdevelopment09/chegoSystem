@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { db, loginAs, placePaidOrder, setClock, visible } from "./helpers";
+import { db, loginAs, placePaidOrder, setClock, visible, freshDatabase } from "./helpers";
 
 // A Friday at 20h: the burger place is open.
-test.beforeAll(() => setClock("2026-10-09T20:00"));
+test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
 
 /** A delivered order of the customer at Brasa Burger, straight in the database. */

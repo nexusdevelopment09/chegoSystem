@@ -44,7 +44,7 @@ async function Reviews() {
       {reviews.length === 0 && <p className="rounded-card bg-white p-6 text-center text-coffee-soft ring-1 ring-peach">Nenhuma avaliação ainda.</p>}
 
       {reviews.map((review) => (
-        <article key={review.id} data-testid="merchant-review" className={`flex flex-col gap-2 rounded-card bg-white p-4 ring-1 ring-peach ${review.hidden_at ? "opacity-60" : ""}`}>
+        <article key={review.id} data-testid="merchant-review" className={`flex flex-col gap-2 rounded-card bg-white p-4 ring-1 ring-peach ${review.hidden_at ? "grayscale" : ""}`}>
           <p className="text-sm">
             <span className="font-bold text-brand-dark" aria-label={`${review.rating} de 5 estrelas`}>
               {"★".repeat(review.rating)}<span className="text-peach">{"★".repeat(5 - review.rating)}</span>

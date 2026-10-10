@@ -30,6 +30,19 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Basic protections on every page: no sniffing of file types, no
+        // embedding of the app inside another site (clickjacking), no leaking
+        // of full addresses to other sites, and no access to sensors the app
+        // does not use.
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), payment=(), geolocation=(self)" },
+        ],
+      },
+      {
         source: "/sw.js",
         headers: [
           { key: "Content-Type", value: "application/javascript; charset=utf-8" },

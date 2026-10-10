@@ -8,7 +8,9 @@ O jeito mais rápido é a página **http://localhost:3000/dev**: na seção "Log
 
 O admin também entra em http://localhost:3000/entrar com usuário `admin` e senha `admin`.
 
-O login por telefone, com o código fixo **`123456`** para todos os números abaixo, entra na Etapa 3.
+Todos também entram pelo telefone: em http://localhost:3000/entrar, digite o número da tabela e o código fixo **`123456`**.
+
+Para testar passo a passo, siga o [roteiro de testes](ROTEIRO_DE_TESTES.md).
 
 ## Admin
 

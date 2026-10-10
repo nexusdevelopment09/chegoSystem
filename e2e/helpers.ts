@@ -1,6 +1,7 @@
+import { execFileSync } from "node:child_process";
 import type { Page } from "@playwright/test";
 import postgres from "postgres";
-import { TEST_DATABASE_URL } from "../tests/reset-test-db";
+import { TEST_DATABASE, TEST_DATABASE_URL } from "../tests/reset-test-db";
 
 /** Direct access to the test database, to prepare or check a scenario. */
 export const db = postgres(TEST_DATABASE_URL, { max: 2, onnotice: () => {} });
@@ -77,4 +78,24 @@ export async function placePaidOrder(page: Page, customer: string, storeSlug: st
   await page.getByRole("button", { name: "Simular pagamento aprovado" }).click();
   await page.waitForURL(new RegExp(`/pedidos/${orderId}$`));
   return orderId;
+}
+
+/**
+ * Recreates the test database with the original seed and sets the clock.
+ * Each test file starts with it, so no file depends on what another one changed.
+ */
+export async function freshDatabase(localDateTime: string | null = null) {
+  execFileSync(process.execPath, ["scripts/db.ts", "reset"], { env: { ...process.env, CHEGO_DB: TEST_DATABASE }, stdio: "ignore" });
+  // Recreating the database drops every open connection (ours and the app's):
+  // give them a moment to notice, then wait until a query goes through again.
+  for (let attempt = 0; ; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      await db`select 1`;
+      break;
+    } catch (error) {
+      if (attempt >= 10) throw error;
+    }
+  }
+  await setClock(localDateTime);
 }

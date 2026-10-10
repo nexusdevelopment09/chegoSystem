@@ -45,7 +45,7 @@ async function Coupons() {
       {coupons.length === 0 && <p className="rounded-card bg-white p-6 text-center text-coffee-soft ring-1 ring-peach">Nenhum cupom criado ainda.</p>}
       <ul className="flex flex-col gap-2">
         {coupons.map((coupon) => (
-          <li key={coupon.id} data-testid="store-coupon" className={`flex flex-wrap items-center justify-between gap-2 rounded-card bg-white p-4 ring-1 ring-peach ${coupon.active ? "" : "opacity-60"}`}>
+          <li key={coupon.id} data-testid="store-coupon" className={`flex flex-wrap items-center justify-between gap-2 rounded-card bg-white p-4 ring-1 ring-peach ${coupon.active ? "" : "grayscale"}`}>
             <div>
               <p className="font-display text-xl font-semibold">{coupon.code}</p>
               <p className="text-sm">{describe(coupon)}{coupon.min_order_cents > 0 && ` · mínimo ${formatCents(coupon.min_order_cents)}`}</p>

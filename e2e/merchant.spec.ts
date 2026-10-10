@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { chooseNeighborhood, db, loginAs, placePaidOrder, setClock, visible } from "./helpers";
+import { chooseNeighborhood, db, loginAs, placePaidOrder, setClock, visible, freshDatabase } from "./helpers";
 
 // A Friday at 20h: the pizzaria and the burger place are open.
-test.beforeAll(() => setClock("2026-10-09T20:00"));
+test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
 
 const column = (page: import("@playwright/test").Page, title: string) => page.locator(`[data-testid="column-${title}"]:visible`);

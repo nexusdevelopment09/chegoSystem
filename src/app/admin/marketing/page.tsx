@@ -60,7 +60,7 @@ async function Marketing() {
         <h2 className="text-xl">Banners</h2>
         <ul className="grid gap-3 sm:grid-cols-2">
           {banners.map((banner) => (
-            <li key={banner.id} data-testid="admin-banner" className={`flex flex-col gap-2 rounded-2xl bg-cream p-2 ${banner.active ? "" : "opacity-60"}`}>
+            <li key={banner.id} data-testid="admin-banner" className={`flex flex-col gap-2 rounded-2xl bg-cream p-2 ${banner.active ? "" : "grayscale"}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={banner.image_url} alt="" width={1200} height={500} loading="lazy" className="aspect-[12/5] w-full rounded-xl object-cover" />
               <p className="text-sm">
@@ -100,7 +100,7 @@ async function Marketing() {
         <h2 className="text-xl">Cupons</h2>
         <ul className="flex flex-col gap-2">
           {coupons.map((coupon) => (
-            <li key={coupon.id} data-testid="admin-coupon" className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-cream px-3 py-2 ${coupon.active ? "" : "opacity-60"}`}>
+            <li key={coupon.id} data-testid="admin-coupon" className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-cream px-3 py-2 ${coupon.active ? "" : "grayscale"}`}>
               <span>
                 <strong>{coupon.code}</strong> · {describe(coupon)} · pago pela {coupon.paid_by === "platform" ? "plataforma" : "loja"}
                 <span className="block text-sm text-coffee-soft">

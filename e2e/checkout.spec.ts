@@ -1,9 +1,9 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
-import { chooseNeighborhood, db, loginAs, loginWithPhone, productUrl, setClock } from "./helpers";
+import { chooseNeighborhood, db, loginAs, loginWithPhone, productUrl, setClock, freshDatabase } from "./helpers";
 
 // A Friday at 20h: dinner places, the depot and the pharmacy are open.
-test.beforeAll(() => setClock("2026-10-09T20:00"));
+test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
 // Each test starts without a cart saved on the server by an earlier one.
 test.beforeEach(() => db`delete from carts`);

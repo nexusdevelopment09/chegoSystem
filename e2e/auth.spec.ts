@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { db, loginAs, loginWithPhone } from "./helpers";
+import { db, freshDatabase, loginAs, loginWithPhone } from "./helpers";
+
+test.beforeAll(() => freshDatabase());
 
 test("cliente novo se cadastra com telefone, nome e aceite dos termos", async ({ page }) => {
   await loginWithPhone(page, "(82) 98888-1234");

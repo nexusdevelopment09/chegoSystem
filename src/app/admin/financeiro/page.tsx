@@ -78,7 +78,7 @@ async function Finance({ searchParams }: { searchParams: SearchParams }) {
           <h2 className="text-xl">Comissões por loja em {br(month)}</h2>
           <a href={`/admin/financeiro/exportar?mes=${month}`} download className={buttonClass("secondary", "min-h-11 px-4 text-sm")}>Baixar relatório do contador (CSV)</a>
         </header>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela (role para o lado para ver tudo)">
           <table className="w-full min-w-[640px] text-sm" data-testid="commissions">
             <thead>
               <tr className="text-left text-coffee-soft">

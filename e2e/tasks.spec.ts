@@ -1,9 +1,9 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { chooseNeighborhood, db, loginAs, loginWithPhone, placePaidOrder, setClock, visible } from "./helpers";
+import { chooseNeighborhood, db, loginAs, loginWithPhone, placePaidOrder, setClock, visible, freshDatabase } from "./helpers";
 
 // This file runs last (alphabetical order): moving the clock forward here
 // expires and refuses whatever the other files left open.
-test.beforeAll(() => setClock("2026-10-09T20:00"));
+test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
 
 async function runTasks(request: APIRequestContext) {

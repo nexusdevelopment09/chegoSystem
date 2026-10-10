@@ -7,18 +7,26 @@ Este guia é para rodar o sistema **neste computador (Windows)**, só para teste
 
 ## Logins de teste
 
-Abra **http://localhost:3000/dev** e clique em **Entrar como** ao lado de qualquer usuário de teste (admin, lojistas, atendentes, entregador e 10 clientes). A lista completa, com o que cada um serve para testar, está em [docs/USUARIOS_DE_TESTE.md](docs/USUARIOS_DE_TESTE.md).
+Abra **http://localhost:3000/dev** e clique em **Entrar como** ao lado de qualquer usuário de teste (admin, lojistas, atendentes, entregador e 10 clientes).
 
-O admin também entra em http://localhost:3000/entrar com usuário `admin` e senha `admin`.
+Também dá para entrar em http://localhost:3000/entrar:
+
+- com o **telefone** de qualquer usuário de teste e o código fixo **123456**;
+- como admin, em **Entrar com senha**, com usuário `admin` e senha `admin`.
+
+A lista completa, com o que cada usuário serve para testar, está em [docs/USUARIOS_DE_TESTE.md](docs/USUARIOS_DE_TESTE.md). O passo a passo para conferir tudo à mão está em [docs/ROTEIRO_DE_TESTES.md](docs/ROTEIRO_DE_TESTES.md).
 
 ## Página de ferramentas de teste (`/dev`)
 
 Só existe no ambiente de testes. Nela você encontra:
 
-- **Relógio simulado:** muda a data e a hora que o sistema enxerga.
+- **Relógio simulado:** muda a data e a hora que o sistema enxerga (para testar loja fechada, pedido atrasado, cupom vencido).
 - **Login rápido:** entra como qualquer usuário de teste.
-- **Pagamentos pendentes:** aprova, recusa ou expira o pagamento de um pedido.
+- **Pagamentos pendentes:** aprova ou expira o Pix de um pedido. No cartão, número terminado em **0000** aprova e em **1111** recusa.
+- **Gerar pedido aleatório:** cria um pedido pago para a loja ter o que aceitar.
+- **Rodar tarefas agendadas agora:** faz na hora o que o sistema faz sozinho a cada minuto (cancelar pedido não aceito, expirar Pix, lembretes, faturas).
 - **Caixa de mensagens:** mostra os SMS, WhatsApp, e-mails e notificações que o sistema "enviou". Nada sai de verdade.
+- **Resetar banco:** volta os dados de teste ao começo.
 
 ## 1. O que instalar (uma vez só)
 
@@ -63,6 +71,7 @@ O banco desliga quando o computador é desligado. Se você abrir o app com o ban
 | `npm run test:e2e` | Roda os testes no navegador |
 | `npm run test:all` | Roda todos os testes |
 | `npm run lint` / `npm run typecheck` | Verifica o código |
+| `npm run build` e `npm run start` | Monta e liga a versão otimizada (só para medir desempenho) |
 | `npm run icons` | Gera de novo os ícones do app (só se o logo mudar) |
 
 Os testes usam um banco separado (`chego_test`), recriado a cada execução. Eles nunca mexem nos dados que você está testando à mão, e ligam o banco sozinhos se estiver desligado.
@@ -100,30 +109,35 @@ Se não abrir, o Firewall do Windows pode estar bloqueando: Painel de Controle �
 db/
   migrations/          tabelas e regras do banco, numeradas (nunca editar uma já aplicada)
   seed/                dados de teste: lojas, cardápios, pessoas, pedidos e imagens
-docs/                  usuários de teste e outros guias
-storage/               fotos de produtos, lojas e banners (geradas pelo seed)
-e2e/                   testes no navegador (Playwright)
-tests/integration/     testes contra o banco (regras de quem vê o quê)
+docs/                  usuários de teste, roteiro de testes e notas para o futuro
+storage/               fotos de produtos, lojas e banners (geradas pelo seed e pelos envios)
+e2e/                   testes no navegador, em tela de celular (Playwright)
+tests/integration/     testes contra o banco (regras de quem vê o quê, pagamentos)
 scripts/
   db.ts                liga, desliga e recria o banco local
 src/
   app/                 páginas e rotas (App Router)
-    entrar/            login
-    admin/             painel do admin
-    banco-desligado/   aviso quando o banco está desligado
-  components/
-    brand/             <LogoIcon /> e <Logo />
-    layout/            faixa "Ambiente de testes", registro do service worker
-    ui/                componentes reutilizáveis (botão...)
+    (cliente)          página inicial, busca, loja, carrinho, checkout, pedidos, perfil...
+    lojista/           painel da loja: pedidos, cardápio, cupons, relatórios, financeiro
+    admin/             painel da plataforma
+    dev/               ferramentas de teste
+    api/               rotas chamadas pelo navegador e o webhook de pagamento
+  components/          peças de tela reutilizáveis (botão, campo, cartão de loja...)
   lib/
-    auth/              senha, sessão e checagem de papel (sempre no servidor)
-    db.ts              conexão com o banco
-    env.ts             leitura das variáveis de ambiente
-    format.ts          dinheiro (R$) e telefone
+    auth/              login, sessão e checagem de papel (sempre no servidor)
+    catalog/           regras de preço e de opções dos produtos
+    checkout/          cálculo do pedido e criação do pedido
+    orders/            estados do pedido e a única função que muda o status
+    payments/          gateway simulado, webhook e reembolsos
+    notifications/     avisos no app, mensagens simuladas e push
+    tasks/             tarefas agendadas
+    clock.ts           o relógio do sistema (tudo que precisa da hora usa now())
+    db.ts              conexão com o banco e withUser (regras de quem vê o quê)
+    format.ts          dinheiro (R$), telefone e datas
   proxy.ts             confere se o banco está ligado
 public/
   icons/               ícones do PWA
-  sw.js                service worker
+  sw.js                service worker (página "sem internet" e push)
 ```
 
 ## 7. Convenções
@@ -134,6 +148,17 @@ public/
 - Botões com texto branco usam o laranja escuro (`brand-dark`), porque o branco sobre o laranja principal não atinge o contraste mínimo de 4,5:1.
 - Fuso horário: `America/Maceio`.
 
-## 8. Diferenças em relação à especificação
+## 8. Qualidade
 
-A especificação pedia Supabase local com Docker. Como o Docker exige ligar a virtualização na BIOS (e reiniciar), o projeto usa **PostgreSQL direto no Windows**. Por isso, login, armazenamento de fotos e tempo real são feitos dentro do próprio app, e não pelo Supabase. Tabelas, regras de negócio e testes seguem a especificação.
+- **Testes automáticos:** regras de preço, cupons, horários e estados do pedido (unitários); regras de acesso e pagamentos direto no banco (integração); e os caminhos principais no navegador em tela de celular.
+- **Acessibilidade:** as telas são conferidas automaticamente (contraste, nomes dos botões, rótulos dos campos), nada pode passar da largura do celular, toda área de toque tem pelo menos 44 px e o painel do lojista funciona só com o teclado.
+- **Segurança:** o cookie de sessão não é lido por scripts, cada tabela tem regras de quem pode ver o quê, o webhook de pagamento só aceita avisos assinados e não processa o mesmo aviso duas vezes.
+
+- **Desempenho:** no build de produção (`npm run build` e `npm run start`), medido neste computador em 10/10/2026, as páginas respondem em menos de 0,1 s e o HTML de cada uma pesa de 4 a 15 KB comprimido; todo o JavaScript do app soma 1,1 MB antes da compressão, e as fotos são WebP com carregamento sob demanda. Não foi medido em celular de verdade nem em rede 3G.
+
+## 9. Diferenças em relação à especificação
+
+- A especificação pedia Supabase local com Docker. Como o Docker exige ligar a virtualização na BIOS (e reiniciar), o projeto usa **PostgreSQL direto no Windows**. Por isso, login, armazenamento de fotos e atualização das telas são feitos dentro do próprio app, e não pelo Supabase. As telas se atualizam sozinhas consultando o servidor a cada poucos segundos.
+- O único gateway de pagamento é o **simulado**. A integração com um gateway real (Etapa 14) e a publicação (Etapa 15) não foram feitas: o sistema roda só neste computador. O que falta para ir ao ar está em [docs/PRODUCAO.md](docs/PRODUCAO.md).
+- A ordem dos produtos e categorias do cardápio é mudada por setas (subir e descer), e não arrastando.
+- O botão "usar minha localização" não existe: o cliente escolhe o bairro na lista.

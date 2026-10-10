@@ -22,7 +22,8 @@ export default defineConfig({
   },
   projects: [{ name: "celular", use: { ...devices["Pixel 7"] } }],
   webServer: {
-    command: `npx next dev -p ${PORT}`,
+    // Starts the database first (does nothing if it is already on); without it the app only shows "banco desligado".
+    command: `node scripts/db.ts start && npx next dev -p ${PORT}`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 120_000,

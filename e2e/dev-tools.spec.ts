@@ -1,4 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { freshDatabase } from "./helpers";
+
+test.beforeAll(() => freshDatabase());
 
 test("login rápido entra como cliente e como admin", async ({ page }) => {
   await page.goto("/dev");

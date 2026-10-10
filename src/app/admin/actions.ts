@@ -317,7 +317,7 @@ export async function saveBanner(_previous: ActionState, formData: FormData): Pr
   const parsed = z
     .object({
       title: z.string().trim().min(2, "Dê um título ao banner.").max(80),
-      link: z.union([z.string().trim().startsWith("/", "O link deve começar com /").max(200), z.literal("")]),
+      link: z.union([z.string().trim().regex(/^\/(?!\/)/, "O link deve ser de dentro do app e começar com /").max(200), z.literal("")]),
       cityId: z.union([uuid, z.literal("")]),
       startsAt: z.union([z.iso.date(), z.literal("")]),
       endsAt: z.union([z.iso.date(), z.literal("")]),

@@ -39,7 +39,7 @@ export function StoreCard({ store, neighborhoodName }: { store: StoreSummary; ne
     <Link
       href={`/loja/${store.slug}`}
       data-testid="store-card"
-      className={`flex items-center gap-3 rounded-card bg-white p-3 shadow-sm ring-1 ring-peach transition hover:ring-brand ${open ? "" : "opacity-70 grayscale"}`}
+      className={`flex items-center gap-3 rounded-card bg-white p-3 shadow-sm ring-1 ring-peach transition hover:ring-brand ${open ? "" : "grayscale"}`}
     >
       <StoreLogo store={store} size={64} />
       <div className="min-w-0 flex-1">

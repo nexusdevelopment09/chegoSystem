@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { productUrl, setClock } from "./helpers";
+import { freshDatabase, productUrl, setClock } from "./helpers";
+
+test.beforeAll(() => freshDatabase());
 
 test.afterAll(() => setClock(null));
 

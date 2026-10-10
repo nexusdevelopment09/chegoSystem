@@ -1,4 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { freshDatabase } from "./helpers";
+
+test.beforeAll(() => freshDatabase());
 
 test("a página inicial mostra a marca e a faixa de testes", async ({ page }) => {
   await page.goto("/");

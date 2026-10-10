@@ -95,7 +95,7 @@ async function Finance() {
 
       <section className="rounded-card bg-white p-4 ring-1 ring-peach">
         <h2 className="mb-2 text-xl">Extrato por pedido (30 dias)</h2>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela (role para o lado para ver tudo)">
           <table className="w-full min-w-[720px] text-sm" data-testid="statement">
             <thead>
               <tr className="text-left text-coffee-soft">

@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { chooseNeighborhood, loginAs, setClock } from "./helpers";
+import { chooseNeighborhood, loginAs, setClock, freshDatabase } from "./helpers";
 
 // A Friday at 20h: dinner places are open, the lunch-box store is closed.
-test.beforeAll(() => setClock("2026-10-09T20:00"));
+test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
 
 test("primeira visita escolhe o bairro e vê só as lojas da cidade", async ({ page }) => {

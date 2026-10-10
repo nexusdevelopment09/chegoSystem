@@ -7,7 +7,7 @@ import { Button, buttonClass } from "@/components/ui/Button";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { sql } from "@/lib/db";
 
-const small = "min-h-11 px-4 text-sm";
+const small = "min-h-11 px-3 text-sm sm:px-4";
 
 /** Top bar of every page: logo on the left, who is signed in on the right. */
 export function SiteHeader() {
@@ -45,7 +45,7 @@ async function UserArea() {
         : { href: "/perfil", label: "Perfil" };
 
   return (
-    <nav aria-label="Sua conta" className="flex items-center gap-2">
+    <nav aria-label="Sua conta" className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
       {profile.role === "customer" && <CartSync />}
       <span className="hidden text-sm text-coffee-soft sm:inline" data-testid="user-greeting">
         Oi, {profile.fullName.split(" ")[0] || "você"}

@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
-import { chooseNeighborhood, db, loginAs, loginWithPhone, productUrl, setClock, visible } from "./helpers";
+import { chooseNeighborhood, db, loginAs, loginWithPhone, productUrl, setClock, visible, freshDatabase } from "./helpers";
 
 // A Friday at 15h: the Empório, the Mercado and the Delícias da Vó are open.
-test.beforeAll(() => setClock("2026-10-09T15:00"));
+test.beforeAll(() => freshDatabase("2026-10-09T15:00"));
 test.afterAll(() => setClock(null));
 
 const EMPORIO_OWNER = "Larissa Pontes";

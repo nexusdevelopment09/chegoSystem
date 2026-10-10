@@ -1,18 +1,18 @@
-// How an order's money is split between the store and the platform.
-// Pure functions, in cents. Also imported by the seed.
+// Como o dinheiro de um pedido é dividido entre a loja e a plataforma.
+// Funções puras, em centavos. Também importado pelo seed.
 
 export type DiscountPayer = "platform" | "store";
 
 export type TotalsInput = {
   subtotalCents: number;
-  /** Discount on the products. For a free-delivery coupon use deliveryDiscountCents. */
+  /** Desconto nos produtos. Para cupom de frete grátis use deliveryDiscountCents. */
   productDiscountCents?: number;
-  /** Part of the delivery fee the coupon pays (free delivery). */
+  /** Parte da taxa de entrega que o cupom paga (frete grátis). */
   deliveryDiscountCents?: number;
   discountPaidBy?: DiscountPayer | null;
   deliveryFeeCents: number;
   serviceFeeCents: number;
-  /** 0.10 = 10%. The store's rate at the moment of the order. */
+  /** 0.10 = 10%. A taxa da loja no momento do pedido. */
   commissionRate: number;
 };
 
@@ -33,15 +33,15 @@ export function computeTotals(input: TotalsInput): Totals {
   const discountCents = productDiscount + deliveryDiscount;
   const storePays = discountCents > 0 && input.discountPaidBy === "store";
 
-  // Commission: on the subtotal before a platform discount, after a store discount.
+  // Comissão: sobre o subtotal antes do desconto da plataforma e depois do desconto da loja.
   const commissionBase = input.subtotalCents - (storePays ? productDiscount : 0);
   const commissionCents = Math.round(commissionBase * input.commissionRate);
 
   const totalCents =
     input.subtotalCents - discountCents + input.deliveryFeeCents + input.serviceFeeCents;
 
-  // The platform keeps commission and service fee, and pays its own coupons.
-  // The store gets everything else, including the whole delivery fee.
+  // A plataforma fica com a comissão e a taxa de serviço, e paga os próprios cupons.
+  // A loja fica com todo o resto, incluindo a taxa de entrega inteira.
   const platformAmountCents =
     commissionCents + input.serviceFeeCents - (storePays ? 0 : discountCents);
 
@@ -64,7 +64,7 @@ export type LedgerLine = {
   reason: string;
 };
 
-/** Ledger lines for a paid order. A side that nets to zero gets no line. */
+/** Lançamentos de um pedido pago. Um lado cujo saldo dá zero não ganha lançamento. */
 export function saleLedgerLines(split: {
   storeAmountCents: number;
   platformAmountCents: number;
@@ -72,7 +72,7 @@ export function saleLedgerLines(split: {
   return ledgerLines(split.storeAmountCents, split.platformAmountCents, "sale", "credit");
 }
 
-/** Ledger lines taking a refund back from each side. */
+/** Lançamentos que tiram um reembolso de cada lado. */
 export function refundLedgerLines(shares: {
   storeShareCents: number;
   platformShareCents: number;
@@ -94,7 +94,7 @@ function ledgerLines(
   return [...line("store", storeCents), ...line("platform", platformCents)];
 }
 
-/** Splits a refund between the sides in the same proportion as the sale. */
+/** Divide um reembolso entre os lados na mesma proporção da venda. */
 export function refundShares(
   refundCents: number,
   order: { storeAmountCents: number; totalCents: number },

@@ -4,8 +4,8 @@ import { now } from "@/lib/clock";
 import { clientIp, rateLimit, TOO_MANY_ATTEMPTS } from "@/lib/rate-limit";
 import { getShoppingContext } from "@/lib/shopping-context";
 
-// Server-side recalculation of a cart: every price, fee and total comes from
-// the database. Called by the cart and checkout pages on every change.
+// Recálculo da sacola no servidor: todo preço, taxa e total vem do banco.
+// Chamado pelas páginas da sacola e do checkout a cada mudança.
 export async function POST(request: Request) {
   const parsed = cartInputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

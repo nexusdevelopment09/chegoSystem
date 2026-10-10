@@ -4,7 +4,7 @@ import type { PaymentProvider } from "./types";
 
 let provider: PaymentProvider | null = null;
 
-/** The gateway chosen by PAYMENT_PROVIDER. Only "mock" exists for now. */
+/** O gateway escolhido por PAYMENT_PROVIDER. Por enquanto só existe o "mock". */
 export function getPaymentProvider(): PaymentProvider {
   if (provider) return provider;
   const name = process.env.PAYMENT_PROVIDER ?? "mock";

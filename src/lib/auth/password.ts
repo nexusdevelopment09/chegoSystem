@@ -1,7 +1,7 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
-// Stored as "scrypt$<salt hex>$<hash hex>". Also imported by db/seed.ts, so
-// this file must not depend on Next.js or on the "@/" alias.
+// Guardado como "scrypt$<salt hex>$<hash hex>". Também é importado por db/seed.ts, então
+// este arquivo não pode depender do Next.js nem do atalho "@/".
 const KEY_LENGTH = 64;
 
 export function hashPassword(password: string): string {

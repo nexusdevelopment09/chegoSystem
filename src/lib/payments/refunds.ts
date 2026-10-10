@@ -8,10 +8,10 @@ type Tx = postgres.TransactionSql;
 export class RefundError extends Error {}
 
 /**
- * Gives money back to the customer for an order: asks the gateway, records
- * the refund and writes the reversal in the ledger, taking it from the store
- * and the platform in the same proportion as the sale.
- * Must run inside the transaction that changes the order.
+ * Devolve dinheiro ao cliente por um pedido: pede ao gateway, grava
+ * o reembolso e escreve o estorno nos lançamentos, tirando da loja
+ * e da plataforma na mesma proporção da venda.
+ * Tem que rodar dentro da transação que muda o pedido.
  */
 export async function refundOrder(
   tx: Tx,
@@ -39,7 +39,7 @@ export async function refundOrder(
     providerPaymentId: payment.provider_payment_id, amountCents: amount, reason: input.reason,
   });
 
-  // On the last refund the store gives back exactly what is left of its share.
+  // No último reembolso a loja devolve exatamente o que sobrou da parte dela.
   const fully = amount === remaining;
   const [{ already_from_store }] = await tx<{ already_from_store: number }[]>`
     select coalesce(sum(store_share_cents), 0)::int as already_from_store from refunds where order_id = ${order.id}`;

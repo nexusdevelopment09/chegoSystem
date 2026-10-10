@@ -4,8 +4,8 @@ import { useEffect } from "react";
 
 export function ServiceWorkerRegister() {
   useEffect(() => {
-    // Service workers only run on HTTPS or localhost, so this is a no-op
-    // when the app is opened on a phone through the computer's IP.
+    // Service workers só rodam em HTTPS ou em localhost, então isto não faz nada
+    // quando o app é aberto no celular pelo IP do computador.
     if (!("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch((error) => {
       console.warn("Service worker registration failed", error);

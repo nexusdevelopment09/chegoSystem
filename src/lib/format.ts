@@ -3,9 +3,9 @@ const brl = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
 });
 
-/** Money is stored as integer cents everywhere. 123456 -> "R$ 1.234,56". */
+/** Dinheiro é guardado em centavos inteiros em todo lugar. 123456 -> "R$ 1.234,56". */
 export function formatCents(cents: number): string {
-  // Intl uses a non-breaking space after "R$"; keep a regular one for copy/paste.
+  // O Intl usa um espaço que não quebra linha depois de "R$"; aqui fica um espaço comum, para copiar e colar.
   return brl.format(cents / 100).replace(/ /g, " ");
 }
 
@@ -18,17 +18,17 @@ const dateTime = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
 });
 
-/** Date and time in Maceió: "09/10/2026, 14:30". */
+/** Data e hora em Maceió: "09/10/2026, 14:30". */
 export function formatDateTime(date: Date): string {
   return dateTime.format(date);
 }
 
-/** Value for an <input type="datetime-local">, in Maceió time (UTC-3 all year). */
+/** Valor para um <input type="datetime-local">, no horário de Maceió (UTC-3 o ano todo). */
 export function toDateTimeLocal(date: Date): string {
   return new Date(date.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 16);
 }
 
-/** "+5582900000001" or "82900000001" -> "(82) 90000-0001". */
+/** "+5582900000001" ou "82900000001" -> "(82) 90000-0001". */
 export function formatPhone(phone: string): string {
   let digits = phone.replace(/\D/g, "");
   if (digits.length > 11 && digits.startsWith("55")) digits = digits.slice(2);
@@ -42,7 +42,7 @@ export function formatPhone(phone: string): string {
   return phone;
 }
 
-/** Brazilian phone in any common format -> E.164 ("+5582900000001"), or null. */
+/** Telefone brasileiro em qualquer formato comum -> E.164 ("+5582900000001"), ou null. */
 export function toE164(phone: string): string | null {
   let digits = phone.replace(/\D/g, "");
   if (digits.length > 11 && digits.startsWith("55")) digits = digits.slice(2);
@@ -50,7 +50,7 @@ export function toE164(phone: string): string | null {
   return `+55${digits}`;
 }
 
-/** "12,50", "R$ 1.234,56" or "12.5" -> cents. Null when it is not a valid amount. */
+/** "12,50", "R$ 1.234,56" ou "12.5" -> centavos. Null quando não é um valor válido. */
 export function parseMoney(text: string): number | null {
   const clean = text.replace(/[R$\s]/g, "");
   if (!/^\d{1,3}(\.\d{3})*(,\d{1,2})?$|^\d+([.,]\d{1,2})?$/.test(clean)) return null;

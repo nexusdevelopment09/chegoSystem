@@ -13,9 +13,9 @@ import { handlePaymentWebhook } from "@/lib/payments/webhook";
 import { fromLocal, MINUTE_MS } from "@/lib/time";
 import { COVER_VARIANTS, LOGO_VARIANTS, pickedFile, saveImage, UploadError } from "@/lib/uploads";
 
-// Store settings, team, coupons and money. These tables have no write access
-// for regular users, so every action checks the role here and writes as the
-// owner connection, always filtering by the store the user belongs to.
+// Configurações da loja, equipe, cupons e dinheiro. Estas tabelas não dão acesso de
+// escrita a usuários comuns, então cada ação confere o papel aqui e grava pela
+// conexão dona do banco, sempre filtrando pela loja à qual o usuário pertence.
 
 export type ActionState = { error?: string; ok?: boolean; message?: string };
 
@@ -24,7 +24,7 @@ const time = z.union([z.string().regex(/^\d{2}:\d{2}$/), z.literal("")]);
 const owner = () => requireStoreMember(["owner"]);
 const done = () => revalidatePath("/lojista", "layout");
 
-// ------------------------------------------------------------- store data
+// ----------------------------------------------------------- dados da loja
 
 const storeSchema = z.object({
   description: z.string().trim().max(300),
@@ -77,7 +77,7 @@ export async function saveStore(_previous: ActionState, formData: FormData): Pro
         printer_width_mm = ${Number(data.printerWidth)}, auto_print = ${formData.get("autoPrint") === "on"},
         logo_url = coalesce(${logoUrl ?? null}, logo_url), cover_url = coalesce(${coverUrl ?? null}, cover_url)
       where id = ${membership.storeId}`;
-    // The half-and-half rule is applied to every flavor group of the store.
+    // A regra do meio a meio é aplicada a todos os grupos de sabores da loja.
     await tx`
       update product_option_groups l set price_mode = ${data.pizzaPricing}::option_price_mode
       from products p
@@ -88,7 +88,7 @@ export async function saveStore(_previous: ActionState, formData: FormData): Pro
   return { ok: true, message: "Dados da loja salvos." };
 }
 
-/** Opening hours: up to two shifts per weekday. Replaces the whole timetable. */
+/** Horários de funcionamento: até dois turnos por dia da semana. Substitui a grade inteira. */
 export async function saveHours(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { profile, membership } = await owner();
   const rows: { weekday: number; opensAt: string; closesAt: string; pickupOnly: boolean }[] = [];
@@ -117,7 +117,7 @@ export async function saveHours(_previous: ActionState, formData: FormData): Pro
   return { ok: true, message: "Horários salvos." };
 }
 
-/** Holiday or special closure, by whole days. */
+/** Feriado ou fechamento especial, por dias inteiros. */
 export async function addClosure(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { membership } = await owner();
   const parsed = z
@@ -139,7 +139,7 @@ export async function deleteClosure(formData: FormData): Promise<void> {
   done();
 }
 
-/** Where the store delivers, with the fee and time of each neighborhood. */
+/** Onde a loja entrega, com a taxa e o tempo de cada bairro. */
 export async function saveAreas(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { profile, membership } = await owner();
   const hoods = await sql<{ id: string; name: string }[]>`
@@ -169,9 +169,9 @@ export async function saveAreas(_previous: ActionState, formData: FormData): Pro
   return { ok: true, message: "Áreas de entrega salvas." };
 }
 
-// -------------------------------------------------------------------- team
+// ------------------------------------------------------------------- equipe
 
-/** Invites someone by phone. They sign in with that phone and already land in the store's panel. */
+/** Convida alguém pelo telefone. A pessoa entra com esse telefone e já cai no painel da loja. */
 export async function inviteMember(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { profile, membership } = await owner();
   const phone = toE164(String(formData.get("phone") ?? ""));
@@ -210,7 +210,7 @@ export async function removeMember(formData: FormData): Promise<void> {
   done();
 }
 
-// ----------------------------------------------------------------- coupons
+// ------------------------------------------------------------------- cupons
 
 const couponSchema = z.object({
   code: z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{3,20}$/, "O código usa de 3 a 20 letras e números, sem espaços."),
@@ -221,7 +221,7 @@ const couponSchema = z.object({
   maxUsesPerCustomer: z.coerce.number().int().min(1).max(1000),
 });
 
-/** A coupon created by the store is always paid by the store and only valid there. */
+/** Um cupom criado pela loja é sempre pago pela loja e só vale nela. */
 export async function createStoreCoupon(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { profile, membership } = await owner();
   const parsed = couponSchema.safeParse({
@@ -271,7 +271,7 @@ export async function toggleStoreCoupon(formData: FormData): Promise<void> {
   done();
 }
 
-// ----------------------------------------------------------------- reviews
+// --------------------------------------------------------------- avaliações
 
 export async function replyReview(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { membership } = await requireStoreMember(["owner", "attendant"]);
@@ -287,7 +287,7 @@ export async function replyReview(_previous: ActionState, formData: FormData): P
   return { ok: true, message: "Resposta publicada." };
 }
 
-/** Flags a review for the admin to look at (offensive, not about this store...). */
+/** Sinaliza uma avaliação para o admin olhar (ofensiva, não é sobre esta loja...). */
 export async function reportReview(formData: FormData): Promise<void> {
   const { membership } = await requireStoreMember(["owner", "attendant"]);
   await sql`
@@ -296,9 +296,9 @@ export async function reportReview(formData: FormData): Promise<void> {
   done();
 }
 
-// ---------------------------------------------------------------- invoices
+// ------------------------------------------------------------------ faturas
 
-/** Pays a monthly invoice through the app, with the same provider used for orders. */
+/** Paga uma fatura mensal pelo app, com o mesmo provedor usado nos pedidos. */
 export async function payInvoice(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { profile, membership } = await owner();
   const id = uuid.safeParse(formData.get("id"));
@@ -321,7 +321,7 @@ export async function payInvoice(_previous: ActionState, formData: FormData): Pr
     values (${row.id}, ${invoice.id}, ${provider.name}, ${created.providerPaymentId}, 'pix', 'pending', ${invoice.amount_cents},
             ${created.pixCopyPaste}, ${new Date(at.getTime() + 30 * MINUTE_MS)}, ${sql.json(created.raw as never)}, ${at})`;
 
-  // The pretend bank approves right away, through the same webhook as a real one.
+  // O banco de mentira aprova na hora, pelo mesmo webhook de um de verdade.
   const { rawBody, signature } = buildMockWebhook(created.providerPaymentId, "payment.approved");
   await handlePaymentWebhook(rawBody, signature);
 

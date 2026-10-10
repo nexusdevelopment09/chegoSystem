@@ -12,12 +12,12 @@ type Props = {
   history: { status: OrderStatus; reason: string | null; at: Date }[];
 };
 
-/** The order's steps, with the time each one happened and what is still to come. */
+/** Os passos do pedido, com a hora em que cada um aconteceu e o que ainda vem. */
 export function OrderTimeline({ fulfillment, status, history }: Props) {
   const done = new Map(history.map((entry) => [entry.status, entry]));
   const offFlow = history.filter((entry) => !FLOW[fulfillment].includes(entry.status));
   const stopped = offFlow.length > 0;
-  // After a cancellation or refusal the steps that never happened are not shown.
+  // Depois de um cancelamento ou recusa, os passos que nunca aconteceram não aparecem.
   const steps = FLOW[fulfillment].filter((step) => done.has(step) || !stopped);
 
   return (

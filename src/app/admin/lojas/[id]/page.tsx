@@ -68,7 +68,7 @@ async function StoreDetail({ params, searchParams }: Props) {
   const plans = await sql<{ id: string; name: string; monthly_price_cents: number }[]>`
     select id, name, monthly_price_cents from subscription_plans where active order by monthly_price_cents`;
 
-  // "Ver como esta loja": a read-only look at what the store sees. Opening it is logged.
+  // "Ver como esta loja": uma visão somente leitura do que a loja vê. Abrir fica registrado.
   const viewing = ver === "1";
   const view = viewing
     ? await (async () => {
@@ -84,7 +84,7 @@ async function StoreDetail({ params, searchParams }: Props) {
       })()
     : null;
 
-  // What the system can check by itself, to help the admin with the list.
+  // O que o sistema consegue conferir sozinho, para ajudar o admin com a lista.
   const facts: Record<string, string> = {
     data: `${store.category} em ${store.city}. Dono: ${store.owner_name}.`,
     documents: store.document_number ? `${(store.document_type ?? "").toUpperCase()} ${store.document_number}` : "Nenhum documento informado.",

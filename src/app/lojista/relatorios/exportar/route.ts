@@ -6,7 +6,7 @@ import { DAY_MS } from "@/lib/time";
 const money = (cents: number) => (cents / 100).toFixed(2).replace(".", ",");
 const date = (value: Date) => new Date(value.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 16).replace("T", " ");
 
-// The store's sales, one order per line, to open in a spreadsheet.
+// As vendas da loja, um pedido por linha, para abrir em uma planilha.
 export async function GET(request: Request) {
   const { store, at } = await getMerchantContext(["owner"]);
   const days = Math.min(365, Math.max(1, Number(new URL(request.url).searchParams.get("dias")) || 30));

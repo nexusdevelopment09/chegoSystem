@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 
 type InstallPrompt = Event & { prompt: () => Promise<void> };
 
-/** "Instalar o app": only appears when the browser says the PWA can be installed. */
+/** "Instalar o app": só aparece quando o navegador diz que o PWA pode ser instalado. */
 export function InstallButton() {
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null);
 

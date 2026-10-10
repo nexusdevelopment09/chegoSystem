@@ -19,7 +19,7 @@ type Props = {
   printWidth: number;
 };
 
-/** The buttons that move an order forward, according to where it is. */
+/** Os botões que fazem o pedido avançar, conforme onde ele está. */
 export function OrderActions(props: Props) {
   const { orderId, status, fulfillment, couriers } = props;
   if (!props.canRunCounter) return null;
@@ -122,7 +122,7 @@ export function OrderActions(props: Props) {
   return null;
 }
 
-/** "Em falta" button next to an item, while the order is being prepared. */
+/** Botão "Em falta" ao lado de um item, enquanto o pedido está em preparo. */
 export function RemoveItemButton({ orderId, itemId, itemName }: { orderId: string; itemId: string; itemName: string }) {
   return (
     <ActionForm action={removeMissingItem}>

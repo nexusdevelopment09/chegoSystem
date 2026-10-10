@@ -25,7 +25,7 @@ export type ConfigurableProduct = {
 
 type Props = {
   product: ConfigurableProduct;
-  /** Why it cannot be ordered right now ("Esgotado", "Só até 10h"...), if that is the case. */
+  /** Por que não pode ser pedido agora ("Esgotado", "Só até 10h"...), se for o caso. */
   blockedReason: string | null;
 };
 
@@ -59,7 +59,7 @@ export function ProductConfigurator({ product, blockedReason }: Props) {
           ? current.map((pick) => (pick === existing ? { ...pick, quantity: pick.quantity - 1 } : pick))
           : current.filter((pick) => pick !== existing);
       }
-      // One choice only: picking another option replaces the current one.
+      // Uma escolha só: escolher outra opção substitui a atual.
       if (group.max === 1) {
         return [...current.filter((pick) => pick.groupId !== group.id), { groupId: group.id, optionId: option.id, quantity: 1 }];
       }

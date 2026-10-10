@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { TEST_DATABASE_URL } from "../reset-test-db";
 
-// Integration tests talk to the test database (see tests/reset-test-db.ts).
+// Os testes de integração conversam com o banco de teste (veja tests/reset-test-db.ts).
 export const sql = postgres(TEST_DATABASE_URL, { max: 2, onnotice: () => {} });
 
 type Tx = postgres.TransactionSql;
@@ -9,8 +9,8 @@ type Tx = postgres.TransactionSql;
 class Rollback extends Error {}
 
 /**
- * Runs a test inside a transaction that is always rolled back, so tests never
- * leave data behind and do not depend on the seed.
+ * Roda um teste dentro de uma transação que sempre é desfeita, então os testes nunca
+ * deixam dados para trás e não dependem do seed.
  */
 export async function inRolledBackTransaction(run: (tx: Tx) => Promise<void>) {
   try {
@@ -24,9 +24,9 @@ export async function inRolledBackTransaction(run: (tx: Tx) => Promise<void>) {
 }
 
 /**
- * Runs queries as a user with Row Level Security applied, the same way
- * `withUser` does in the app. `null` is an anonymous visitor. A database
- * error (e.g. "permission denied") rejects without breaking the outer test.
+ * Roda consultas como um usuário com as regras de acesso por linha (RLS) aplicadas, do
+ * mesmo jeito que o `withUser` faz no app. `null` é um visitante anônimo. Um erro do
+ * banco (ex.: "permission denied") rejeita sem quebrar o teste de fora.
  */
 export async function asUser<T>(
   tx: Tx,
@@ -48,7 +48,7 @@ export async function asUser<T>(
 
 export type World = Awaited<ReturnType<typeof createWorld>>;
 
-/** Two stores with their teams, two customers and a few orders. */
+/** Duas lojas com suas equipes, dois clientes e alguns pedidos. */
 export async function createWorld(tx: Tx) {
   const tag = Math.random().toString(36).slice(2, 8);
 
@@ -160,5 +160,5 @@ export async function createWorld(tx: Tx) {
   };
 }
 
-/** Sorted ids, to compare result sets without caring about order. */
+/** Ids ordenados, para comparar conjuntos de resultado sem ligar para a ordem. */
 export const ids = (rows: readonly { id: string }[]) => rows.map((row) => row.id).sort();

@@ -4,8 +4,8 @@ import { useEffect } from "react";
 import { LogoIcon } from "@/components/brand/LogoIcon";
 import { Button } from "@/components/ui/Button";
 
-// Shown when a page fails. The user sees a friendly message; the technical
-// error is logged (and on the server it is already in the server log).
+// Mostrada quando uma página falha. O usuário vê uma mensagem amigável; o erro
+// técnico é registrado (e, no servidor, já está no log do servidor).
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error(error);

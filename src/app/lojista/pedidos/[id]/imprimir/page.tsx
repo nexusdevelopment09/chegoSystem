@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Imprimir pedido" };
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ l?: string }> };
 
-// Ticket for thermal printers. ?l=58 or ?l=80 picks the paper width in millimetres.
+// Comprovante para impressoras térmicas. ?l=58 ou ?l=80 escolhe a largura do papel em milímetros.
 export default function PrintPage(props: Props) {
   return (
     <Suspense fallback={<p>Carregando...</p>}>
@@ -39,7 +39,7 @@ async function Ticket({ params, searchParams }: Props) {
       className="mx-auto bg-white p-2 font-mono text-black"
       style={{ width: `${width}mm`, fontSize: width === 58 ? "11px" : "13px", lineHeight: 1.25 }}
     >
-      {/* Paper size and no browser margins, so nothing is cut on the roll. */}
+      {/* Tamanho do papel e nenhuma margem do navegador, para nada ser cortado na bobina. */}
       <style>{`@page { size: ${width}mm auto; margin: 0 } @media print { body { background: #fff } }`}</style>
       <PrintOnLoad />
 

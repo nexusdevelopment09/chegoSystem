@@ -1,7 +1,7 @@
 import "server-only";
 import type postgres from "postgres";
 
-/** Store rating = average of the visible reviews of the last 180 days. */
+/** Nota da loja = média das avaliações visíveis dos últimos 180 dias. */
 export async function recalculateRating(db: postgres.Sql | postgres.TransactionSql, storeId: string, at: Date) {
   await db`
     update stores s set

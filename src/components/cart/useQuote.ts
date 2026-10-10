@@ -12,7 +12,7 @@ export type QuoteState =
 
 type Answer = { signature: string; quote: Quote | null; error: string | null };
 
-/** Asks the server to recalculate the cart whenever the cart or the choices change. */
+/** Pede ao servidor para recalcular a sacola sempre que a sacola ou as escolhas mudam. */
 export function useQuote(cart: Cart | null, choices: CheckoutChoices): QuoteState {
   const [answer, setAnswer] = useState<Answer | null>(null);
   const signature = cart ? JSON.stringify(toCartPayload(cart, choices)) : null;
@@ -41,7 +41,7 @@ export function useQuote(cart: Cart | null, choices: CheckoutChoices): QuoteStat
     };
   }, [signature]);
 
-  // While a newer cart is being calculated, the previous numbers stay on screen.
+  // Enquanto uma sacola mais nova está sendo calculada, os números anteriores ficam na tela.
   if (!answer || answer.signature !== signature) return { status: "loading", quote: answer?.quote ?? null };
   if (answer.error || !answer.quote) return { status: "error", quote: null, message: answer.error ?? "" };
   return { status: "ready", quote: answer.quote };

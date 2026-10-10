@@ -4,23 +4,23 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
 type Props = {
-  /** Orders waiting for the store to accept or refuse. */
+  /** Pedidos esperando a loja aceitar ou recusar. */
   waiting: number;
-  /** One of them has been waiting too long: the alert gets stronger. */
+  /** Um deles está esperando há tempo demais: o alerta fica mais forte. */
   urgent: boolean;
 };
 
 /**
- * Rings until someone accepts or refuses the new orders, and shows a browser
- * notification when a new one arrives. Browsers only allow sound after a
- * click, so the first visit asks to turn the sound on.
+ * Toca até alguém aceitar ou recusar os pedidos novos, e mostra uma notificação
+ * do navegador quando chega um novo. Os navegadores só liberam som depois de um
+ * clique, então a primeira visita pede para ligar o som.
  */
 export function NewOrderAlert({ waiting, urgent }: Props) {
   const [soundOn, setSoundOn] = useState(false);
   const audio = useRef<AudioContext | null>(null);
   const previous = useRef(waiting);
 
-  // Repeats the beep while there is something waiting.
+  // Repete o bipe enquanto houver algo esperando.
   useEffect(() => {
     if (!soundOn || waiting === 0) return;
 
@@ -46,7 +46,7 @@ export function NewOrderAlert({ waiting, urgent }: Props) {
     return () => clearInterval(timer);
   }, [soundOn, waiting, urgent]);
 
-  // A browser notification for each new arrival, even with the tab in the background.
+  // Uma notificação do navegador para cada pedido que chega, mesmo com a aba em segundo plano.
   useEffect(() => {
     if (waiting > previous.current && typeof Notification !== "undefined" && Notification.permission === "granted") {
       new Notification("Chegô: novo pedido!", { body: "Tem pedido esperando você aceitar.", tag: "chego-novo-pedido" });

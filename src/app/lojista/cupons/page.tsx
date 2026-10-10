@@ -32,7 +32,7 @@ function describe(coupon: CouponRow): string {
 
 async function Coupons() {
   const { profile, store } = await getMerchantContext(["owner"]);
-  // As the owner of the store: Row Level Security returns only this store's coupons.
+  // Como dono da loja: as regras de acesso por linha (RLS) devolvem só os cupons desta loja.
   const coupons = await withUser(profile.id, (tx) => tx<CouponRow[]>`
     select id, code, type, value_cents, percent, max_discount_cents, min_order_cents, uses_count, max_uses, expires_at, active
     from coupons where created_by_store_id = ${store.id} order by created_at desc`);

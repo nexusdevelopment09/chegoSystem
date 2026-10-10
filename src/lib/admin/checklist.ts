@@ -1,4 +1,4 @@
-/** What the admin confirms before a store goes live. */
+/** O que o admin confirma antes de uma loja ir ao ar. */
 export const APPROVAL_CHECKLIST = [
   ["data", "Dados da loja conferidos"],
   ["documents", "Documento (CPF ou CNPJ) conferido"],

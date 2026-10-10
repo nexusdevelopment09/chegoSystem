@@ -1,6 +1,6 @@
-// Development seed, applied by `npm run db:reset`. Never run in production.
-// Everything here is fictional. The same seed number always produces the same
-// stores, menus and order history.
+// Seed de desenvolvimento, aplicado pelo `npm run db:reset`. Nunca rodar em produção.
+// Tudo aqui é fictício. O mesmo número de semente sempre produz as mesmas
+// lojas, cardápios e histórico de pedidos.
 import { randomUUID } from "node:crypto";
 import type { Sql } from "postgres";
 import { hashPassword } from "../../src/lib/auth/password.ts";
@@ -22,9 +22,9 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-// ------------------------------------------------------------------ helpers
+// ---------------------------------------------------------------- auxiliares
 
-/** Small deterministic random generator (mulberry32). */
+/** Pequeno gerador aleatório determinístico (mulberry32). */
 function createRandom(seed: number) {
   let state = seed;
   const next = () => {
@@ -56,12 +56,12 @@ function createRandom(seed: number) {
   return { next, int, pick, chance, weighted, sample };
 }
 
-// Maceió is UTC-3 all year (no daylight saving time).
+// Maceió é UTC-3 o ano todo (sem horário de verão).
 const UTC_OFFSET_HOURS = 3;
 const START = new Date();
 const today = new Date(START.getTime() - UTC_OFFSET_HOURS * HOUR);
 
-/** A moment `daysAgo` days back (negative = future) at HH:MM, Maceió time. */
+/** Um momento `daysAgo` dias atrás (negativo = futuro) às HH:MM, no horário de Maceió. */
 function localTime(daysAgo: number, hhmm: string): Date {
   const [hours, minutes] = hhmm.split(":").map(Number);
   return new Date(Date.UTC(
@@ -80,7 +80,7 @@ async function insert(sql: Sql, table: string, rows: Row[]) {
   }
 }
 
-// ------------------------------------------------------------ in-memory world
+// ---------------------------------------------------------- mundo em memória
 
 type SeedOption = { id: string; name: string; priceCents: number; available: boolean };
 type SeedLink = {
@@ -112,7 +112,7 @@ export async function seed(sql: Sql) {
   const images = await generateImages();
   if (images.written > 0) console.log(`  ${images.written} imagens geradas em storage/`);
 
-  // ------------------------------------------------- settings and legal texts
+  // ---------------------------------------------- configurações e textos legais
 
   await insert(sql, "platform_settings", [
     { key: "service_fee_cents", value: sql.json(SERVICE_FEE_CENTS), description: "Taxa de serviço fixa por pedido, em centavos" },
@@ -138,7 +138,7 @@ export async function seed(sql: Sql) {
     { id: legalIds.privacy, type: "privacy", version: 1, title: "Política de Privacidade", content: "[TEXTO PROVISÓRIO] Política de Privacidade do Chegô.", published_at: plus(START, -120 * DAY) },
   ]);
 
-  // ------------------------------------------------------------------- places
+  // ------------------------------------------------------------------ lugares
 
   const cityId = randomUUID();
   const neighborCityId = randomUUID();
@@ -161,7 +161,7 @@ export async function seed(sql: Sql) {
     color: CATEGORY_COLORS[category.slug] ?? "#5C4632", sort_order: index, active: category.active ?? true,
   })));
 
-  // ------------------------------------------------------------------- people
+  // ------------------------------------------------------------------ pessoas
 
   const profiles: Row[] = [];
   const profile = (fields: { name: string; phone: string; role: string } & Row) => {
@@ -216,7 +216,7 @@ export async function seed(sql: Sql) {
     ...(row.role === "merchant" ? [{ profile_id: row.id, document_id: legalIds.merchant_terms, accepted_at: row.accepted_terms_at }] : []),
   ]));
 
-  // ------------------------------------------------------------------- stores
+  // -------------------------------------------------------------------- lojas
 
   const basicPlanId = randomUUID();
   const featuredPlanId = randomUUID();
@@ -372,12 +372,12 @@ export async function seed(sql: Sql) {
     await insert(sql, table, rows[table]);
   }
 
-  // Peixaria closes for a local holiday next week (to test special closures).
+  // A Peixaria fecha por um feriado local na semana que vem (para testar fechamentos especiais).
   await insert(sql, "store_closures", [{
     store_id: stores.get("peixaria")!.id, starts_at: localTime(-7, "00:00"), ends_at: localTime(-8, "00:00"), reason: "Feriado municipal",
   }]);
 
-  // ------------------------------------------------------------------ coupons
+  // ------------------------------------------------------------------- cupons
 
   const coupons = {
     PRIMEIRA: randomUUID(), FRETEGRATIS: randomUUID(), PIZZA10: randomUUID(), VELHO: randomUUID(), ESGOTOU: randomUUID(),
@@ -401,7 +401,7 @@ export async function seed(sql: Sql) {
     starts_at: plus(START, -10 * DAY), ends_at: plus(START, 60 * DAY), sort_order: index,
   })));
 
-  // ------------------------------------------------------------------- orders
+  // ------------------------------------------------------------------ pedidos
 
   const out = {
     orders: [] as Row[], order_items: [] as Row[], order_item_options: [] as Row[], order_status_history: [] as Row[],
@@ -409,7 +409,7 @@ export async function seed(sql: Sql) {
   };
   const built: BuiltOrder[] = [];
 
-  /** Products the customer could order at that moment. */
+  /** Produtos que o cliente poderia pedir naquele momento. */
   function orderable(store: SeedStore, customer: SeedCustomer, weekday: number, minutes: number, scheduled: boolean) {
     return store.products.filter(({ def }) => {
       if (def.available === false || def.stock === 0) return false;
@@ -467,7 +467,7 @@ export async function seed(sql: Sql) {
       return { itemId, product, unitPrice, quantity, optionRows };
     });
 
-    // Respect the store's minimum order by adding units of the first item.
+    // Respeita o pedido mínimo da loja somando unidades do primeiro item.
     const subtotalOf = () => items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
     while (subtotalOf() < store.def.minOrder && items[0].unitPrice > 0) items[0].quantity += 1;
     const subtotalCents = subtotalOf();
@@ -486,7 +486,7 @@ export async function seed(sql: Sql) {
       discountPaidBy: coupon?.paidBy ?? null,
     });
 
-    // Timeline.
+    // Linha do tempo.
     const step = (min: number, max: number) => (input.live ? random.int(1, 2) : random.int(min, max)) * MINUTE;
     const history: { status: string; at: Date; by: string | null; reason?: string }[] = [
       { status: "awaiting_payment", at: createdAt, by: customer.id },
@@ -520,7 +520,7 @@ export async function seed(sql: Sql) {
       if (final === "cancelled") advance("cancelled", step(1, 3), customer.id, "Cancelado pelo cliente");
     }
 
-    // Refunds.
+    // Reembolsos.
     const paymentId = randomUUID();
     let refundedCents = 0;
     const refund = (amountCents: number, reason: string, by: string | null, at: Date) => {
@@ -633,7 +633,7 @@ export async function seed(sql: Sql) {
     return result;
   }
 
-  // History: about 400 orders over the last 90 days, inside each store's hours.
+  // Histórico: cerca de 400 pedidos nos últimos 90 dias, dentro do horário de cada loja.
   const activeStores = [...stores.values()].filter((store) => store.def.weight > 0);
   const buyers = [...customers.values()].filter((customer) => customer.def.weight > 0);
   let exhaustedCouponUses = 0;
@@ -644,7 +644,7 @@ export async function seed(sql: Sql) {
     const weekday = weekdayOf(daysAgo);
     const shifts = store.def.hours.filter((hours) => hours.days.includes(weekday));
     if (shifts.length === 0) continue;
-    // Weekends are busier for dinner places.
+    // Os fins de semana são mais movimentados para quem serve jantar.
     if (store.def.hours[0].open >= "14:00" && ![5, 6, 0].includes(weekday) && random.chance(0.35)) continue;
 
     const shift = random.pick(shifts);
@@ -673,7 +673,7 @@ export async function seed(sql: Sql) {
     }
     buildOrder({ store, customer, createdAt, final, coupon });
   }
-  // Make sure the "limit reached" coupon really is used up.
+  // Garante que o cupom de "limite atingido" esteja mesmo esgotado.
   while (exhaustedCouponUses < 5) {
     buildOrder({
       store: stores.get("acai")!, customer: customers.get("ana")!, createdAt: plus(localTime(20 + exhaustedCouponUses, "16:00"), 0),
@@ -682,7 +682,7 @@ export async function seed(sql: Sql) {
     exhaustedCouponUses += 1;
   }
 
-  // Ready-made situations for testing.
+  // Situações prontas para testar.
   const live = {
     awaitingPayment: buildOrder({ store: stores.get("acai")!, customer: customers.get("eduarda")!, createdAt: plus(START, -3 * MINUTE), final: "awaiting_payment", products: ["Açaí 500 ml"] })!,
     waitingAcceptance: buildOrder({ store: stores.get("pizzaria")!, customer: customers.get("bruno")!, createdAt: plus(START, -4 * MINUTE), final: "paid", live: true, products: ["Pizza Grande (8 fatias)", "Refrigerante 2 L"] })!,
@@ -693,11 +693,11 @@ export async function seed(sql: Sql) {
     ticket: buildOrder({ store: stores.get("mercado")!, customer: customers.get("gabriela")!, createdAt: localTime(1, "10:15"), final: "done", products: ["Arroz branco 1 kg", "Feijão carioca 1 kg", "Leite integral 1 L", "Sabão em pó 800 g"] })!,
   };
 
-  // Short, readable codes in chronological order: JG-0001, JG-0002...
+  // Códigos curtos e legíveis, em ordem cronológica: JG-0001, JG-0002...
   built.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   built.forEach((item, index) => { item.order.code = `JG-${String(index + 1).padStart(4, "0")}`; });
 
-  // Reviews on about 60% of the completed orders.
+  // Avaliações em cerca de 60% dos pedidos concluídos.
   const reviewable = built.filter((item) => item.completedAt && item.id !== live.ticket.id);
   let hiddenReviews = 0;
   for (const item of reviewable) {
@@ -736,7 +736,7 @@ export async function seed(sql: Sql) {
     ) stats
     where stats.store_id = s.id`;
 
-  // ------------------------------------------- messages, support and the rest
+  // ------------------------------------------- mensagens, suporte e o restante
 
   await insert(sql, "order_messages", [
     { order_id: live.outForDelivery.id, sender_id: stores.get("pizzaria")!.ownerId, sender_side: "store", body: "Seu pedido saiu! Já já chega aí.", read_at: plus(START, -4 * MINUTE), created_at: plus(START, -6 * MINUTE) },
@@ -757,7 +757,7 @@ export async function seed(sql: Sql) {
     body: "O sabão em pó não veio na sacola, mas foi cobrado.", created_at: plus(live.ticket.completedAt!, 30 * MINUTE),
   }]);
 
-  // Referral: Ana invited Bruno, who already finished his first order.
+  // Indicação: a Ana convidou o Bruno, que já concluiu o primeiro pedido.
   const referralCouponId = randomUUID();
   await insert(sql, "coupons", [{
     ...couponBase, id: referralCouponId, code: "INDICA-ANA100", description: "Obrigado por indicar o Chegô!",
@@ -774,8 +774,8 @@ export async function seed(sql: Sql) {
     { profile_id: customers.get("bruno")!.id, store_id: stores.get("mercado")!.id },
   ]);
 
-  // Monthly invoices: two paid months, one open, and the overdue one that got
-  // the Pastelaria suspended. The founding store pays nothing yet.
+  // Faturas mensais: dois meses pagos, um em aberto e a vencida que fez
+  // a Pastelaria ser suspensa. A loja fundadora ainda não paga nada.
   const invoices: Row[] = [];
   const invoicePayments: Row[] = [];
   const invoiceLedger: Row[] = [];
@@ -840,7 +840,7 @@ export async function seed(sql: Sql) {
   console.log(`  ${stores.size} lojas, ${rows.products.length} produtos, ${built.length} pedidos, ${out.reviews.length} avaliações`);
 }
 
-/** Creates an id for `key`, stores it in the map and returns it. */
+/** Cria um id para `key`, guarda no mapa e devolve. */
 function remember(map: Map<string, string>, key: string): string {
   const id = randomUUID();
   map.set(key, id);

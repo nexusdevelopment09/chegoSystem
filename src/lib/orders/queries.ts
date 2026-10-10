@@ -60,9 +60,9 @@ type OrderRow = {
 };
 
 /**
- * Orders the given user is allowed to see, loaded as that user: Row Level
- * Security decides (customer: own orders; store staff: paid orders of their
- * store; courier: own deliveries; admin: everything).
+ * Pedidos que o usuário pode ver, carregados como esse usuário: as regras de acesso
+ * por linha (RLS) decidem (cliente: os próprios pedidos; equipe da loja: pedidos pagos
+ * da loja; entregador: as próprias entregas; admin: tudo).
  */
 export async function loadOrders(
   viewerId: string,

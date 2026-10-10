@@ -14,7 +14,7 @@ import { rateLimit } from "@/lib/rate-limit";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-/** The customer gives up an order the store has not accepted yet. Paid orders are refunded in full. */
+/** O cliente desiste de um pedido que a loja ainda não aceitou. Pedidos pagos são reembolsados por inteiro. */
 export async function cancelOrder(formData: FormData): Promise<void> {
   const orderId = z.uuid().parse(formData.get("orderId"));
   const profile = await getCurrentProfile();
@@ -29,7 +29,7 @@ export async function cancelOrder(formData: FormData): Promise<void> {
     });
   } catch (error) {
     if (!(error instanceof TransitionError)) throw error;
-    // The store accepted in the meantime: the page reloads and shows it.
+    // A loja aceitou nesse meio-tempo: a página recarrega e mostra isso.
   }
   revalidatePath(`/pedidos/${orderId}`);
 }
@@ -41,7 +41,7 @@ const cardSchema = z.object({
   cvv: z.string().regex(/^\d{3,4}$/),
 });
 
-/** Switches an unpaid order to card (or tries another card after a refusal). */
+/** Troca um pedido não pago para cartão (ou tenta outro cartão depois de uma recusa). */
 export async function payWithCard(formData: FormData): Promise<void> {
   const orderId = z.uuid().parse(formData.get("orderId"));
   const card = cardSchema.safeParse({
@@ -58,7 +58,7 @@ export async function payWithCard(formData: FormData): Promise<void> {
       from orders where id = ${orderId} and customer_id = ${profile.id} and status = 'awaiting_payment' for update`;
     if (!order) return null;
 
-    // The earlier attempt (Pix not paid, or a refused card) is closed.
+    // A tentativa anterior (Pix não pago ou cartão recusado) é encerrada.
     await tx`update payments set status = 'expired' where order_id = ${order.id} and status = 'pending'`;
     await tx`update orders set payment_method = 'card' where id = ${order.id}`;
     return createOrderPayment(tx, {

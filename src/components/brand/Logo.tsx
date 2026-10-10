@@ -1,7 +1,7 @@
 import { LogoIcon } from "./LogoIcon";
 
 type LogoProps = {
-  /** Icon height in pixels; the word scales with it. */
+  /** Altura do ícone em pixels; a palavra acompanha a escala. */
   size?: number;
   className?: string;
 };

@@ -10,7 +10,7 @@ export function Stat({ label, value, hint }: { label: string; value: ReactNode; 
   );
 }
 
-/** A simple horizontal bar chart made of plain elements: light and readable by screen readers. */
+/** Um gráfico de barras horizontais simples, feito de elementos comuns: leve e legível por leitores de tela. */
 export function Bars({ rows, format }: { rows: { label: string; value: number }[]; format: (value: number) => string }) {
   const max = Math.max(1, ...rows.map((row) => row.value));
   return (

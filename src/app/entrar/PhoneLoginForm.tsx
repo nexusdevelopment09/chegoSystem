@@ -33,7 +33,7 @@ export function PhoneLoginForm() {
         <Button type="submit" name="intent" value="verify" disabled={pending}>
           {pending ? "Conferindo..." : "Entrar"}
         </Button>
-        {/* Plain link on purpose: a full reload goes back to the phone step. */}
+        {/* Link comum de propósito: recarregar a página inteira volta ao passo do telefone. */}
         <a href="/entrar" className="text-center text-sm font-semibold text-brand-dark underline">
           Usar outro telefone
         </a>

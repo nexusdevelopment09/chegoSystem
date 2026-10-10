@@ -8,7 +8,7 @@ import { CITY_COOKIE, HOOD_COOKIE } from "@/lib/shopping-context";
 
 const YEAR = 60 * 60 * 24 * 365;
 
-/** Remembers the city and neighborhood the customer is shopping from. */
+/** Lembra a cidade e o bairro de onde o cliente está comprando. */
 export async function chooseLocation(formData: FormData) {
   const parsed = z
     .object({ cityId: z.uuid(), neighborhoodId: z.union([z.uuid(), z.literal("")]) })

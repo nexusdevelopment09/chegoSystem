@@ -3,11 +3,11 @@
 import { useSyncExternalStore } from "react";
 import type { Pick as OptionPick } from "@/lib/catalog/selection";
 
-// The cart kept on the device. Prices here are only for display: the server
-// recalculates everything from the database at checkout.
+// A sacola guardada no aparelho. Os preços aqui são só para mostrar: o servidor
+// recalcula tudo a partir do banco no checkout.
 
 export type CartItem = {
-  /** Unique per line, so the same product with other options is another line. */
+  /** Único por linha, então o mesmo produto com outras opções é outra linha. */
   key: string;
   productId: string;
   name: string;
@@ -60,18 +60,18 @@ export function writeCart(cart: Cart | null) {
     if (cart && cart.items.length > 0) window.localStorage.setItem(KEY, JSON.stringify(cart));
     else window.localStorage.removeItem(KEY);
   } catch {
-    // Storage full or blocked: the cart just does not survive a reload.
+    // Armazenamento cheio ou bloqueado: a sacola só não sobrevive a um recarregamento.
   }
   window.dispatchEvent(new Event(EVENT));
 }
 
-/** The cart belongs to one store at a time. Returns the other store's name on conflict. */
+/** A sacola é de uma loja por vez. Devolve o nome da outra loja quando há conflito. */
 export function cartConflict(store: CartStore): string | null {
   const cart = readCart();
   return cart && cart.items.length > 0 && cart.storeId !== store.storeId ? cart.storeName : null;
 }
 
-/** Adds an item. With `replace` the cart of another store is emptied first. */
+/** Adiciona um item. Com `replace` a sacola de outra loja é esvaziada antes. */
 export function addToCart(store: CartStore, item: Omit<CartItem, "key">, replace = false) {
   const current = readCart();
   const base: Cart =
@@ -108,7 +108,7 @@ function subscribe(onChange: () => void) {
   };
 }
 
-/** The cart, re-rendering on every change (also from other tabs). Null on the server. */
+/** A sacola, redesenhando a cada mudança (também vinda de outras abas). Null no servidor. */
 export function useCart(): Cart | null {
   return useSyncExternalStore(subscribe, readCart, () => null);
 }
@@ -119,7 +119,7 @@ export const cartCount = (cart: Cart | null) =>
 export const cartSubtotalCents = (cart: Cart | null) =>
   cart ? cart.items.reduce((total, item) => total + item.unitPriceCents * item.quantity, 0) : 0;
 
-// ------------------------------------------------------------------ coupon
+// -------------------------------------------------------------------- cupom
 
 const COUPON_KEY = "chego_coupon";
 
@@ -136,12 +136,12 @@ export function writeCoupon(code: string) {
     if (code) window.localStorage.setItem(COUPON_KEY, code);
     else window.localStorage.removeItem(COUPON_KEY);
   } catch {
-    // The coupon just has to be typed again.
+    // O cupom só precisa ser digitado de novo.
   }
   window.dispatchEvent(new Event(EVENT));
 }
 
-/** The coupon code the customer typed, kept on the device. Empty on the server. */
+/** O código do cupom que o cliente digitou, guardado no aparelho. Vazio no servidor. */
 export function useCoupon(): string {
   return useSyncExternalStore(subscribe, readCoupon, () => "");
 }

@@ -1,11 +1,11 @@
-// Local PostgreSQL without Docker. The server binaries come from the
-// @embedded-postgres npm package and the data lives in .db/ (git-ignored).
+// PostgreSQL local sem Docker. Os binários do servidor vêm do pacote npm
+// @embedded-postgres e os dados ficam em .db/ (ignorada pelo git).
 //
-//   node scripts/db.ts start    start the server and apply pending migrations
-//   node scripts/db.ts stop     stop the server (data is kept)
-//   node scripts/db.ts status   tell whether the server is running
-//   node scripts/db.ts migrate  apply pending migrations
-//   node scripts/db.ts reset    drop everything, re-run migrations and the seed
+//   node scripts/db.ts start    liga o servidor e aplica as migrations pendentes
+//   node scripts/db.ts stop     desliga o servidor (os dados ficam guardados)
+//   node scripts/db.ts status   diz se o servidor está ligado
+//   node scripts/db.ts migrate  aplica as migrations pendentes
+//   node scripts/db.ts reset    apaga tudo e roda de novo as migrations e o seed
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -22,8 +22,8 @@ const MIGRATIONS_DIR = join(ROOT, "db", "migrations");
 
 const PORT = 54329;
 const USER = "chego";
-// The automated tests use their own database (CHEGO_DB=chego_test), so they
-// never touch the data you are testing by hand.
+// Os testes automáticos usam o próprio banco (CHEGO_DB=chego_test), então
+// nunca mexem nos dados que você está testando à mão.
 const DATABASE = process.env.CHEGO_DB ?? "chego";
 const url = (database: string) => `postgres://${USER}@127.0.0.1:${PORT}/${database}`;
 
@@ -44,7 +44,7 @@ function initCluster() {
   }
   mkdirSync(DB_DIR, { recursive: true });
   console.log("Criando o banco pela primeira vez...");
-  // "trust" is fine here: the server only listens on this computer.
+  // "trust" serve aqui: o servidor só escuta neste computador.
   const status = run("initdb.exe", ["-D", DATA_DIR, "-U", USER, "-A", "trust", "-E", "UTF8", "--locale=C"], true);
   if (status !== 0) throw new Error("Não consegui criar o banco (initdb falhou).");
   appendFileSync(
@@ -91,7 +91,7 @@ async function start() {
   await migrate();
 }
 
-/** Turns the server on and makes sure the database exists. */
+/** Liga o servidor e garante que o banco existe. */
 async function boot() {
   initCluster();
   if (isRunning()) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { earliestSchedule, productStatus, sameDayClosed, type ProductRules } from "./availability";
 
-// 2026-10-09 is a Friday; 2026-10-12 is a Monday. Maceió time.
+// 09/10/2026 é uma sexta; 12/10/2026 é uma segunda. Horário de Maceió.
 const at = (date: string, time: string) => new Date(`${date}T${time}:00-03:00`);
 const rules = (extra: Partial<ProductRules> = {}): ProductRules => ({
   available: true, trackStock: false, stockQty: null, minLeadMinutes: 0, windows: [], ...extra,
@@ -18,7 +18,7 @@ describe("productStatus", () => {
     expect(productStatus(rules({ available: false }), at("2026-10-09", "15:00"))).toMatchObject({ orderable: false, reason: "sold_out" });
     expect(productStatus(rules({ trackStock: true, stockQty: 0 }), at("2026-10-09", "15:00"))).toMatchObject({ orderable: false, note: "Esgotado" });
     expect(productStatus(rules({ trackStock: true, stockQty: 2 }), at("2026-10-09", "15:00")).orderable).toBe(true);
-    // Stock that is not tracked never sells out by itself.
+    // Estoque que não é controlado nunca esgota sozinho.
     expect(productStatus(rules({ trackStock: false, stockQty: 0 }), at("2026-10-09", "15:00")).orderable).toBe(true);
   });
 

@@ -34,8 +34,8 @@ export async function updateProfile(_previous: ActionState, formData: FormData):
   if (parsed.data.birthDate && parsed.data.birthDate > new Date().toISOString().slice(0, 10)) return { error: "Data de nascimento inválida." };
 
   try {
-    // Name, birth date and the promo preference are the columns a user may change directly;
-    // the e-mail is unique across accounts, so it goes through the owner connection.
+    // Nome, data de nascimento e a preferência de promoções são as colunas que o usuário pode mudar direto;
+    // o e-mail é único entre as contas, então passa pela conexão dona do banco.
     await sql`
       update profiles set full_name = ${parsed.data.fullName}, email = ${parsed.data.email || null},
         birth_date = ${parsed.data.birthDate || null}, promo_notifications = ${formData.get("promo") === "on"}
@@ -62,7 +62,7 @@ export async function removeAddress(formData: FormData): Promise<void> {
   const profile = await getCurrentProfile();
   if (!profile) return;
   const id = z.uuid().parse(formData.get("id"));
-  // As the user: Row Level Security only lets them touch their own addresses.
+  // Como o usuário: as regras de acesso por linha (RLS) só deixam mexer nos próprios endereços.
   await withUser(profile.id, (tx) => tx`update addresses set deleted_at = now(), is_default = false where id = ${id}`);
   revalidatePath("/perfil");
 }
@@ -87,8 +87,8 @@ export async function markNotificationsRead(): Promise<void> {
 }
 
 /**
- * Deletes the account (LGPD). Orders are kept for the bookkeeping, but
- * everything personal is removed or anonymised, and the person is signed out.
+ * Exclui a conta (LGPD). Os pedidos ficam para a contabilidade, mas tudo
+ * o que é pessoal é removido ou anonimizado, e a pessoa é desconectada.
  */
 export async function deleteAccount(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const profile = await getCurrentProfile();

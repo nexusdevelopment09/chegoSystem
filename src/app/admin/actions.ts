@@ -17,8 +17,8 @@ import { recalculateRating } from "@/lib/stores/rating";
 import { fromLocal } from "@/lib/time";
 import { BANNER_VARIANTS, pickedFile, saveImage, UploadError } from "@/lib/uploads";
 
-// Every action here is for the platform owner only, and every one that
-// changes something sensitive is written to the audit log.
+// Toda ação aqui é só para o dono da plataforma, e toda ação que
+// muda algo sensível é gravada no log de auditoria.
 
 export type ActionState = { error?: string; ok?: boolean; message?: string };
 
@@ -27,10 +27,10 @@ const admin = () => requireRole("admin");
 const done = () => revalidatePath("/admin", "layout");
 const reasonText = z.string().trim().min(3, "Escreva o motivo.").max(300);
 
-// ------------------------------------------------------------------ stores
+// -------------------------------------------------------------------- lojas
 
 
-/** Approves a pending store. Every item of the checklist has to be ticked. */
+/** Aprova uma loja pendente. Todos os itens do checklist precisam estar marcados. */
 export async function approveStore(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const profile = await admin();
   const id = uuid.safeParse(formData.get("id"));
@@ -47,7 +47,7 @@ export async function approveStore(_previous: ActionState, formData: FormData): 
       update store_private set approved_at = ${at}, approved_by = ${profile.id}, status_reason = null,
         payment_recipient_id = coalesce(payment_recipient_id, ${`mock_recipient_${id.data.slice(0, 8)}`})
       where store_id = ${id.data}`;
-    // A store that signed up by itself has no subscription yet: it starts on the cheapest plan.
+    // Uma loja que se cadastrou sozinha ainda não tem assinatura: começa no plano mais barato.
     await tx`
       insert into store_subscriptions (store_id, plan_id)
       select ${id.data}, p.id from subscription_plans p where p.active order by p.monthly_price_cents limit 1
@@ -64,7 +64,7 @@ export async function approveStore(_previous: ActionState, formData: FormData): 
   return { ok: true, message: `${approved.name} aprovada.` };
 }
 
-/** Pauses, suspends or reactivates a store. Suspending needs a reason and tells the owner. */
+/** Pausa, suspende ou reativa uma loja. Suspender exige motivo e avisa o dono. */
 export async function setStoreStatus(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const profile = await admin();
   const parsed = z
@@ -92,7 +92,7 @@ export async function setStoreStatus(_previous: ActionState, formData: FormData)
   return { ok: true, message: "Situação da loja atualizada." };
 }
 
-/** Commission, plan, free months and paid highlight. All of it goes to the audit log. */
+/** Comissão, plano, meses grátis e destaque pago. Tudo vai para o log de auditoria. */
 export async function updateStoreTerms(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const profile = await admin();
   const parsed = z
@@ -113,7 +113,7 @@ export async function updateStoreTerms(_previous: ActionState, formData: FormDat
   await sql.begin(async (tx) => {
     const [before] = await tx<{ commission_rate: string; featured_until: Date | null }[]>`
       select sp.commission_rate, s.featured_until from store_private sp join stores s on s.id = sp.store_id where sp.store_id = ${data.id}`;
-    // New orders use the new rate; old orders keep the rate copied when they were placed.
+    // Pedidos novos usam a nova taxa; os antigos mantêm a taxa copiada quando foram feitos.
     await tx`update store_private set commission_rate = ${data.commission / 100}, cash_enabled = ${formData.get("cashEnabled") === "on"} where store_id = ${data.id}`;
     await tx`update stores set featured_until = ${data.featuredUntil ? fromLocal(data.featuredUntil, 24 * 60) : null} where id = ${data.id}`;
     await tx`
@@ -131,11 +131,11 @@ export async function updateStoreTerms(_previous: ActionState, formData: FormDat
   return { ok: true, message: "Condições da loja salvas." };
 }
 
-// ------------------------------------------------------------------ orders
+// ------------------------------------------------------------------ pedidos
 
 const COMPLETED: OrderStatus[] = ["delivered", "picked_up", "partially_refunded"];
 
-/** Total or partial refund, with a reason. The order's status follows what happened. */
+/** Reembolso total ou parcial, com motivo. O status do pedido acompanha o que aconteceu. */
 export async function adminRefund(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const profile = await admin();
   const orderId = uuid.safeParse(formData.get("orderId"));
@@ -157,7 +157,7 @@ export async function adminRefund(_previous: ActionState, formData: FormData): P
       const full = total || amount === remaining;
 
       if (full && canTransition(order.status, "cancelled", "admin", order.fulfillment)) {
-        // Still on its way: cancelling gives everything back.
+        // Ainda a caminho: cancelar devolve tudo.
         await transitionOrder(tx, { orderId: orderId.data, to: "cancelled", actor: "admin", actorId: profile.id, reason: reason.data, at });
       } else {
         await refundOrder(tx, { orderId: orderId.data, amountCents: full ? "all" : amount!, reason: reason.data, requestedBy: profile.id, at });
@@ -185,7 +185,7 @@ export async function adminRefund(_previous: ActionState, formData: FormData): P
   return { ok: true, message: "Reembolso feito." };
 }
 
-/** Exceptional change of status, outside the normal flow. Always with a reason, always logged. */
+/** Mudança excepcional de status, fora do fluxo normal. Sempre com motivo, sempre registrada. */
 export async function adminSetStatus(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const profile = await admin();
   const orderId = uuid.safeParse(formData.get("orderId"));
@@ -217,7 +217,7 @@ export async function adminSetStatus(_previous: ActionState, formData: FormData)
   return { ok: true, message: "Situação alterada." };
 }
 
-// --------------------------------------------------------------- customers
+// ----------------------------------------------------------------- clientes
 
 export async function setCustomerBlocked(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const profile = await admin();
@@ -238,7 +238,7 @@ export async function setCustomerBlocked(_previous: ActionState, formData: FormD
   return { ok: true, message: block ? "Cliente bloqueado." : "Cliente desbloqueado." };
 }
 
-/** Lets one customer pay in cash on delivery when that feature exists (off in the MVP). */
+/** Deixa um cliente pagar em dinheiro na entrega quando esse recurso existir (desligado no MVP). */
 export async function toggleCustomerCash(formData: FormData): Promise<void> {
   const profile = await admin();
   const id = uuid.parse(formData.get("id"));
@@ -247,7 +247,7 @@ export async function toggleCustomerCash(formData: FormData): Promise<void> {
   done();
 }
 
-// ----------------------------------------------------------------- support
+// ------------------------------------------------------------------ suporte
 
 export async function adminReplyTicket(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const profile = await admin();
@@ -287,7 +287,7 @@ export async function adminReplyTicket(_previous: ActionState, formData: FormDat
   return { ok: true, message: "Chamado atualizado." };
 }
 
-// -------------------------------------------------------------- moderation
+// ---------------------------------------------------------------- moderação
 
 export async function setReviewHidden(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const profile = await admin();
@@ -310,7 +310,7 @@ export async function setReviewHidden(_previous: ActionState, formData: FormData
   return { ok: true, message: hide ? "Avaliação ocultada." : "Avaliação visível de novo." };
 }
 
-// --------------------------------------------------------------- marketing
+// ---------------------------------------------------------------- marketing
 
 export async function saveBanner(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const profile = await admin();
@@ -419,7 +419,7 @@ export async function toggleCoupon(formData: FormData): Promise<void> {
   done();
 }
 
-// ---------------------------------------------------------------- registry
+// ---------------------------------------------------------------- cadastros
 
 const slugify = (text: string) =>
   text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -444,7 +444,7 @@ export async function saveCity(_previous: ActionState, formData: FormData): Prom
   return { ok: true, message: "Cidade criada (inativa). Ative quando estiver pronta." };
 }
 
-/** Turns a flag of a city, neighborhood, category or plan on or off. */
+/** Liga ou desliga uma marcação de cidade, bairro, categoria ou plano. */
 export async function toggleRegistry(formData: FormData): Promise<void> {
   const profile = await admin();
   const id = uuid.parse(formData.get("id"));
@@ -504,7 +504,7 @@ export async function savePlan(_previous: ActionState, formData: FormData): Prom
   return { ok: true, message: "Plano criado." };
 }
 
-// ---------------------------------------------------------------- settings
+// ------------------------------------------------------------ configurações
 
 const MONEY_SETTINGS = ["service_fee_cents", "referral_referred_cents", "referral_referrer_cents"];
 
@@ -542,9 +542,9 @@ export async function toggleFlag(formData: FormData): Promise<void> {
   done();
 }
 
-// ------------------------------------------------------------------- legal
+// ------------------------------------------------------------ textos legais
 
-/** Publishes a new version of a legal text. Everyone has to accept it again on the next visit. */
+/** Publica uma nova versão de um texto legal. Todo mundo precisa aceitar de novo no próximo acesso. */
 export async function publishLegal(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const profile = await admin();
   const parsed = z
@@ -552,7 +552,7 @@ export async function publishLegal(_previous: ActionState, formData: FormData): 
     .safeParse({ type: formData.get("type"), title: formData.get("title"), content: formData.get("content") });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  // Published at the real time, whatever the simulated clock says: a legal text must not depend on a test clock.
+  // Publicado no horário real, diga o que disser o relógio simulado: um texto legal não pode depender de um relógio de teste.
   const [document] = await sql<{ id: string; version: number }[]>`
     insert into legal_documents (type, version, title, content, published_at)
     values (${parsed.data.type}::legal_document_type,

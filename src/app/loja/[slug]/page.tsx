@@ -19,7 +19,7 @@ import { toggleFavorite } from "../actions";
 
 type Params = Promise<{ slug: string }>;
 
-/** The store, wherever it is: a shared link works even from another city. */
+/** A loja, esteja onde estiver: um link compartilhado funciona até de outra cidade. */
 async function findStore(slug: string, neighborhoodId: string | null, at: Date): Promise<StoreSummary | null> {
   const [row] = await sql<{ city_id: string }[]>`
     select s.city_id from stores s join cities c on c.id = s.city_id and c.active

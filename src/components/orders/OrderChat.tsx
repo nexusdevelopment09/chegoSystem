@@ -7,14 +7,14 @@ import { formatDateTime } from "@/lib/format";
 type Props = {
   orderId: string;
   viewerId: string;
-  /** Which side the viewer is on, to align their own messages. */
+  /** De que lado quem está vendo fica, para alinhar as próprias mensagens. */
   side: "customer" | "store";
   open: boolean;
 };
 
-/** Messages between the customer and the store about one order. */
+/** Mensagens entre o cliente e a loja sobre um pedido. */
 export async function OrderChat({ orderId, viewerId, side, open }: Props) {
-  // Read as the viewer: Row Level Security only shows the chat to the two sides of the order.
+  // Lido como quem está vendo: as regras de acesso por linha (RLS) só mostram a conversa aos dois lados do pedido.
   const messages = await withUser(viewerId, (tx) => tx<{ id: string; sender_side: string; body: string; created_at: Date }[]>`
     select id, sender_side, body, created_at from order_messages where order_id = ${orderId} order by created_at`);
 
@@ -33,7 +33,7 @@ export async function OrderChat({ orderId, viewerId, side, open }: Props) {
                 <p className="text-xs font-bold text-coffee-soft">
                   {mine ? "Você" : message.sender_side === "store" ? "Loja" : "Cliente"} · {formatDateTime(message.created_at)}
                 </p>
-                {/* Plain text: whatever is typed is shown as text, never as HTML. */}
+                {/* Texto puro: o que for digitado é mostrado como texto, nunca como HTML. */}
                 <p className="whitespace-pre-wrap break-words">{message.body}</p>
               </li>
             );

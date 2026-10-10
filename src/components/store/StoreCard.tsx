@@ -2,7 +2,7 @@ import Link from "next/link";
 import { formatCents } from "@/lib/format";
 import { estimateMinutes, type StoreSummary } from "@/lib/stores/queries";
 
-/** "★ 4,6 (23)", or "Nova" for stores with fewer than 5 reviews. */
+/** "★ 4,6 (23)", ou "Nova" para lojas com menos de 5 avaliações. */
 export function Rating({ avg, count }: { avg: number | null; count: number }) {
   if (count < 5 || avg === null) {
     return <span className="rounded-full bg-peach px-2 py-0.5 text-xs font-bold text-brand-darker">Nova</span>;
@@ -15,7 +15,7 @@ export function Rating({ avg, count }: { avg: number | null; count: number }) {
   );
 }
 
-/** What delivery costs for this customer, in words. */
+/** Quanto custa a entrega para este cliente, por extenso. */
 export function deliveryText(store: StoreSummary, neighborhoodName: string | null): string {
   if (!store.offersDelivery) return "Só retirada";
   if (store.area) return store.area.feeCents === 0 ? "Entrega grátis" : `Entrega ${formatCents(store.area.feeCents)}`;

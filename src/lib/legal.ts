@@ -24,11 +24,11 @@ export const LEGAL_SLUGS: Record<string, LegalType> = {
   privacidade: "privacy",
 };
 
-/** "terms" -> "uso": the public address of a document type. */
+/** "terms" -> "uso": o endereço público de um tipo de documento. */
 export const slugOfLegalType = (type: LegalType) =>
   Object.entries(LEGAL_SLUGS).find(([, value]) => value === type)![0];
 
-/** Latest published version of each document. */
+/** Última versão publicada de cada documento. */
 export async function currentLegalDocuments(): Promise<LegalDocument[]> {
   const rows = await sql<LegalRow[]>`
     select distinct on (type) id, type, version, title, content, published_at
@@ -38,12 +38,12 @@ export async function currentLegalDocuments(): Promise<LegalDocument[]> {
   return rows.map(toDocument);
 }
 
-/** Which types a user has to accept: merchants also accept the merchant terms. */
+/** Quais tipos um usuário precisa aceitar: lojistas também aceitam os termos do lojista. */
 function requiredTypes(role: string): LegalType[] {
   return role === "merchant" ? ["terms", "privacy", "merchant_terms"] : ["terms", "privacy"];
 }
 
-/** Current documents the user has not accepted yet (new user or new version). */
+/** Documentos atuais que o usuário ainda não aceitou (usuário novo ou versão nova). */
 export async function pendingLegalDocuments(profileId: string, role: string): Promise<LegalDocument[]> {
   const rows = await sql<LegalRow[]>`
     select d.id, d.type, d.version, d.title, d.content, d.published_at
@@ -62,7 +62,7 @@ export async function pendingLegalDocuments(profileId: string, role: string): Pr
   return rows.map(toDocument);
 }
 
-/** Records the acceptance, with date and version, of everything pending. */
+/** Grava o aceite, com data e versão, de tudo o que está pendente. */
 export async function acceptPendingLegalDocuments(profileId: string, role: string) {
   const pending = await pendingLegalDocuments(profileId, role);
   if (pending.length === 0) return;

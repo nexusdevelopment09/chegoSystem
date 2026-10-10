@@ -26,7 +26,7 @@ async function Finance() {
   const { profile, store, at } = await getMerchantContext(["owner"]);
   const lines = await storeStatement(store.id, { from: new Date(at.getTime() - 30 * DAY_MS), to: at });
 
-  // Read as the owner of the store: Row Level Security gives only this store's invoices.
+  // Lido como dono da loja: as regras de acesso por linha (RLS) entregam só as faturas desta loja.
   const { invoices, subscription } = await withUser(profile.id, async (tx) => ({
     invoices: await tx<{ id: string; period_start: string; amount_cents: number; status: keyof typeof INVOICE_LABELS; due_date: string; paid_at: Date | null }[]>`
       select id, period_start::text, amount_cents, status, due_date::text, paid_at

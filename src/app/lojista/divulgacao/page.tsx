@@ -27,7 +27,7 @@ async function Promo() {
       <section className="flex flex-col items-center gap-3 rounded-card bg-white p-6 text-center ring-1 ring-peach">
         <h2 className="text-xl">QR Code da sua loja</h2>
         <p className="text-sm text-coffee-soft">Quem apontar a câmera cai direto na página da {store.name}.</p>
-        {/* SVG generated on the server by the QR library, from the store's own address. */}
+        {/* SVG gerado no servidor pela biblioteca de QR, a partir do endereço da própria loja. */}
         <div role="img" aria-label={`QR Code de ${url}`} data-testid="store-qr" dangerouslySetInnerHTML={{ __html: qr }} />
         <p className="break-all text-sm font-semibold">{url}</p>
         <div className="flex flex-wrap justify-center gap-2">

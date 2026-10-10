@@ -2,11 +2,11 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { chooseNeighborhood, db, loginAs, productUrl, setClock, freshDatabase } from "./helpers";
 
-// Accessibility, small screens and basic security, checked on the real pages.
+// Acessibilidade, telas pequenas e segurança básica, conferidas nas páginas de verdade.
 test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
 
-/** Automatic accessibility check (contrast, labels, names, roles...). */
+/** Verificação automática de acessibilidade (contraste, rótulos, nomes, papéis...). */
 async function expectAccessible(page: Page, name: string) {
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   const problems = results.violations
@@ -15,7 +15,7 @@ async function expectAccessible(page: Page, name: string) {
   expect(problems, `Problemas de acessibilidade em ${name}`).toEqual([]);
 }
 
-/** Nothing may be wider than a phone screen, and what is tapped must be big enough. */
+/** Nada pode ser mais largo que a tela do celular, e o que se toca tem que ser grande o bastante. */
 async function expectFitsPhone(page: Page, name: string) {
   const report = await page.evaluate(() => {
     const overflow = document.documentElement.scrollWidth - document.documentElement.clientWidth;
@@ -23,7 +23,7 @@ async function expectFitsPhone(page: Page, name: string) {
       .filter((element) => {
         const box = element.getBoundingClientRect();
         if (box.width === 0 || box.height === 0) return false;
-        // Checkboxes and radios are small boxes inside a label that is the real touch area.
+        // Caixas de seleção e botões de rádio são caixinhas dentro de um rótulo, que é a área de toque de verdade.
         const target = element.matches("input[type=checkbox], input[type=radio]") ? element.closest("label") ?? element : element;
         return target.getBoundingClientRect().height < 43.5;
       })
@@ -112,7 +112,7 @@ test("painel do lojista funciona só com o teclado", async ({ page }) => {
   await page.goto("/lojista/pedidos");
   await page.getByText("Concluídos hoje").first().waitFor();
 
-  // Tab walks through real controls, each with a visible focus ring and a name.
+  // O Tab passa por controles de verdade, cada um com contorno de foco visível e um nome.
   const seen: string[] = [];
   for (let step = 0; step < 14; step += 1) {
     await page.keyboard.press("Tab");
@@ -137,13 +137,13 @@ test("segurança: cabeçalhos, cookies e o que não pode ser acessado sem permis
   expect(headers["x-frame-options"]).toBe("DENY");
   expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
 
-  // The session cookie cannot be read by scripts and is not sent from other sites.
+  // O cookie de sessão não pode ser lido por scripts e não é enviado a partir de outros sites.
   await loginAs(page, "Ana Clara Souza");
   const session = (await page.context().cookies()).find((cookie) => cookie.name === "chego_session");
   expect(session).toMatchObject({ httpOnly: true, sameSite: "Lax" });
   expect(await page.evaluate(() => document.cookie)).not.toContain("chego_session");
 
-  // Without signing in: private data, panels, exports and uploads are refused.
+  // Sem entrar: dados privados, painéis, exportações e envios de arquivo são recusados.
   const anonymous = await (await page.context().browser()!.newContext()).newPage();
   for (const path of ["/perfil/meus-dados", "/api/push"]) {
     const response = path === "/api/push" ? await anonymous.request.put(path, { data: {} }) : await anonymous.request.get(path);
@@ -156,7 +156,7 @@ test("segurança: cabeçalhos, cookies e o que não pode ser acessado sem permis
     expect(response.headers().location, path).toContain("/entrar");
   }
 
-  // One customer cannot open, cancel or talk in another customer's order.
+  // Um cliente não consegue abrir, cancelar nem conversar no pedido de outro cliente.
   const [other] = await db`
     select o.id from orders o join profiles p on p.id = o.customer_id where p.full_name = 'Bruno Henrique Lima' order by o.created_at desc limit 1`;
   for (const path of [`/pedidos/${other.id}`, `/pedidos/${other.id}/pagamento`, `/pedidos/${other.id}/ajuda`]) {
@@ -164,13 +164,13 @@ test("segurança: cabeçalhos, cookies e o que não pode ser acessado sem permis
     await expect(page.getByRole("heading", { name: "Oxe, essa página não existe." })).toBeVisible();
   }
 
-  // Text typed by users is shown as text, never run as code.
+  // Texto digitado por usuários é mostrado como texto, nunca executado como código.
   await chooseNeighborhood(anonymous, "Centro");
   await anonymous.goto("/busca?q=%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E");
   await expect(anonymous.getByText("Oxe, não achamos nada com “<img src=x onerror=alert(1)>”.")).toBeVisible();
   expect(await anonymous.locator("img[src='x']").count()).toBe(0);
   await anonymous.context().close();
 
-  // The webhook is public, so it refuses anything that is not signed.
+  // O webhook é público, então recusa tudo o que não vier assinado.
   expect((await request.post("/api/webhooks/pagamentos", { data: { id: "x", type: "payment.approved", data: { payment_id: "y" } } })).status()).toBe(401);
 });

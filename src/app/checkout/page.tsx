@@ -27,7 +27,7 @@ async function CheckoutContent() {
   const profile = await requireUser();
   const [context, cities, cardEnabled] = await Promise.all([getShoppingContext(), listCities(), getFeatureFlag("card_payments")]);
 
-  // Runs as the customer: Row Level Security returns only their own addresses.
+  // Roda como o cliente: as regras de acesso por linha (RLS) devolvem só os endereços dele.
   const addresses = await withUser(profile.id, (tx) => tx<SavedAddress[]>`
     select a.id, a.street, a.number, a.reference, n.name as neighborhood, a.is_default as "isDefault"
     from addresses a join neighborhoods n on n.id = a.neighborhood_id

@@ -5,9 +5,9 @@ import { readCart, useCart, writeCart, type Cart } from "@/lib/cart/local";
 import { toCartPayload } from "@/lib/cart/payload";
 
 /**
- * Keeps the cart on the device and on the server in step for signed-in
- * customers: an empty device picks up the saved cart, and every change is
- * saved a moment later. Renders nothing.
+ * Mantém a sacola do aparelho e a do servidor em sincronia para clientes que
+ * entraram: um aparelho vazio recupera a sacola salva, e toda mudança é
+ * salva um instante depois. Não desenha nada.
  */
 const loadSaved = (): Promise<Cart | null> =>
   fetch("/api/carrinho").then((response) => response.json()).then((data: { cart: Cart | null }) => data.cart);
@@ -20,7 +20,7 @@ export function CartSync() {
   const [ready, setReady] = useState(false);
   const lastSaved = useRef<string | null>(null);
 
-  // First, bring back the saved cart if this device has none.
+  // Primeiro, traz de volta a sacola salva se este aparelho não tiver nenhuma.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -39,7 +39,7 @@ export function CartSync() {
     };
   }, []);
 
-  // Then save every change, a moment after the customer stops editing.
+  // Depois salva cada mudança, um instante depois que o cliente para de editar.
   useEffect(() => {
     if (!ready) return;
     const payload = cart ? toCartPayload(cart) : null;

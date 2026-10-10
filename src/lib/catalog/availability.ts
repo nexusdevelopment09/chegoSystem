@@ -1,4 +1,4 @@
-// Can this product be ordered now (or for a scheduled time)? Pure functions.
+// Este produto pode ser pedido agora (ou para um horário agendado)? Funções puras.
 import { formatHour, fromLocal, MINUTE_MS, parseTime, toLocal, WEEKDAY_NAMES } from "../time.ts";
 
 export type AvailabilityWindow = { weekday: number; startsAt: string; endsAt: string };
@@ -7,9 +7,9 @@ export type ProductRules = {
   available: boolean;
   trackStock: boolean;
   stockQty: number | null;
-  /** Made-to-order: minutes of notice the store needs. */
+  /** Sob encomenda: minutos de antecedência de que a loja precisa. */
   minLeadMinutes: number;
-  /** No windows = every day, all day. */
+  /** Sem faixas = todos os dias, o dia inteiro. */
   windows: AvailabilityWindow[];
 };
 
@@ -17,7 +17,7 @@ export type ProductStatus =
   | { orderable: true; mustSchedule: boolean; note: string | null }
   | { orderable: false; reason: "sold_out" | "outside_window"; note: string };
 
-/** True when the product is offered at that moment (day and time window). */
+/** Verdadeiro quando o produto é oferecido naquele momento (dia e faixa de horário). */
 export function inWindow(windows: AvailabilityWindow[], at: Date): boolean {
   if (windows.length === 0) return true;
   const local = toLocal(at);
@@ -42,8 +42,8 @@ function windowNote(windows: AvailabilityWindow[]): string {
 }
 
 /**
- * `when` is the moment the order would be prepared: now for an immediate
- * order, or the scheduled time.
+ * `when` é o momento em que o pedido seria preparado: agora, para um pedido
+ * imediato, ou o horário agendado.
  */
 export function productStatus(rules: ProductRules, when: Date): ProductStatus {
   if (!rules.available || (rules.trackStock && (rules.stockQty ?? 0) <= 0)) {
@@ -59,17 +59,17 @@ export function productStatus(rules: ProductRules, when: Date): ProductStatus {
   return { orderable: true, mustSchedule: false, note: rules.windows.length > 0 ? windowNote(rules.windows) : null };
 }
 
-/** Earliest moment an order with these lead times can be scheduled for. */
+/** Primeiro momento para o qual um pedido com estas antecedências pode ser agendado. */
 export function earliestSchedule(now: Date, leadMinutes: number[], storeMinLeadMinutes: number): Date {
   return new Date(now.getTime() + Math.max(storeMinLeadMinutes, ...leadMinutes, 0) * MINUTE_MS);
 }
 
 export type SameDayRule = {
-  /** "11:00": orders for today close at this time (lunch boxes). */
+  /** "11:00": os pedidos para hoje fecham neste horário (quentinhas). */
   cutoff: string | null;
 };
 
-/** After the cutoff, today's orders are closed and only scheduling for another day is left. */
+/** Depois do horário limite, os pedidos de hoje fecham e só resta agendar para outro dia. */
 export function sameDayClosed(rule: SameDayRule, now: Date): boolean {
   if (!rule.cutoff) return false;
   return toLocal(now).minutes >= parseTime(rule.cutoff);
@@ -77,7 +77,7 @@ export function sameDayClosed(rule: SameDayRule, now: Date): boolean {
 
 export const SAME_DAY_CLOSED_MESSAGE = "Os pedidos de hoje já fecharam. Quer agendar para amanhã?";
 
-/** The delivery window of a given local date, for stores that deliver in a fixed window. */
+/** A faixa de entrega de uma data local, para lojas que entregam em faixa fixa. */
 export function deliveryWindow(date: string, start: string, end: string): { start: Date; end: Date } {
   return { start: fromLocal(date, parseTime(start)), end: fromLocal(date, parseTime(end)) };
 }

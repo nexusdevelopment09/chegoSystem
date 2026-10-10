@@ -23,9 +23,9 @@ const friendly = (error: unknown): ActionState => {
 };
 
 /**
- * Runs a change on one of the store's orders. The order must belong to the
- * store the user works for (and be already paid: the store never touches an
- * order before the payment is confirmed).
+ * Roda uma mudança em um dos pedidos da loja. O pedido precisa ser da loja
+ * em que o usuário trabalha (e já estar pago: a loja nunca toca em um
+ * pedido antes de o pagamento ser confirmado).
  */
 async function onStoreOrder(
   orderId: unknown,
@@ -59,7 +59,7 @@ export async function acceptOrder(_previous: ActionState, formData: FormData): P
 
   return onStoreOrder(formData.get("orderId"), ["owner", "attendant"], async (tx, context) => {
     await transitionOrder(tx, { orderId: context.orderId, to: "accepted", actor: "staff", actorId: context.profileId, at: context.at });
-    // The estimate shown to the customer follows the time the store promised.
+    // A estimativa mostrada ao cliente acompanha o tempo que a loja prometeu.
     await tx`
       update orders o set estimated_at = coalesce(o.scheduled_for,
         ${context.at}::timestamptz + make_interval(mins => ${prepMinutes.data} + coalesce((
@@ -84,7 +84,7 @@ export async function rejectOrder(_previous: ActionState, formData: FormData): P
 
 const ADVANCE: OrderStatus[] = ["preparing", "ready", "out_for_delivery", "picked_up"];
 
-/** Moves the order one step forward: preparing, ready, out for delivery or picked up. */
+/** Avança o pedido um passo: em preparo, pronto, saiu para entrega ou retirado. */
 export async function advanceOrder(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const to = z.enum(ADVANCE as [OrderStatus, ...OrderStatus[]]).safeParse(formData.get("to"));
   if (!to.success) return { error: "Mudança inválida." };
@@ -111,8 +111,8 @@ export async function advanceOrder(_previous: ActionState, formData: FormData): 
 }
 
 /**
- * Marks the order as delivered. The courier types the 4-digit code the
- * customer shows. Without the code, only the owner can do it, with a reason.
+ * Marca o pedido como entregue. O entregador digita o código de 4 dígitos que o
+ * cliente mostra. Sem o código, só o dono consegue, e com motivo.
  */
 export async function deliverOrder(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const code = z.string().trim().max(4).parse(formData.get("code") ?? "");
@@ -143,7 +143,7 @@ export async function deliverOrder(_previous: ActionState, formData: FormData): 
   });
 }
 
-/** The store ran out of an item: it is taken off the order and its value goes back to the customer. */
+/** Acabou um item na loja: ele sai do pedido e o valor volta para o cliente. */
 export async function removeMissingItem(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const itemId = uuid.safeParse(formData.get("itemId"));
   if (!itemId.success) return { error: "Item inválido." };
@@ -161,7 +161,7 @@ export async function removeMissingItem(_previous: ActionState, formData: FormDa
     if (active.length === 1) throw new TransitionError("É o único item do pedido. Nesse caso, fale com o suporte para cancelar.");
 
     await tx`update order_items set removed_at = ${context.at}, removed_reason = 'Item em falta' where id = ${item.id}`;
-    // Never gives back more than what is still left to refund.
+    // Nunca devolve mais do que ainda falta reembolsar.
     const amount = Math.min(item.line_total_cents, order.total_cents - order.refunded_cents - 1);
     if (amount > 0) {
       await refundOrder(tx, {
@@ -180,9 +180,9 @@ export async function removeMissingItem(_previous: ActionState, formData: FormDa
   });
 }
 
-// ------------------------------------------------------------- store state
+// ---------------------------------------------------------- estado da loja
 
-/** "Abrir/fechar agora", pause for some minutes, and the busy-kitchen extra time. */
+/** "Abrir/fechar agora", pausa por alguns minutos e o tempo extra de movimento alto. */
 export async function updateStoreState(formData: FormData): Promise<void> {
   const { profile, membership } = await requireStoreMember(["owner", "attendant"]);
   const parsed = z

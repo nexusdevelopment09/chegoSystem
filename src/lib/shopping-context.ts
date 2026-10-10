@@ -4,9 +4,9 @@ import { cache } from "react";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { sql } from "@/lib/db";
 
-// Where the customer is shopping: the city and, when known, the neighborhood
-// (which decides delivery fee and time). Kept in cookies so it also works
-// before signing in.
+// Onde o cliente está comprando: a cidade e, quando se sabe, o bairro
+// (que decide a taxa e o tempo de entrega). Fica em cookies para funcionar também
+// antes de entrar.
 
 export const CITY_COOKIE = "chego_city";
 export const HOOD_COOKIE = "chego_hood";
@@ -14,7 +14,7 @@ export const HOOD_COOKIE = "chego_hood";
 export type ShoppingContext = {
   city: { id: string; name: string; state: string; maintenance: boolean } | null;
   neighborhood: { id: string; name: string; isRural: boolean } | null;
-  /** True when the visitor never chose a city and has no saved address (first visit). */
+  /** Verdadeiro quando o visitante nunca escolheu uma cidade e não tem endereço salvo (primeira visita). */
   firstVisit: boolean;
 };
 
@@ -29,7 +29,7 @@ export const getShoppingContext = cache(async (): Promise<ShoppingContext> => {
   let hoodId = hoodCookie && UUID.test(hoodCookie) ? hoodCookie : null;
   let cityId = cityCookie && UUID.test(cityCookie) ? cityCookie : null;
 
-  // Signed-in customers default to their main address.
+  // Para clientes que entraram, o padrão é o endereço principal.
   if (!hoodId) {
     const profile = await getCurrentProfile();
     if (profile) {
@@ -66,7 +66,7 @@ export const getShoppingContext = cache(async (): Promise<ShoppingContext> => {
 
 export type CityOption = { id: string; name: string; state: string; neighborhoods: { id: string; name: string; isRural: boolean }[] };
 
-/** Active cities with their neighborhoods and rural communities. */
+/** Cidades ativas com seus bairros e comunidades rurais. */
 export async function listCities(): Promise<CityOption[]> {
   const rows = await sql<{ id: string; name: string; state: string; hoods: { id: string; name: string; isRural: boolean }[] }[]>`
     select c.id, c.name, c.state,

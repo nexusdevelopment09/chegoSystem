@@ -11,7 +11,7 @@ test("cliente novo se cadastra com telefone, nome e aceite dos termos", async ({
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Criar minha conta" }).click();
 
-  // A brand-new customer has no address yet, so they choose where they are.
+  // Um cliente novinho ainda não tem endereço, então ele escolhe onde está.
   await expect(page).toHaveURL(/\/boas-vindas$/);
   await page.goto("/perfil");
   await expect(page.getByLabel("Nome completo")).toHaveValue("Maria Teste da Silva");
@@ -29,7 +29,7 @@ test("sem aceitar os termos o cadastro não termina", async ({ page }) => {
   await loginWithPhone(page, "(82) 98888-5678");
   await expect(page).toHaveURL(/\/cadastro$/);
 
-  // Leaving the sign-up half done sends the user back to it.
+  // Largar o cadastro pela metade manda o usuário de volta para ele.
   await page.goto("/perfil");
   await expect(page).toHaveURL(/\/cadastro$/);
 });
@@ -58,7 +58,7 @@ test("o código enviado aparece na caixa de mensagens e nenhum SMS real sai", as
 });
 
 test("cada papel só entra no seu painel", async ({ page }) => {
-  // Not signed in.
+  // Sem ter entrado.
   for (const path of ["/admin", "/lojista", "/perfil"]) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/entrar$/);
@@ -73,7 +73,7 @@ test("cada papel só entra no seu painel", async ({ page }) => {
   await loginAs(page, "Robson Entregas");
   await expect(page).toHaveURL(/\/lojista\/entregas$/);
   await expect(page.getByRole("heading", { name: "Minhas entregas" })).toBeVisible();
-  // A courier has no address, so the home page sends him on to choose a city.
+  // Um entregador não tem endereço, então a página inicial o manda escolher uma cidade.
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/boas-vindas$/);
 
@@ -108,7 +108,7 @@ test("nova versão dos termos precisa ser aceita no próximo acesso", async ({ p
     await page.goto("/perfil");
     await expect(page.getByRole("heading", { name: "Meu perfil" })).toBeVisible();
   } finally {
-    // Other tests sign in as users who never saw version 2.
+    // Outros testes entram como usuários que nunca viram a versão 2.
     await db`delete from legal_acceptances where document_id = ${document.id}`;
     await db`delete from legal_documents where id = ${document.id}`;
   }

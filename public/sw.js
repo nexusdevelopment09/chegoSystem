@@ -1,6 +1,6 @@
-// Basic service worker: makes the app installable and shows a friendly page
-// when there is no connection. Pages and API calls always go to the network,
-// so prices, stock and order status are never served stale.
+// Service worker básico: deixa o app instalável e mostra uma página amigável
+// quando não há conexão. Páginas e chamadas de API sempre vão para a rede,
+// então preços, estoque e status do pedido nunca são servidos desatualizados.
 const CACHE = "chego-v1";
 const OFFLINE_URL = "/offline.html";
 
@@ -30,7 +30,7 @@ self.addEventListener("push", (event) => {
   try {
     data = { ...data, ...event.data.json() };
   } catch {
-    // A push without a readable body still shows the default text.
+    // Um push sem corpo legível ainda mostra o texto padrão.
   }
   event.waitUntil(
     self.registration.showNotification(data.title, {

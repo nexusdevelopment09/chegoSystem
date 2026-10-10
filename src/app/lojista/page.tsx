@@ -5,7 +5,7 @@ import { requireStoreMember } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Minha loja" };
 
-// The panel opens on what each role works with: orders, or deliveries for couriers.
+// O painel abre no que cada papel usa: pedidos, ou entregas para os entregadores.
 export default function MerchantPage() {
   return (
     <Suspense fallback={<p className="text-coffee-soft">Carregando...</p>}>

@@ -13,7 +13,7 @@ function readRecent(): string[] {
   }
 }
 
-/** Search field with suggestions while typing and the latest searches. */
+/** Campo de busca com sugestões enquanto digita e as últimas buscas. */
 export function SearchBox({ initial = "" }: { initial?: string }) {
   const router = useRouter();
   const [value, setValue] = useState(initial);
@@ -32,7 +32,7 @@ export function SearchBox({ initial = "" }: { initial?: string }) {
         const data = (await response.json()) as { suggestions: string[] };
         if (current === request.current) setSuggestions(data.suggestions);
       } catch {
-        // No connection: just no suggestions.
+        // Sem conexão: só fica sem sugestões.
       }
     }, 200);
     return () => clearTimeout(timer);
@@ -45,7 +45,7 @@ export function SearchBox({ initial = "" }: { initial?: string }) {
     try {
       window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
     } catch {
-      // Ignore: recent searches are a convenience.
+      // Ignora: as buscas recentes são uma conveniência.
     }
     setFocused(false);
     router.push(`/busca?q=${encodeURIComponent(clean)}`);

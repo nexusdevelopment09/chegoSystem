@@ -1,8 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 import { TEST_DATABASE_URL } from "./tests/reset-test-db";
 
-// End-to-end tests start their own copy of the app on port 3100, connected to
-// the test database, so they never touch the data you are testing by hand.
+// Os testes de ponta a ponta sobem a própria cópia do app na porta 3100, ligada
+// ao banco de teste, então nunca mexem nos dados que você está testando à mão.
 const PORT = 3100;
 
 export default defineConfig({
@@ -11,7 +11,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: [["list"]],
-  // The dev server compiles each page on its first visit, which can take a few seconds.
+  // O servidor de desenvolvimento compila cada página na primeira visita, o que pode levar alguns segundos.
   timeout: 120_000,
   expect: { timeout: 20_000 },
   use: {
@@ -22,7 +22,7 @@ export default defineConfig({
   },
   projects: [{ name: "celular", use: { ...devices["Pixel 7"] } }],
   webServer: {
-    // Starts the database first (does nothing if it is already on); without it the app only shows "banco desligado".
+    // Liga o banco antes (não faz nada se já estiver ligado); sem ele o app só mostra "banco desligado".
     command: `node scripts/db.ts start && npx next dev -p ${PORT}`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,

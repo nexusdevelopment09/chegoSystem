@@ -10,8 +10,8 @@ import { parseMoney } from "@/lib/format";
 import { adjustPrice, parseMenuCsv } from "@/lib/merchant/csv";
 import { pickedFile, PRODUCT_VARIANTS, saveImage, UploadError } from "@/lib/uploads";
 
-// Every write here runs as the signed-in user (withUser), so besides the
-// role check, Row Level Security guarantees a store only edits its own menu.
+// Toda gravação aqui roda como o usuário que entrou (withUser), então, além da
+// checagem de papel, as regras de acesso por linha (RLS) garantem que a loja só edita o próprio cardápio.
 
 export type ActionState = { error?: string; ok?: boolean; message?: string };
 
@@ -19,7 +19,7 @@ const uuid = z.uuid();
 const done = () => revalidatePath("/lojista/cardapio", "layout");
 const staff = () => requireStoreMember(["owner", "attendant"]);
 
-// ---------------------------------------------------------------- sections
+// ------------------------------------------------------------------- seções
 
 export async function saveSection(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { profile, membership } = await staff();
@@ -41,7 +41,7 @@ export async function saveSection(_previous: ActionState, formData: FormData): P
   return { ok: true };
 }
 
-/** Moves a section one position up or down (the keyboard-friendly way to reorder). */
+/** Move uma seção uma posição para cima ou para baixo (o jeito de reordenar que funciona no teclado). */
 export async function moveSection(formData: FormData): Promise<void> {
   const { profile, membership } = await staff();
   const id = uuid.parse(formData.get("id"));
@@ -64,14 +64,14 @@ export async function moveSection(formData: FormData): Promise<void> {
 export async function deleteSection(formData: FormData): Promise<void> {
   const { profile } = await staff();
   const id = uuid.parse(formData.get("id"));
-  // Products of the section are kept, without a section.
+  // Os produtos da seção são mantidos, sem seção.
   await withUser(profile.id, (tx) => tx`delete from product_sections where id = ${id}`);
   done();
 }
 
-// ---------------------------------------------------------------- products
+// ----------------------------------------------------------------- produtos
 
-/** One tap: sold out / available again. */
+/** Um toque: esgotado / disponível de novo. */
 export async function toggleProduct(formData: FormData): Promise<void> {
   const { profile } = await staff();
   const id = uuid.parse(formData.get("id"));
@@ -82,7 +82,7 @@ export async function toggleProduct(formData: FormData): Promise<void> {
 export async function deleteProduct(formData: FormData): Promise<void> {
   const { profile } = await staff();
   const id = uuid.parse(formData.get("id"));
-  // Soft delete: old orders keep pointing to the product.
+  // Exclusão lógica: os pedidos antigos continuam apontando para o produto.
   await withUser(profile.id, (tx) => tx`update products set deleted_at = now(), available = false where id = ${id}`);
   done();
   redirect("/lojista/cardapio");
@@ -177,7 +177,7 @@ export async function saveProduct(_previous: ActionState, formData: FormData): P
       savedId = created.id;
     }
 
-    // No days ticked = available every day, all day.
+    // Nenhum dia marcado = disponível todos os dias, o dia inteiro.
     await tx`delete from product_availability where product_id = ${savedId}`;
     const everyDay = weekdays.length === 0 || weekdays.length === 7;
     if (!everyDay || data.windowFrom || data.windowTo) {
@@ -196,7 +196,7 @@ export async function saveProduct(_previous: ActionState, formData: FormData): P
   return { ok: true, message: "Produto salvo." };
 }
 
-// ----------------------------------------------------------- option groups
+// --------------------------------------------------------- grupos de opções
 
 export async function saveGroup(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { profile, membership } = await staff();
@@ -256,7 +256,7 @@ const linkSchema = z.object({
   free: z.coerce.number().int().min(0).max(20),
 });
 
-/** Links a reusable group to a product, with that product's rules. */
+/** Liga um grupo reutilizável a um produto, com as regras daquele produto. */
 export async function linkGroup(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { profile } = await staff();
   const parsed = linkSchema.safeParse({
@@ -296,7 +296,7 @@ export async function unlinkGroup(formData: FormData): Promise<void> {
   done();
 }
 
-/** Prices of the options on one product (e.g. each flavor on the large pizza). */
+/** Preços das opções em um produto (ex.: cada sabor na pizza grande). */
 export async function saveOptionPrices(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { profile } = await staff();
   const productId = uuid.safeParse(formData.get("productId"));
@@ -329,9 +329,9 @@ export async function saveOptionPrices(_previous: ActionState, formData: FormDat
   return { ok: true, message: "Preços salvos." };
 }
 
-// ------------------------------------------------------------- spreadsheet
+// ----------------------------------------------------------------- planilha
 
-/** Creates or updates products from a CSV file. Nothing is changed if any line has a problem. */
+/** Cria ou atualiza produtos a partir de um arquivo CSV. Nada é alterado se alguma linha tiver problema. */
 export async function importMenuCsv(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { profile, membership } = await staff();
   const file = pickedFile(formData.get("file"));
@@ -382,7 +382,7 @@ export async function importMenuCsv(_previous: ActionState, formData: FormData):
   return { ok: true, message: `Planilha importada: ${result.created} produtos novos e ${result.updated} atualizados.` };
 }
 
-/** Raises or lowers every price of a section (or of the whole menu) by a percentage. */
+/** Sobe ou baixa todos os preços de uma seção (ou do cardápio inteiro) por um percentual. */
 export async function adjustPrices(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { profile, membership } = await staff();
   const percent = z.coerce.number().min(-90).max(500).safeParse(String(formData.get("percent") ?? "").replace(",", "."));
@@ -397,7 +397,7 @@ export async function adjustPrices(_previous: ActionState, formData: FormData): 
     for (const product of products) {
       await tx`update products set price_cents = ${adjustPrice(product.price_cents, percent.data)} where id = ${product.id}`;
     }
-    // Prices set per product (pizza flavors by size) follow the same adjustment.
+    // Os preços definidos por produto (sabores de pizza por tamanho) seguem o mesmo reajuste.
     const optionPrices = await tx<{ product_id: string; option_id: string; price_cents: number }[]>`
       select product_id, option_id, price_cents from product_option_prices
       where product_id = any(${products.map((product) => product.id)}::uuid[])`;

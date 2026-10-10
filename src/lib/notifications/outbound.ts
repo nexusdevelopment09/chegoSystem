@@ -11,14 +11,14 @@ export type OutboundMessage = {
   body: string;
 };
 
-/** Sends messages outside the app. Swapped by NOTIFICATION_PROVIDER in the future. */
+/** Envia mensagens para fora do app. Trocado por NOTIFICATION_PROVIDER no futuro. */
 export interface NotificationProvider {
   send(message: OutboundMessage): Promise<void>;
 }
 
 /**
- * Test environment: nothing leaves the computer. Every message is stored and
- * shown in the "Caixa de mensagens" of the /dev page.
+ * Ambiente de testes: nada sai do computador. Toda mensagem é guardada e
+ * mostrada na "Caixa de mensagens" da página /dev.
  */
 class SimulatedNotificationProvider implements NotificationProvider {
   async send(message: OutboundMessage) {

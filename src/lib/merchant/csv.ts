@@ -1,5 +1,5 @@
-// Menu spreadsheet (CSV) for stores with many products. Pure functions.
-// Format: semicolon-separated, the way Excel in Brazil saves it.
+// Planilha do cardápio (CSV) para lojas com muitos produtos. Funções puras.
+// Formato: separado por ponto e vírgula, do jeito que o Excel no Brasil salva.
 import { parseMoney } from "../format.ts";
 
 export const CSV_HEADER = ["secao", "nome", "descricao", "preco", "disponivel", "estoque"] as const;
@@ -10,13 +10,13 @@ export type CsvProduct = {
   description: string;
   priceCents: number;
   available: boolean;
-  /** Null = stock not controlled. */
+  /** Null = estoque não controlado. */
   stock: number | null;
 };
 
 export type CsvResult = { products: CsvProduct[]; errors: string[] };
 
-/** Splits one CSV line, respecting quoted fields ("a;b" and doubled quotes). */
+/** Divide uma linha do CSV, respeitando campos entre aspas ("a;b" e aspas dobradas). */
 function splitLine(line: string, separator: string): string[] {
   const cells: string[] = [];
   let cell = "";
@@ -81,7 +81,7 @@ export function parseMenuCsv(text: string): CsvResult {
 
 const quote = (value: string) => (/[";\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
 
-/** With a byte-order mark, so Excel opens the accents correctly. */
+/** Com a marca de ordem de bytes (BOM), para o Excel abrir os acentos certo. */
 export function toMenuCsv(products: CsvProduct[]): string {
   const rows = products.map((product) => [
     product.section, product.name, product.description,
@@ -92,7 +92,7 @@ export function toMenuCsv(products: CsvProduct[]): string {
   return `﻿${[CSV_HEADER.join(";"), ...rows].join("\r\n")}\r\n`;
 }
 
-/** New price after a percentage change, rounded to the cent and never below zero. */
+/** Preço novo depois de uma mudança percentual, arredondado ao centavo e nunca abaixo de zero. */
 export function adjustPrice(priceCents: number, percent: number): number {
   return Math.max(0, Math.round(priceCents * (1 + percent / 100)));
 }

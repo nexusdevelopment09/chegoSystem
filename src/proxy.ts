@@ -4,8 +4,8 @@ import { databaseUrl, isLocalEnv } from "@/lib/env";
 
 const DB_OFFLINE_PATH = "/banco-desligado";
 
-// Local only: the app never pretends to work without the database. If nothing
-// answers on the database port, every page shows how to turn it on.
+// Só no ambiente local: o app nunca finge que funciona sem o banco. Se nada
+// responde na porta do banco, toda página mostra como ligá-lo.
 function isDatabaseUp(): Promise<boolean> {
   const { hostname, port } = new URL(databaseUrl());
 

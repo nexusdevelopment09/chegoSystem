@@ -42,7 +42,7 @@ async function PaymentContent({ params }: { params: Params }) {
   const profile = await requireUser();
   const order = await loadOrder(profile.id, id);
   if (!order || order.customerId !== profile.id) notFound();
-  // Paid (or finished some other way): the tracking page takes over.
+  // Pago (ou encerrado de outro jeito): a página de acompanhamento assume.
   if (order.status !== "awaiting_payment") redirect(`/pedidos/${order.id}`);
 
   const [payment] = await withUser(profile.id, (tx) => tx<{ status: string; method: string; pix_copy_paste: string | null }[]>`

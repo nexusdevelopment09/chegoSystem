@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/Button";
 type Props = {
   qrSvg: string;
   code: string;
-  /** Seconds left when the page was rendered, by the server's clock. */
+  /** Segundos que faltavam quando a página foi montada, pelo relógio do servidor. */
   secondsLeft: number;
 };
 
-/** Pix QR code, "copia e cola" with a copy button, and the countdown. */
+/** QR Code do Pix, "copia e cola" com botão de copiar e a contagem regressiva. */
 export function PixBox({ qrSvg, code, secondsLeft }: Props) {
   const [copied, setCopied] = useState(false);
-  // Counts down on the device from the time left the server reported.
+  // Conta no aparelho, a partir do tempo que o servidor informou que faltava.
   const [deadline] = useState(() => Date.now() + secondsLeft * 1000);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
@@ -36,7 +36,7 @@ export function PixBox({ qrSvg, code, secondsLeft }: Props) {
       </p>
       {left <= 180 && left > 0 && <p className="text-sm font-bold text-danger">Seu Pix vai expirar em menos de 3 minutos.</p>}
 
-      {/* The SVG is generated on the server by the QR library, from our own code. */}
+      {/* O SVG é gerado no servidor pela biblioteca de QR, a partir do nosso próprio código. */}
       <div className="rounded-2xl bg-white p-3 ring-1 ring-peach" role="img" aria-label="QR Code do Pix" data-testid="pix-qr" dangerouslySetInnerHTML={{ __html: qrSvg }} />
 
       <label className="flex w-full flex-col gap-1.5 text-sm font-semibold">

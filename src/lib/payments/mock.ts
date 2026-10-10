@@ -2,20 +2,20 @@ import "server-only";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type { CreatedPayment, CreatePaymentInput, PaymentProvider, WebhookEvent } from "./types";
 
-// A pretend gateway for the test environment. No real money, no network.
-// It signs its webhooks exactly like a real gateway would, so the webhook
-// code (signature check, idempotency) is the same that will run in production.
+// Um gateway de mentira para o ambiente de testes. Sem dinheiro de verdade, sem rede.
+// Ele assina os webhooks exatamente como um gateway de verdade, então o código
+// do webhook (checagem da assinatura, idempotência) é o mesmo que vai rodar em produção.
 
 const secret = () => process.env.PAYMENT_WEBHOOK_SECRET ?? "segredo-local-de-teste";
 
 export const signMockBody = (rawBody: string) => createHmac("sha256", secret()).update(rawBody).digest("hex");
 
-/** Test cards: final 0000 approves, final 1111 declines. */
+/** Cartões de teste: final 0000 aprova, final 1111 recusa. */
 export function mockCardOutcome(cardNumber: string): "approved" | "declined" {
   return cardNumber.replace(/\D/g, "").endsWith("1111") ? "declined" : "approved";
 }
 
-/** The body and signature the pretend gateway would POST to our webhook. */
+/** O corpo e a assinatura que o gateway de mentira enviaria por POST ao nosso webhook. */
 export function buildMockWebhook(providerPaymentId: string, type: WebhookEvent["type"], eventId: string = randomUUID()) {
   const rawBody = JSON.stringify({ id: eventId, type, data: { payment_id: providerPaymentId } });
   return { rawBody, signature: signMockBody(rawBody) };
@@ -28,7 +28,7 @@ export class MockPaymentProvider implements PaymentProvider {
     const providerPaymentId = `mock_${randomUUID()}`;
     return {
       providerPaymentId,
-      // Looks like a Pix "copia e cola" code, but it is not a valid one.
+      // Parece um código "copia e cola" do Pix, mas não é um código válido.
       pixCopyPaste:
         input.method === "pix"
           ? `00020126580014BR.GOV.BCB.PIX0136chego-teste-${providerPaymentId.slice(5, 17)}5204000053039865802BR5905CHEGO6013JOAQUIM GOMES6304TEST`

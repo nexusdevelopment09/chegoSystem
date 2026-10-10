@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-/** "mm:ss" counting down from the seconds the server reported. */
+/** "mm:ss" em contagem regressiva a partir dos segundos que o servidor informou. */
 export function Countdown({ seconds, label }: { seconds: number; label: string }) {
   const [deadline] = useState(() => Date.now() + seconds * 1000);
   const [nowMs, setNowMs] = useState(() => Date.now());

@@ -1,14 +1,14 @@
-// The customer's choices for a product: validation, price and how they are
-// written on the cart, the order and the printed ticket. Pure functions,
-// shared by the browser (live total) and the server (the price that counts).
+// As escolhas do cliente para um produto: validação, preço e como são
+// escritas na sacola, no pedido e no comprovante impresso. Funções puras,
+// usadas pelo navegador (total ao vivo) e pelo servidor (o preço que vale).
 import { itemUnitPriceCents, type ChosenGroup, type PriceMode } from "./pricing.ts";
 
 export type OptionView = {
   id: string;
   name: string;
-  /** Sub-heading inside the group: "Tradicionais", "Especiais"... */
+  /** Subtítulo dentro do grupo: "Tradicionais", "Especiais"... */
   label: string | null;
-  /** Price of this option on this product. */
+  /** Preço desta opção neste produto. */
   priceCents: number;
   available: boolean;
 };
@@ -25,7 +25,7 @@ export type GroupView = {
   options: OptionView[];
 };
 
-/** In the order the customer picked them. */
+/** Na ordem em que o cliente escolheu. */
 export type Pick = { groupId: string; optionId: string; quantity: number };
 
 export type ResolvedPick = { option: OptionView; quantity: number };
@@ -37,12 +37,12 @@ export type SelectionResult =
 
 const minimumOf = (group: GroupView) => Math.max(group.min, group.required ? 1 : 0);
 
-/** How many units were picked in a group. */
+/** Quantas unidades foram escolhidas em um grupo. */
 export function unitsIn(picks: Pick[], groupId: string): number {
   return picks.filter((pick) => pick.groupId === groupId).reduce((total, pick) => total + pick.quantity, 0);
 }
 
-/** What is still missing in a group, or null when it is complete. */
+/** O que ainda falta em um grupo, ou null quando está completo. */
 export function groupProblem(group: GroupView, units: number): string | null {
   const min = minimumOf(group);
   if (units < min) {
@@ -54,7 +54,7 @@ export function groupProblem(group: GroupView, units: number): string | null {
   return null;
 }
 
-/** Checks the picks against the product's groups and prices the item. */
+/** Confere as escolhas contra os grupos do produto e calcula o preço do item. */
 export function resolveSelection(basePriceCents: number, groups: GroupView[], picks: Pick[]): SelectionResult {
   const resolved: ResolvedGroup[] = [];
 
@@ -103,7 +103,7 @@ function priceOf(basePriceCents: number, groups: ResolvedGroup[]): number {
   return itemUnitPriceCents(basePriceCents, chosen);
 }
 
-/** Live total while the customer is still choosing: prices whatever is picked so far. */
+/** Total ao vivo enquanto o cliente ainda escolhe: calcula o preço do que foi escolhido até agora. */
 export function partialPriceCents(basePriceCents: number, groups: GroupView[], picks: Pick[]): number {
   const partial: ResolvedGroup[] = groups.map((group) => {
     const resolved = picks
@@ -117,7 +117,7 @@ export function partialPriceCents(basePriceCents: number, groups: GroupView[], p
   return priceOf(basePriceCents, partial);
 }
 
-/** The lowest price the product can have: "a partir de R$ 45,00". */
+/** O menor preço que o produto pode ter: "a partir de R$ 45,00". */
 export function startingPriceCents(basePriceCents: number, groups: GroupView[]): number {
   let total = basePriceCents;
   for (const group of groups) {
@@ -135,7 +135,7 @@ export function startingPriceCents(basePriceCents: number, groups: GroupView[]):
 export type SnapshotOption = { groupName: string; optionName: string; mode: PriceMode; quantity: number };
 
 /**
- * Lines written under the item on the cart, the order and the ticket:
+ * Linhas escritas embaixo do item na sacola, no pedido e no comprovante:
  *   1/2 Calabresa
  *   1/2 Carne de Sol com Queijo Coalho
  *   Borda: Catupiry
@@ -150,7 +150,7 @@ export function describeOptions(options: SnapshotOption[]): string[] {
     const shared = inGroup[0].mode === "highest" || inGroup[0].mode === "average";
 
     if (shared) {
-      // Flavors share the item in equal parts.
+      // Os sabores dividem o item em partes iguais.
       for (const option of inGroup) {
         lines.push(units === 1 ? option.optionName : `${option.quantity}/${units} ${option.optionName}`);
       }

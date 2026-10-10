@@ -1,5 +1,5 @@
-// Drawing of the pizza split in equal parts, one per chosen flavor.
-// Updates live while the customer picks.
+// Desenho da pizza dividida em partes iguais, uma por sabor escolhido.
+// Atualiza ao vivo enquanto o cliente escolhe.
 
 const COLORS = ["#E8611A", "#F6B26B", "#B4480F", "#FFD9A8"];
 const TEXT_ON = ["#FFFFFF", "#24160C", "#FFFFFF", "#24160C"];

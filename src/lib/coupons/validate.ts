@@ -1,4 +1,4 @@
-// Coupon rules, with a clear message for every refusal. Pure functions.
+// Regras de cupom, com uma mensagem clara para cada recusa. Funções puras.
 import type { DiscountPayer } from "../orders/totals.ts";
 
 export type CouponRules = {
@@ -25,9 +25,9 @@ export type CouponRules = {
 export type CouponContext = {
   now: Date;
   customerId: string;
-  /** Orders the customer already paid for in the app. */
+  /** Pedidos que o cliente já pagou no app. */
   customerPaidOrders: number;
-  /** Times this customer already used this coupon. */
+  /** Vezes que este cliente já usou este cupom. */
   customerUses: number;
   subtotalCents: number;
   deliveryFeeCents: number;

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-/** Opens the browser's print dialog as soon as the ticket is on screen. */
+/** Abre a janela de impressão do navegador assim que o comprovante aparece na tela. */
 export function PrintOnLoad() {
   useEffect(() => {
     const timer = setTimeout(() => window.print(), 300);

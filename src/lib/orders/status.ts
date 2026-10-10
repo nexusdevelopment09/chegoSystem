@@ -1,12 +1,12 @@
-// The order state machine: the only place that says which status can follow
-// which, and who may do it. Pure functions.
+// A máquina de estados do pedido: o único lugar que diz qual status pode vir depois
+// de qual, e quem pode fazer a mudança. Funções puras.
 
 export type OrderStatus =
   | "awaiting_payment" | "paid" | "accepted" | "preparing" | "ready"
   | "out_for_delivery" | "delivered" | "picked_up"
   | "expired" | "rejected" | "cancelled" | "refunded" | "partially_refunded";
 
-/** Who is asking for the change. "staff" = store owner or attendant. */
+/** Quem está pedindo a mudança. "staff" = dono ou atendente da loja. */
 export type Actor = "system" | "customer" | "staff" | "courier" | "admin";
 export type Fulfillment = "delivery" | "pickup";
 
@@ -66,20 +66,20 @@ export function canTransition(from: OrderStatus, to: OrderStatus, actor: Actor, 
   );
 }
 
-/** Statuses the actor can move the order to from where it is. */
+/** Status para os quais este autor pode levar o pedido a partir de onde ele está. */
 export function nextStatuses(from: OrderStatus, actor: Actor, fulfillment: Fulfillment): OrderStatus[] {
   return RULES[from]
     .filter((rule) => rule.by.includes(actor) && (!rule.only || rule.only === fulfillment))
     .map((rule) => rule.to);
 }
 
-/** Nothing else happens to the order by itself after these. */
+/** Depois destes, nada mais acontece sozinho com o pedido. */
 export const isFinal = (status: OrderStatus) => RULES[status].length === 0 || status === "delivered" || status === "picked_up" || status === "partially_refunded";
 
-/** The store is still working on it. */
+/** A loja ainda está trabalhando nele. */
 export const IN_PROGRESS: OrderStatus[] = ["paid", "accepted", "preparing", "ready", "out_for_delivery"];
 
-/** Statuses that give the reserved stock and the coupon back. */
+/** Status que devolvem o estoque reservado e o cupom. */
 export const RELEASES_STOCK: OrderStatus[] = ["expired", "rejected", "cancelled"];
 
 export const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -98,7 +98,7 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
   partially_refunded: "Reembolsado em parte",
 };
 
-/** What the customer is told when the order reaches each status. */
+/** O que o cliente fica sabendo quando o pedido chega a cada status. */
 export const CUSTOMER_MESSAGES: Partial<Record<OrderStatus, { title: string; body: string }>> = {
   accepted: { title: "A loja aceitou seu pedido", body: "Já já começa o preparo." },
   preparing: { title: "Seu pedido está sendo preparado", body: "Tá saindo do forno!" },

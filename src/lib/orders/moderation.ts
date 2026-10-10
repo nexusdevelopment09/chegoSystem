@@ -1,6 +1,6 @@
-// Moderation of the messages between customer and store. The point is that
-// nobody takes the sale outside the app: no phones, e-mails, links, handles
-// or "call me on zap". Pure functions.
+// Moderação das mensagens entre cliente e loja. A ideia é que ninguém
+// leve a venda para fora do app: nada de telefone, e-mail, link, @ nem
+// "me chama no zap". Funções puras.
 
 export type ModerationResult = { allowed: true } | { allowed: false; rule: string };
 
@@ -9,7 +9,7 @@ export const BLOCKED_MESSAGE = "Por segurança, não é permitido trocar contato
 const NUMBER_WORDS =
   "zero|um|uma|dois|duas|tres|quatro|cinco|seis|meia|sete|oito|nove";
 
-/** Lowercase, without accents, and with common letter-for-digit tricks undone. */
+/** Em minúsculas, sem acentos e desfazendo os truques comuns de trocar letra por número. */
 function normalize(text: string): string {
   return text
     .toLowerCase()
@@ -18,9 +18,9 @@ function normalize(text: string): string {
 }
 
 /**
- * Longest run of digits allowing the separators people use to disguise a
- * phone number: spaces, dots, dashes, parentheses, slashes.
- * "R$ 25,90" has a comma, which breaks the run, so prices are not caught.
+ * Maior sequência de dígitos, aceitando os separadores que as pessoas usam para
+ * disfarçar um telefone: espaços, pontos, traços, parênteses, barras.
+ * "R$ 25,90" tem vírgula, que quebra a sequência, então preços não são pegos.
  */
 function longestDigitRun(text: string): number {
   let longest = 0;
@@ -34,11 +34,11 @@ export function moderateMessage(raw: string): ModerationResult {
   const text = normalize(raw);
   const block = (rule: string): ModerationResult => ({ allowed: false, rule });
 
-  // 8 digits or more in a row is a phone number (prices, times, order codes
-  // and house numbers are shorter).
+  // 8 dígitos ou mais seguidos é um telefone (preços, horários, códigos de pedido
+  // e números de casa são mais curtos).
   if (longestDigitRun(text) >= 8) return block("phone");
 
-  // A phone number spelled out: "oito dois nove nove nove..."
+  // Um telefone escrito por extenso: "oito dois nove nove nove..."
   if (new RegExp(`(?:\\b(?:${NUMBER_WORDS})\\b[\\s,.-]*){6,}`).test(text)) return block("phone_spelled");
 
   if (/[\w.+-]+\s*(?:@|\barroba\b)\s*[\w-]+\s*(?:\.|\bponto\b)\s*[a-z]{2,}/.test(text)) return block("email");
@@ -61,7 +61,7 @@ export function moderateMessage(raw: string): ModerationResult {
   return { allowed: true };
 }
 
-/** Messages are open from the payment until 2 hours after the order is finished. */
+/** As mensagens ficam abertas do pagamento até 2 horas depois de o pedido ser concluído. */
 export function chatOpen(order: { paidAt: Date | null; completedAt: Date | null; status: string }, now: Date): boolean {
   if (!order.paidAt) return false;
   if (["rejected", "cancelled", "expired", "refunded"].includes(order.status)) return false;

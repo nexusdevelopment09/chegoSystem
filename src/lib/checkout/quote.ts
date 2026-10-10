@@ -12,8 +12,8 @@ import { getSettings } from "@/lib/settings";
 import { storeAvailability, type Shift, type StoreSchedule } from "@/lib/stores/hours";
 import { canOrderNow, isValidSlot, scheduleSlots, type ScheduleRules, type Slot } from "./schedule";
 
-// Everything the browser sends about a cart. Prices are never part of it,
-// except as "what I was shown", to warn the customer when something changed.
+// Tudo o que o navegador envia sobre uma sacola. Preços nunca fazem parte,
+// a não ser como "o que me mostraram", para avisar o cliente quando algo mudou.
 export const cartInputSchema = z.object({
   storeId: z.uuid(),
   items: z
@@ -49,17 +49,17 @@ export type QuoteLine = {
   lines: string[];
   notes: string;
   requiresAgeCheck: boolean;
-  /** Why this line cannot be ordered, if that is the case. */
+  /** Por que esta linha não pode ser pedida, se for o caso. */
   error: string | null;
-  /** The price is different from what the customer saw when adding it. */
+  /** O preço é diferente do que o cliente viu ao adicionar. */
   priceChanged: boolean;
 };
 
 export type Quote = {
   ok: boolean;
-  /** Reasons the order cannot be placed as it is. */
+  /** Motivos pelos quais o pedido não pode ser feito do jeito que está. */
   errors: string[];
-  /** Things the customer should know before paying (a price changed...). */
+  /** O que o cliente deve saber antes de pagar (um preço mudou...). */
   warnings: string[];
   store: { id: string; name: string; slug: string; isMarket: boolean };
   lines: QuoteLine[];
@@ -76,7 +76,7 @@ export type Quote = {
   coupon: { code: string; ok: boolean; message: string; discountCents: number } | null;
 };
 
-/** What placing the order needs besides the quote shown to the customer. */
+/** O que fechar o pedido exige além da cotação mostrada ao cliente. */
 export type QuoteInternals = {
   resolved: Map<string, { product: ProductDetail; groups: ResolvedGroup[] }>;
   cityId: string;
@@ -116,9 +116,9 @@ function ageOn(birthDate: string, at: Date): number {
 }
 
 /**
- * Recalculates the whole cart from the database: every price, discount, fee
- * and total. `mode: "place"` also demands what is only needed to actually
- * order (signed in, address chosen, age confirmed...).
+ * Recalcula a sacola inteira a partir do banco: todo preço, desconto, taxa
+ * e total. `mode: "place"` também exige o que só é preciso para pedir de
+ * verdade (ter entrado, endereço escolhido, idade confirmada...).
  */
 export async function buildQuote(
   input: CartInput,
@@ -159,7 +159,7 @@ export async function buildQuote(
     windowStart: store.delivery_window_start, windowEnd: store.delivery_window_end,
   };
 
-  // ------------------------------------------------------------------ items
+  // ------------------------------------------------------------------- itens
   const products = await loadProducts([...new Set(input.items.map((item) => item.productId))]);
   const resolved: QuoteInternals["resolved"] = new Map();
   const quantityByProduct = new Map<string, number>();
@@ -206,7 +206,7 @@ export async function buildQuote(
   }
   const subtotalCents = lines.filter((line) => !line.error).reduce((total, line) => total + line.lineTotalCents, 0);
 
-  // --------------------------------------------------- delivery or pickup
+  // --------------------------------------------------- entrega ou retirada
   let address: AddressRow | null = null;
   if (profile && input.addressId) {
     [address] = await sql<AddressRow[]>`
@@ -241,7 +241,7 @@ export async function buildQuote(
   if (fulfillment === "pickup" && !store.offers_pickup) errors.push("Essa loja não faz retirada no balcão.");
   const deliveryFeeCents = fulfillment === "delivery" && area ? area.delivery_fee_cents : 0;
 
-  // -------------------------------------------------------------- timing
+  // ------------------------------------------------------------- horário
   const madeToOrder = [...resolved.values()].map(({ product }) => product.rules.minLeadMinutes).filter((minutes) => minutes > 0);
   const slots = scheduleSlots(rules, schedule, at, Math.max(0, ...madeToOrder));
   const nowCheck = canOrderNow(rules, schedule, at, madeToOrder.length > 0);
@@ -252,13 +252,13 @@ export async function buildQuote(
     errors.push(nowCheck.reason);
   }
 
-  // ----------------------------------------------------------- minimum
+  // ------------------------------------------------------------ mínimo
   const missingForMinCents = Math.max(0, store.min_order_cents - subtotalCents);
   if (missingForMinCents > 0) {
     errors.push(`Faltam ${formatCents(missingForMinCents)} para o pedido mínimo de ${formatCents(store.min_order_cents)}.`);
   }
 
-  // ------------------------------------------------------------ coupon
+  // ------------------------------------------------------------- cupom
   let couponView: Quote["coupon"] = null;
   let couponInternal: QuoteInternals["coupon"] = null;
   let discount = { productCents: 0, deliveryCents: 0, paidBy: null as DiscountPayer | null };
@@ -288,7 +288,7 @@ export async function buildQuote(
     }
   }
 
-  // ------------------------------------------------------ who is buying
+  // ---------------------------------------------------- quem está comprando
   const requiresAgeCheck = lines.some((line) => !line.error && line.requiresAgeCheck);
   if (requiresAgeCheck && profile?.birthDate && ageOn(profile.birthDate, at) < 18) {
     errors.push("Bebidas alcoólicas só podem ser vendidas para maiores de 18 anos.");
@@ -333,7 +333,7 @@ export async function buildQuote(
 
 type FoundCoupon = { id: string | null; rules: CouponRules; referrerId: string | null };
 
-/** A coupon by its code, or a friend's referral code used as a first-order coupon. */
+/** Um cupom pelo código, ou o código de indicação de um amigo usado como cupom de primeira compra. */
 async function findCoupon(code: string, customerId: string): Promise<FoundCoupon | null> {
   const [row] = await sql<{
     id: string; code: string; type: CouponRules["type"]; value_cents: number | null; percent: string | null;
@@ -357,7 +357,7 @@ async function findCoupon(code: string, customerId: string): Promise<FoundCoupon
     };
   }
 
-  // "Indique e ganhe": a friend's code works once, on the first order.
+  // "Indique e ganhe": o código de um amigo vale uma vez, na primeira compra.
   const [referrer] = await sql<{ id: string }[]>`
     select id from profiles where referral_code = ${code} and id <> ${customerId} and deleted_at is null`;
   if (!referrer) return null;

@@ -7,18 +7,18 @@ import { getSettings } from "@/lib/settings";
 import { recalculateRating } from "@/lib/stores/rating";
 import { DAY_MS, MINUTE_MS, toLocal } from "@/lib/time";
 
-// Scheduled tasks. Every one is idempotent: running it twice in a row (or
-// two copies at the same time) changes nothing the second time. In the test
-// environment they run every minute and from the /dev page; in production a
-// scheduler calls /api/tarefas.
+// Tarefas agendadas. Todas são idempotentes: rodar duas vezes seguidas (ou
+// duas cópias ao mesmo tempo) não muda nada na segunda vez. No ambiente de
+// testes elas rodam a cada minuto e pela página /dev; em produção um
+// agendador chama /api/tarefas.
 
 export type TaskReport = Record<string, number>;
 
-/** Has this person already been told this about this order? Keeps reminders from repeating. */
+/** Esta pessoa já foi avisada disto sobre este pedido? Evita que os lembretes se repitam. */
 const alreadyNotified = (type: string) => sql`
   exists (select 1 from notifications n where n.order_id = o.id and n.type = ${type})`;
 
-/** Unpaid orders past the Pix deadline are expired; stock and coupon go back. */
+/** Pedidos não pagos que passaram do prazo do Pix expiram; estoque e cupom voltam. */
 async function expireUnpaid(at: Date): Promise<number> {
   const due = await sql<{ id: string }[]>`
     select id from orders where status = 'awaiting_payment' and payment_expires_at <= ${at}`;
@@ -52,7 +52,7 @@ async function warnPixExpiring(at: Date): Promise<number> {
   return orders.length;
 }
 
-/** Paid orders nobody accepted: first a stronger alert, then automatic refusal with full refund. */
+/** Pedidos pagos que ninguém aceitou: primeiro um alerta mais forte, depois recusa automática com reembolso total. */
 async function watchAcceptance(at: Date): Promise<{ alerted: number; rejected: number }> {
   const settings = await getSettings();
   const alertBefore = new Date(at.getTime() - settings.acceptance_alert_minutes * MINUTE_MS);
@@ -89,7 +89,7 @@ async function watchAcceptance(at: Date): Promise<{ alerted: number; rejected: n
   return { alerted: late.length, rejected };
 }
 
-/** One hour after the delivery, ask for a review (once, and only while it can still be given). */
+/** Uma hora depois da entrega, pede uma avaliação (uma vez, e só enquanto ainda dá para avaliar). */
 async function remindReviews(at: Date): Promise<number> {
   const settings = await getSettings();
   const orders = await sql<{ id: string; customer_id: string; store_name: string }[]>`
@@ -109,7 +109,7 @@ async function remindReviews(at: Date): Promise<number> {
   return orders.length;
 }
 
-/** "Indique e ganhe": when the invited friend's first order is delivered, the one who invited gets a coupon. */
+/** "Indique e ganhe": quando o primeiro pedido do amigo convidado é entregue, quem convidou ganha um cupom. */
 async function rewardReferrals(at: Date): Promise<number> {
   const settings = await getSettings();
   const pending = await sql<{ id: string; referrer_id: string; order_id: string }[]>`
@@ -140,7 +140,7 @@ async function rewardReferrals(at: Date): Promise<number> {
   return done;
 }
 
-/** Monthly invoices: one per store and month, never for founding stores still in their free period. */
+/** Faturas mensais: uma por loja e por mês, nunca para lojas fundadoras ainda no período grátis. */
 async function runInvoices(at: Date): Promise<{ created: number; overdue: number }> {
   const today = toLocal(at).date;
   const month = `${today.slice(0, 7)}-01`;
@@ -162,7 +162,7 @@ async function runInvoices(at: Date): Promise<{ created: number; overdue: number
     });
   }
 
-  // One day after the due date the invoice becomes overdue and the owner is warned.
+  // Um dia depois do vencimento a fatura passa a vencida e o dono é avisado.
   const overdue = await sql<{ id: string; store_id: string }[]>`
     update invoices set status = 'overdue' where status = 'open' and due_date < ${today}::date returning id, store_id`;
   for (const invoice of overdue) {
@@ -174,21 +174,21 @@ async function runInvoices(at: Date): Promise<{ created: number; overdue: number
   return { created: created.length, overdue: overdue.length };
 }
 
-/** Banners and paid highlights that reached their end date. */
+/** Banners e destaques pagos que chegaram à data de fim. */
 async function endExpiredPromotions(at: Date): Promise<number> {
   const banners = await sql`update banners set active = false where active and ends_at is not null and ends_at <= ${at} returning id`;
   const featured = await sql`update stores set featured_until = null where featured_until is not null and featured_until <= ${at} returning id`;
   return banners.length + featured.length;
 }
 
-/** Store ratings follow the last 180 days, so they are refreshed as time passes. */
+/** As notas das lojas seguem os últimos 180 dias, então são atualizadas conforme o tempo passa. */
 async function refreshRatings(at: Date): Promise<number> {
   const stores = await sql<{ id: string }[]>`select id from stores where status in ('active', 'paused')`;
   for (const store of stores) await recalculateRating(sql, store.id, at);
   return stores.length;
 }
 
-/** Runs everything that is due at `at` and reports how much each task did. */
+/** Roda tudo o que está na hora em `at` e informa quanto cada tarefa fez. */
 export async function runScheduledTasks(at: Date): Promise<TaskReport> {
   const expired = await expireUnpaid(at);
   const pixWarnings = await warnPixExpiring(at);
@@ -198,8 +198,8 @@ export async function runScheduledTasks(at: Date): Promise<TaskReport> {
   const invoices = await runInvoices(at);
   const promotionsEnded = await endExpiredPromotions(at);
   const ratings = await refreshRatings(at);
-  // Order messages close two hours after delivery by a rule checked on every
-  // read and write (chatOpen), so there is nothing to switch off here.
+  // As mensagens do pedido fecham duas horas depois da entrega por uma regra conferida a cada
+  // leitura e escrita (chatOpen), então não há nada para desligar aqui.
 
   return {
     pedidos_expirados: expired,

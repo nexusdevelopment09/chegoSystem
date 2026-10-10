@@ -6,12 +6,12 @@ const base =
   "inline-flex min-h-12 items-center justify-center rounded-full px-6 text-base font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 const variants: Record<Variant, string> = {
-  // White on the darker orange keeps the 4.5:1 contrast the brand orange misses.
+  // Branco sobre o laranja mais escuro mantém o contraste de 4,5:1 que o laranja da marca não atinge.
   primary: "bg-brand-dark text-white hover:bg-brand-darker",
   secondary: "bg-peach text-brand-darker hover:bg-[#ffdcbd]",
 };
 
-/** Same look for <Link> and <a>: className={buttonClass("primary")}. */
+/** Mesmo visual para <Link> e <a>: className={buttonClass("primary")}. */
 export function buttonClass(variant: Variant = "primary", extra = ""): string {
   return `${base} ${variants[variant]} ${extra}`;
 }

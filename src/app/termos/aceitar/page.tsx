@@ -9,7 +9,7 @@ import { pendingLegalDocuments, slugOfLegalType } from "@/lib/legal";
 
 export const metadata: Metadata = { title: "Termos atualizados" };
 
-// Shown on the next visit after a new version of the terms is published.
+// Mostrada no próximo acesso depois que uma nova versão dos termos é publicada.
 export default function AcceptTermsPage() {
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-4 py-10">
@@ -33,7 +33,7 @@ async function AcceptContent() {
   if (!profile.fullName) redirect("/cadastro");
 
   const pending = await pendingLegalDocuments(profile.id, profile.role);
-  // Nothing left to accept (e.g. the browser came back here from its cache): go on.
+  // Nada mais a aceitar (ex.: o navegador voltou para cá pelo cache): segue em frente.
   if (pending.length === 0) redirect(homeFor(profile.role));
 
   return (

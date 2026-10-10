@@ -6,13 +6,13 @@ import { sendOutbound } from "@/lib/notifications/outbound";
 
 const CODE_MINUTES = 10;
 const MAX_ATTEMPTS = 5;
-/** In the test environment every phone number uses this code and no SMS is sent. */
+/** No ambiente de testes todo telefone usa este código e nenhum SMS é enviado. */
 export const LOCAL_FIXED_CODE = "123456";
 
 const hashCode = (phone: string, code: string) =>
   createHash("sha256").update(`${phone}:${code}`).digest("hex");
 
-/** Creates a login code for the phone and "sends" it by SMS. */
+/** Cria um código de login para o telefone e o "envia" por SMS. */
 export async function requestLoginCode(phone: string) {
   const code = isLocalEnv ? LOCAL_FIXED_CODE : String(randomInt(0, 1_000_000)).padStart(6, "0");
 
@@ -32,7 +32,7 @@ export type VerifyResult =
   | { ok: true; profileId: string }
   | { ok: false; reason: "invalid" | "expired" };
 
-/** Checks the code and returns the profile, creating it on the first login. */
+/** Confere o código e devolve o perfil, criando-o no primeiro login. */
 export async function verifyLoginCode(phone: string, code: string): Promise<VerifyResult> {
   return sql.begin(async (tx): Promise<VerifyResult> => {
     const [entry] = await tx<{ id: string; code_hash: string; attempts: number; expired: boolean }[]>`

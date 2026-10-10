@@ -1,15 +1,15 @@
-// When can an order be scheduled for? Pure functions.
+// Para quando um pedido pode ser agendado? Funções puras.
 import { storeAvailability, type StoreSchedule } from "../stores/hours.ts";
 import { DAY_MS, formatHour, fromLocal, MINUTE_MS, parseTime, toLocal, WEEKDAY_NAMES } from "../time.ts";
 
 export type ScheduleRules = {
   acceptsScheduled: boolean;
-  /** Minimum notice the store asks for, in minutes. */
+  /** Antecedência mínima que a loja pede, em minutos. */
   minLeadMinutes: number;
   maxDays: number;
-  /** Lunch-box rule: same-day orders close at this time ("11:00"). */
+  /** Regra da quentinha: os pedidos para o mesmo dia fecham neste horário ("11:00"). */
   sameDayCutoff: string | null;
-  /** Deliveries only inside this window ("11:30" to "13:30"). */
+  /** Entregas só dentro desta faixa ("11:30" a "13:30"). */
   windowStart: string | null;
   windowEnd: string | null;
 };
@@ -29,9 +29,9 @@ function dayLabel(date: Date, now: Date): string {
 export const slotLabel = (date: Date, now: Date) => `${dayLabel(date, now)} às ${formatHour(toLocal(date).minutes)}`;
 
 /**
- * Times the customer can pick, in 30-minute steps: inside the store's
- * opening hours (or its delivery window), after the needed notice.
- * `productLeadMinutes` is the longest notice among the cart's products.
+ * Horários que o cliente pode escolher, de 30 em 30 minutos: dentro do horário
+ * de funcionamento da loja (ou da faixa de entrega), depois da antecedência necessária.
+ * `productLeadMinutes` é a maior antecedência entre os produtos da sacola.
  */
 export function scheduleSlots(
   rules: ScheduleRules,
@@ -46,7 +46,7 @@ export function scheduleSlots(
 
   for (let offset = 0; offset <= rules.maxDays; offset += 1) {
     const day = toLocal(new Date(now.getTime() + offset * DAY_MS));
-    // After the cutoff, today is closed for stores that work with one.
+    // Depois do horário limite, hoje está fechado para as lojas que trabalham com um.
     if (offset === 0 && rules.sameDayCutoff && today.minutes >= parseTime(rules.sameDayCutoff)) continue;
 
     for (const shift of schedule.shifts.filter((item) => item.weekday === day.weekday)) {
@@ -69,14 +69,14 @@ export function scheduleSlots(
   return [...unique.values()].sort((a, b) => a.value.localeCompare(b.value));
 }
 
-/** Is this exact time one of the offered slots? */
+/** Este horário exato é um dos oferecidos? */
 export function isValidSlot(slots: Slot[], scheduledFor: Date): boolean {
   return slots.some((slot) => slot.value === scheduledFor.toISOString());
 }
 
 export type NowCheck = { allowed: true } | { allowed: false; reason: string };
 
-/** Can the store take an order to be prepared right now? */
+/** A loja pode receber um pedido para preparar agora mesmo? */
 export function canOrderNow(
   rules: ScheduleRules,
   schedule: StoreSchedule,

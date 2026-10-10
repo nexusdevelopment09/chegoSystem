@@ -4,7 +4,7 @@ import Link from "next/link";
 import { cartCount, cartSubtotalCents, useCart } from "@/lib/cart/local";
 import { formatCents } from "@/lib/format";
 
-/** Bar fixed at the bottom while there is something in the cart. */
+/** Barra fixa embaixo enquanto houver algo na sacola. */
 export function CartBar() {
   const cart = useCart();
   const count = cartCount(cart);

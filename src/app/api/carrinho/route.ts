@@ -1,8 +1,8 @@
 import { loadCartFromServer, saveCartOnServer } from "@/lib/cart/server";
 
-// The signed-in customer's cart saved on the server, so it follows them to
-// another device. Plain routes (not Server Actions) because they are called
-// in the background and must not re-render the page.
+// A sacola do cliente que entrou, salva no servidor, para acompanhá-lo em
+// outro aparelho. Rotas comuns (não Server Actions) porque são chamadas
+// em segundo plano e não podem redesenhar a página.
 
 export async function GET() {
   return Response.json({ cart: await loadCartFromServer() });

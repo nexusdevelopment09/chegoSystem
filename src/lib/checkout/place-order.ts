@@ -17,9 +17,9 @@ export type PlaceOrderResult =
 class Conflict extends Error {}
 
 /**
- * Creates the order from a cart. Every price comes from the quote built on
- * the server; nothing the browser says about money is used. The order is
- * born "awaiting_payment": the store only sees it after the gateway confirms.
+ * Cria o pedido a partir de uma sacola. Todo preço vem da cotação montada no
+ * servidor; nada do que o navegador diz sobre dinheiro é usado. O pedido
+ * nasce "awaiting_payment": a loja só o vê depois que o gateway confirma.
  */
 export async function placeOrder(
   input: CartInput,
@@ -39,7 +39,7 @@ export async function placeOrder(
 
   try {
     return await sql.begin(async (tx): Promise<PlaceOrderResult> => {
-      // Reserve the stock. Losing a race for the last unit cancels everything.
+      // Reserva o estoque. Perder a corrida pela última unidade cancela tudo.
       for (const [productId, quantity] of quantities(input)) {
         const reserved = await tx`
           update products set stock_qty = case when track_stock then stock_qty - ${quantity} else stock_qty end
@@ -48,7 +48,7 @@ export async function placeOrder(
         if (reserved.length === 0) throw new Conflict("Um item do carrinho acabou de esgotar. Confira o carrinho.");
       }
 
-      // "Indique e ganhe": the friend's code becomes a personal coupon of this customer.
+      // "Indique e ganhe": o código do amigo vira um cupom pessoal deste cliente.
       let couponId = internals.coupon?.id ?? null;
       if (internals.coupon && !couponId && internals.coupon.referrerId) {
         const [created] = await tx<{ id: string }[]>`
@@ -114,7 +114,7 @@ export async function placeOrder(
                   ${line.lineTotalCents}, ${line.notes || null}, ${product.requiresAgeCheck})
           returning id`;
 
-        // Copies of the choices and their prices: later menu edits never change this order.
+        // Cópias das escolhas e dos preços: mudanças futuras no cardápio nunca alteram este pedido.
         for (const [index, option] of toSnapshot(groups).entries()) {
           await tx`
             insert into order_item_options (order_item_id, option_id, group_name, option_name, price_mode, quantity, price_cents, sort_order)
@@ -133,7 +133,7 @@ export async function placeOrder(
           values (${couponId}, ${order.id}, ${profile.id}, ${totals.discountCents}, ${at})`;
       }
 
-      // The cart was turned into an order: the saved copy is no longer needed.
+      // A sacola virou pedido: a cópia salva não é mais necessária.
       await tx`delete from carts where profile_id = ${profile.id}`;
 
       const payment = await createOrderPayment(tx, {
@@ -156,7 +156,7 @@ function quantities(input: CartInput): Map<string, number> {
 
 type Tx = postgres.TransactionSql;
 
-/** Asks the gateway for a payment (with the split) and records it as pending. */
+/** Pede um pagamento ao gateway (com a divisão) e o grava como pendente. */
 export async function createOrderPayment(
   tx: Tx,
   input: {

@@ -3,17 +3,17 @@ import type { Page } from "@playwright/test";
 import postgres from "postgres";
 import { TEST_DATABASE, TEST_DATABASE_URL } from "../tests/reset-test-db";
 
-/** Direct access to the test database, to prepare or check a scenario. */
+/** Acesso direto ao banco de teste, para preparar ou conferir um cenário. */
 export const db = postgres(TEST_DATABASE_URL, { max: 2, onnotice: () => {} });
 
-/** Signs in through the quick login of the /dev page. */
+/** Entra pelo login rápido da página /dev. */
 export async function loginAs(page: Page, fullName: string) {
   await page.goto("/dev");
   await page.getByRole("button", { name: `Entrar como ${fullName}`, exact: true }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/dev"));
 }
 
-/** Signs in the way a real user does: phone number and the fixed test code. */
+/** Entra como um usuário de verdade: número de telefone e o código fixo de teste. */
 export async function loginWithPhone(page: Page, phone: string, code = "123456") {
   await page.goto("/entrar");
   await page.getByLabel("Seu telefone com DDD").fill(phone);
@@ -22,7 +22,7 @@ export async function loginWithPhone(page: Page, phone: string, code = "123456")
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
 }
 
-/** Moves the system clock (Maceió time, e.g. "2026-10-09T11:30"), or back to real time with null. */
+/** Move o relógio do sistema (horário de Maceió, ex.: "2026-10-09T11:30"), ou volta ao horário real com null. */
 export async function setClock(localDateTime: string | null) {
   if (localDateTime === null) {
     await db`delete from platform_settings where key = 'dev_clock_offset_ms'`;
@@ -34,7 +34,7 @@ export async function setClock(localDateTime: string | null) {
     on conflict (key) do update set value = excluded.value`;
 }
 
-/** Address of a product page, found by store slug and product name. */
+/** Endereço da página de um produto, achado pelo slug da loja e pelo nome do produto. */
 export async function productUrl(storeSlug: string, productName: string) {
   const [row] = await db`
     select p.id from products p join stores s on s.id = p.store_id
@@ -43,7 +43,7 @@ export async function productUrl(storeSlug: string, productName: string) {
   return `/loja/${storeSlug}/produto/${row.id}`;
 }
 
-/** First-visit step: tells the app which neighborhood the customer is in. */
+/** Passo da primeira visita: diz ao app em que bairro o cliente está. */
 export async function chooseNeighborhood(page: Page, name: string) {
   await page.goto("/boas-vindas");
   await page.getByLabel("Seu bairro ou comunidade").selectOption({ label: name });
@@ -51,10 +51,10 @@ export async function chooseNeighborhood(page: Page, name: string) {
   await page.waitForURL((url) => url.pathname === "/");
 }
 
-/** Only what is on screen: Next keeps the previous page mounted but hidden. */
+/** Só o que está na tela: o Next mantém a página anterior montada, mas escondida. */
 export const visible = (page: Page, testId: string) => page.locator(`[data-testid="${testId}"]:visible`);
 
-/** Adds a product that needs no choices and lands back on the store page. */
+/** Adiciona um produto que não precisa de escolhas e volta para a página da loja. */
 export async function addSimple(page: Page, storeSlug: string, product: string) {
   await page.goto(await productUrl(storeSlug, product));
   await page.getByRole("button", { name: /^Adicionar/ }).click();
@@ -62,8 +62,8 @@ export async function addSimple(page: Page, storeSlug: string, product: string) 
 }
 
 /**
- * A customer orders the given simple products and the payment is approved.
- * Returns the order id. The customer must already have an address.
+ * Um cliente pede os produtos simples informados e o pagamento é aprovado.
+ * Devolve o id do pedido. O cliente já precisa ter um endereço.
  */
 export async function placePaidOrder(page: Page, customer: string, storeSlug: string, products: string[], beforeSubmit?: () => Promise<void>) {
   await db`delete from carts`;
@@ -81,13 +81,13 @@ export async function placePaidOrder(page: Page, customer: string, storeSlug: st
 }
 
 /**
- * Recreates the test database with the original seed and sets the clock.
- * Each test file starts with it, so no file depends on what another one changed.
+ * Recria o banco de teste com o seed original e acerta o relógio.
+ * Cada arquivo de teste começa com isso, para nenhum depender do que outro alterou.
  */
 export async function freshDatabase(localDateTime: string | null = null) {
   execFileSync(process.execPath, ["scripts/db.ts", "reset"], { env: { ...process.env, CHEGO_DB: TEST_DATABASE }, stdio: "ignore" });
-  // Recreating the database drops every open connection (ours and the app's):
-  // give them a moment to notice, then wait until a query goes through again.
+  // Recriar o banco derruba todas as conexões abertas (as nossas e as do app):
+  // dá um instante para elas perceberem e espera até uma consulta passar de novo.
   for (let attempt = 0; ; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 500));
     try {

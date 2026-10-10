@@ -22,7 +22,7 @@ export default function DeliveriesPage() {
 async function Deliveries() {
   const { profile, membership, store } = await getMerchantContext(["owner", "attendant", "courier"]);
 
-  // A courier is only shown (and Row Level Security only returns) their own deliveries.
+  // O entregador só vê (e as regras de acesso por linha só devolvem) as próprias entregas.
   const orders = await loadOrders(profile.id, {
     storeId: store.id,
     statuses: ["out_for_delivery"],

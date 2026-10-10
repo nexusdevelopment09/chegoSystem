@@ -1,7 +1,7 @@
 type LogoIconProps = {
   size?: number;
   className?: string;
-  /** Leave empty when the icon sits next to the word "Chegô". */
+  /** Deixe vazio quando o ícone estiver ao lado da palavra "Chegô". */
   title?: string;
 };
 

@@ -23,7 +23,7 @@ export default function AdminFinancePage({ searchParams }: { searchParams: Searc
   );
 }
 
-/** "2026-10" -> the first instant of that month and of the next one, Maceió time. */
+/** "2026-10" -> o primeiro instante daquele mês e do seguinte, no horário de Maceió. */
 function monthPeriod(month: string) {
   const [year, index] = month.split("-").map(Number);
   const start = (y: number, m: number) => new Date(Date.UTC(y, m - 1, 1, 3));

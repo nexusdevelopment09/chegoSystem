@@ -1,18 +1,18 @@
-// The contract every payment gateway implements. The rest of the system only
-// talks to this interface, so swapping the gateway touches lib/payments only.
+// O contrato que todo gateway de pagamento implementa. O resto do sistema só
+// conversa com esta interface, então trocar o gateway só mexe em lib/payments.
 
 export type PaymentMethod = "pix" | "card";
 
 export type CardData = { number: string; holder: string; expiry: string; cvv: string };
 
 export type CreatePaymentInput = {
-  /** Our own payment id, sent to the gateway as the external reference. */
+  /** O nosso id do pagamento, enviado ao gateway como referência externa. */
   reference: string;
   amountCents: number;
   method: PaymentMethod;
   description: string;
   expiresAt: Date;
-  /** How the gateway splits the money. Absent for subscription invoices. */
+  /** Como o gateway divide o dinheiro. Ausente nas faturas de mensalidade. */
   split?: { storeRecipientId: string | null; storeAmountCents: number; platformAmountCents: number };
   card?: CardData;
 };
@@ -24,7 +24,7 @@ export type CreatedPayment = {
 };
 
 export type WebhookEvent = {
-  /** Unique per event at the gateway: what makes a repeated delivery harmless. */
+  /** Único por evento no gateway: é o que torna inofensiva uma entrega repetida. */
   eventId: string;
   providerPaymentId: string;
   type: "payment.approved" | "payment.declined" | "payment.expired";
@@ -35,6 +35,6 @@ export interface PaymentProvider {
   readonly name: string;
   createPayment(input: CreatePaymentInput): Promise<CreatedPayment>;
   refund(input: { providerPaymentId: string; amountCents: number; reason: string }): Promise<{ providerRefundId: string }>;
-  /** Checks the signature and reads the event. Returns null when the signature is wrong. */
+  /** Confere a assinatura e lê o evento. Devolve null quando a assinatura está errada. */
   parseWebhook(rawBody: string, signature: string | null): WebhookEvent | null;
 }

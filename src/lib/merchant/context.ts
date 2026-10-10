@@ -49,7 +49,7 @@ const loadStore = cache(async (storeId: string, atMs: number): Promise<MerchantS
   };
 });
 
-/** The signed-in store user, the store they work for, and the current time. */
+/** O usuário de loja que entrou, a loja em que trabalha e a hora atual. */
 export async function getMerchantContext(roles: StoreRole[]): Promise<MerchantContext> {
   const { profile, membership } = await requireStoreMember(roles);
   const at = await now();
@@ -58,7 +58,7 @@ export async function getMerchantContext(roles: StoreRole[]): Promise<MerchantCo
 
 export type TeamMember = { id: string; name: string; phone: string | null; role: StoreRole };
 
-/** Everyone who works for the store. Call only after checking the viewer belongs to it. */
+/** Todo mundo que trabalha na loja. Chame só depois de conferir que quem está vendo pertence a ela. */
 export async function getTeam(storeId: string): Promise<TeamMember[]> {
   const rows = await sql<{ id: string; full_name: string; phone: string | null; role: StoreRole }[]>`
     select p.id, p.full_name, p.phone, m.role

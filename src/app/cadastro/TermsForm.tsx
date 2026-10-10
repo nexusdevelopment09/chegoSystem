@@ -9,7 +9,7 @@ import { acceptTerms, completeSignup, type SignupState } from "@/app/entrar/acti
 const initialState: SignupState = {};
 
 type TermsFormProps = {
-  /** "signup" also asks for the name; "terms" only for the acceptance. */
+  /** "signup" também pede o nome; "terms" só o aceite. */
   mode: "signup" | "terms";
   documents: { slug: string; title: string; version: number }[];
 };

@@ -24,7 +24,7 @@ async function Audit({ searchParams }: { searchParams: SearchParams }) {
   const action = (acao ?? "").trim().slice(0, 40);
   const who = (quem ?? "").trim().slice(0, 60);
 
-  // Read as the admin through Row Level Security: nobody else can read this table at all.
+  // Lido como admin pelas regras de acesso por linha (RLS): ninguém mais consegue ler esta tabela.
   const { logs, actions } = await withUser(profile.id, async (tx) => ({
     logs: await tx<{ id: string; actor: string | null; action: string; entity_type: string; entity_id: string | null; store: string | null; details: Record<string, unknown>; created_at: Date }[]>`
       select l.id, p.full_name as actor, l.action, l.entity_type, l.entity_id, s.name as store, l.details, l.created_at

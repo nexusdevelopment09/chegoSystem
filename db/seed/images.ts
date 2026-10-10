@@ -1,5 +1,5 @@
-// Generates the fake pictures for the seed, locally: SVG drawn here and
-// converted to WebP with sharp. Nothing is downloaded from the internet.
+// Gera as fotos falsas do seed, localmente: SVG desenhado aqui e
+// convertido para WebP com o sharp. Nada é baixado da internet.
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,8 +16,8 @@ export const slugify = (text: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-// Public URLs, served by src/app/files/[...path]/route.ts.
-// The 400px version of a product picture is the same path ending in "-400.webp".
+// URLs públicas, servidas por src/app/files/[...path]/route.ts.
+// A versão de 400px da foto de um produto é o mesmo caminho terminado em "-400.webp".
 export const productImageUrl = (storeSlug: string, productName: string) =>
   `/files/products/${storeSlug}/${slugify(productName)}-800.webp`;
 export const storeLogoUrl = (storeSlug: string) => `/files/stores/${storeSlug}-logo.webp`;
@@ -63,7 +63,7 @@ function wrap(text: string, maxChars: number, maxLines: number): string[] {
   return lines;
 }
 
-// Simple white drawings, centered on (400, 300) of an 800x800 canvas.
+// Desenhos brancos simples, centrados em (400, 300) de uma tela de 800x800.
 const W = `fill="#FFFFFF"`;
 const SHADE = `fill="#000000" fill-opacity="0.18"`;
 const ART: Record<Art, string> = {
@@ -152,7 +152,7 @@ async function write(path: string, svg: string, width: number, height: number, f
   return true;
 }
 
-/** Writes every seed picture to storage/. Existing files are kept unless `force`. */
+/** Grava todas as fotos do seed em storage/. Arquivos que já existem são mantidos, a não ser com `force`. */
 export async function generateImages({ force = false } = {}) {
   const jobs: Promise<boolean>[] = [];
 
@@ -178,7 +178,7 @@ export async function generateImages({ force = false } = {}) {
   return { total: jobs.length, written };
 }
 
-// `npm run seed:images` regenerates everything.
+// `npm run seed:images` gera tudo de novo.
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const result = await generateImages({ force: true });
   console.log(`${result.written} imagens geradas em storage/.`);

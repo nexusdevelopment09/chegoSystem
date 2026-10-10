@@ -13,19 +13,19 @@ type Props = {
   action: Action;
   children: ReactNode;
   className?: string;
-  /** Called once each time the action succeeds (e.g. to open the print window). */
+  /** Chamado uma vez cada vez que a ação dá certo (ex.: para abrir a janela de impressão). */
   onSuccess?: () => void;
-  /** Clears the fields after a success (message boxes). */
+  /** Limpa os campos depois de um sucesso (caixas de mensagem). */
   resetOnSuccess?: boolean;
 };
 
 /**
- * A form bound to a server action that shows the action's message under it.
+ * Um formulário ligado a uma server action que mostra a mensagem da ação embaixo dele.
  *
- * The action is called by hand instead of through the form's `action`
- * attribute, because that would clear every field when the action finishes,
- * and losing what you typed because of a validation error is the worst
- * moment to lose it. Fields are only cleared on success, when asked.
+ * A ação é chamada à mão em vez de pelo atributo `action` do formulário,
+ * porque isso limparia todos os campos quando a ação termina,
+ * e perder o que você digitou por causa de um erro de validação é o pior
+ * momento para perder. Os campos só são limpos no sucesso, quando pedido.
  */
 export function ActionForm({ action, children, className, onSuccess, resetOnSuccess }: Props) {
   const [state, formAction, pending] = useActionState(action, {});
@@ -46,7 +46,7 @@ export function ActionForm({ action, children, className, onSuccess, resetOnSucc
       onSubmit={(event) => {
         event.preventDefault();
         if (pending) return;
-        // The clicked button goes along, so its name and value reach the action.
+        // O botão clicado vai junto, para o nome e o valor dele chegarem à ação.
         const data = new FormData(event.currentTarget, (event.nativeEvent as SubmitEvent).submitter);
         startTransition(() => formAction(data));
       }}
@@ -74,7 +74,7 @@ type SubmitProps = {
   value?: string;
 };
 
-/** Submit button that disables itself while its form is being sent. */
+/** Botão de enviar que se desabilita enquanto o formulário está sendo enviado. */
 export function SubmitButton({ children, variant, className, name, value }: SubmitProps) {
   const fromActionForm = use(PendingContext);
   const { pending: fromPlainForm } = useFormStatus();

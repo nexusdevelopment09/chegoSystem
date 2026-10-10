@@ -14,7 +14,7 @@ export type CurrentProfile = {
   fullName: string;
   phone: string | null;
   role: UserRole;
-  /** Blocked users can sign in and look around, but cannot place orders. */
+  /** Usuários bloqueados conseguem entrar e olhar, mas não conseguem fazer pedidos. */
   blocked: boolean;
   birthDate: string | null;
   cityId: string | null;
@@ -23,7 +23,7 @@ export type CurrentProfile = {
 const COOKIE = "chego_session";
 const SESSION_DAYS = 30;
 
-// Only the hash goes to the database, so a leaked table cannot be used to log in.
+// Só o hash vai para o banco, então uma tabela vazada não serve para entrar.
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export async function createSession(profileId: string) {
@@ -57,7 +57,7 @@ export async function destroyAllSessions(profileId: string) {
   (await cookies()).delete(COOKIE);
 }
 
-/** Signed-in user's profile, read from the database (never from the browser). */
+/** Perfil de quem entrou, lido do banco (nunca do navegador). */
 export const getCurrentProfile = cache(async (): Promise<CurrentProfile | null> => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
@@ -87,8 +87,8 @@ export const getCurrentProfile = cache(async (): Promise<CurrentProfile | null> 
 });
 
 /**
- * Signed-in user with the sign-up finished: has a name and has accepted the
- * current version of the terms. Otherwise sends them to the missing step.
+ * Usuário que entrou e terminou o cadastro: tem nome e aceitou a versão
+ * atual dos termos. Senão, é mandado para o passo que falta.
  */
 export async function requireUser(): Promise<CurrentProfile> {
   const profile = await getCurrentProfile();
@@ -98,7 +98,7 @@ export async function requireUser(): Promise<CurrentProfile> {
   return profile;
 }
 
-/** Redirects away unless the user has one of the given global roles. */
+/** Redireciona para fora, a não ser que o usuário tenha um dos papéis globais informados. */
 export async function requireRole(...roles: UserRole[]): Promise<CurrentProfile> {
   const profile = await requireUser();
   if (!roles.includes(profile.role)) redirect("/");
@@ -118,8 +118,8 @@ export const getStoreMemberships = cache(async (profileId: string): Promise<Stor
 });
 
 /**
- * The user's membership in a store, limited to the given store roles.
- * Without `storeId` the first store the user works for is used.
+ * O vínculo do usuário com uma loja, limitado aos papéis de loja informados.
+ * Sem `storeId`, vale a primeira loja em que o usuário trabalha.
  */
 export async function requireStoreMember(
   roles: StoreRole[],

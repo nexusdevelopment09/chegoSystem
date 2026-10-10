@@ -7,7 +7,7 @@ const subscriptionSchema = z.object({
   keys: z.object({ p256dh: z.string().min(10).max(300), auth: z.string().min(5).max(300) }),
 });
 
-/** Saves this browser as a place to send the signed-in user's notifications. */
+/** Guarda este navegador como um lugar para enviar as notificações de quem entrou. */
 export async function PUT(request: Request) {
   const profile = await getCurrentProfile();
   if (!profile) return new Response("Unauthorized", { status: 401 });

@@ -1,8 +1,8 @@
 import "server-only";
 import { sql } from "@/lib/db";
 
-// Platform-wide numbers for the admin. "Sold" = paid and not refused,
-// cancelled, expired or fully refunded.
+// Números da plataforma inteira para o admin. "Vendido" = pago e não recusado,
+// cancelado, expirado nem reembolsado por inteiro.
 
 export type Period = { from: Date; to: Date };
 
@@ -54,7 +54,7 @@ export async function dashboard(period: Period, cityId: string | null): Promise<
       select count(*)::int as total from profiles p
       where p.role = 'customer' and p.created_at >= ${period.from} and p.created_at < ${period.to}
         ${cityId ? sql`and p.city_id = ${cityId}` : sql``}`,
-    // Of the customers who bought in the 30 days before the period ended, how many bought more than once.
+    // Dos clientes que compraram nos 30 dias antes do fim do período, quantos compraram mais de uma vez.
     sql<{ buyers: number; repeat: number }[]>`
       select count(*)::int as buyers, count(*) filter (where purchases > 1)::int as repeat
       from (
@@ -104,7 +104,7 @@ export type CommissionLine = {
   commissionCents: number; serviceFeeCents: number; subscriptionCents: number;
 };
 
-/** What each store paid the platform in a period: the base for the accountant's invoices. */
+/** O que cada loja pagou à plataforma em um período: a base das notas do contador. */
 export async function commissionsByStore(period: Period): Promise<CommissionLine[]> {
   const rows = await sql<{
     id: string; name: string; document: string | null; orders: number; gmv: number; commission: number; fee: number; subscription: number;
@@ -134,8 +134,8 @@ export async function commissionsByStore(period: Period): Promise<CommissionLine
 export type Mismatch = { orderId: string; code: string; storeName: string; problem: string };
 
 /**
- * Reconciliation: what the gateway says it charged, split and refunded
- * against what the system calculated. Any line here needs a human look.
+ * Conciliação: o que o gateway diz que cobrou, dividiu e devolveu
+ * contra o que o sistema calculou. Qualquer linha aqui precisa de um olhar humano.
  */
 export async function reconciliation(period: Period): Promise<{ checked: number; mismatches: Mismatch[] }> {
   const rows = await sql<{

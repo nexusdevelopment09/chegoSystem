@@ -17,8 +17,8 @@ const LINKS = [
   { href: "/admin/auditoria", label: "Auditoria" },
 ];
 
-// Every page under /admin checks the admin role itself (requireRole), so the
-// layout only draws the menu.
+// Cada página dentro de /admin confere o papel de admin por conta própria (requireRole),
+// então o layout só desenha o menu.
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <>

@@ -15,7 +15,7 @@ describe("development seed", () => {
     expect(Object.fromEntries(stores.map((row) => [row.status, row.total]))).toEqual({
       pending: 1, active: 15, suspended: 1,
     });
-    // 14 active in Joaquim Gomes; the 15th is in the neighbor city.
+    // 14 ativas em Joaquim Gomes; a 15ª fica na cidade vizinha.
     expect(await count(sql`
       select count(*) as total from stores s join cities c on c.id = s.city_id
       where s.status = 'active' and c.slug = 'joaquim-gomes'`)).toBe(14);
@@ -68,7 +68,7 @@ describe("development seed", () => {
          or subtotal_cents <> (select sum(line_total_cents) from order_items i where i.order_id = orders.id)`;
     expect(broken).toHaveLength(0);
 
-    // Every paid order has its sale in the ledger, matching the split.
+    // Todo pedido pago tem a venda nos lançamentos, batendo com a divisão.
     const unbalanced = await sql`
       select o.code
       from orders o

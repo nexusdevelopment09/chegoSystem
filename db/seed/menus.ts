@@ -1,7 +1,7 @@
-// Fictional stores and menus for the development seed. All names are made up.
+// Lojas e cardápios fictícios do seed de desenvolvimento. Todos os nomes são inventados.
 import type { PriceMode } from "../../src/lib/catalog/pricing.ts";
 
-/** Drawing used on the generated product picture. */
+/** Desenho usado na foto gerada do produto. */
 export type Art =
   | "pizza" | "burger" | "acai" | "bottle" | "grocery" | "medicine"
   | "fish" | "bread" | "lunchbox" | "sushi" | "cake" | "jar";
@@ -17,7 +17,7 @@ export type GroupLink = {
   repeat?: boolean;
   mode?: PriceMode;
   free?: number;
-  /** Price of each option on this product, by option name. */
+  /** Preço de cada opção neste produto, pelo nome da opção. */
   prices?: Record<string, number>;
 };
 
@@ -31,7 +31,7 @@ export type ProductDef = {
   ageCheck?: boolean;
   leadMinutes?: number;
   stock?: number;
-  /** Weekdays (0 = Sunday) and optional time window when it can be ordered. */
+  /** Dias da semana (0 = domingo) e faixa de horário opcional em que pode ser pedido. */
   availability?: { days: number[]; from?: string; to?: string };
   available?: boolean;
   noImage?: boolean;
@@ -54,19 +54,19 @@ export type StoreDef = {
   commission: number;
   prepMinutes: number;
   minOrder: number;
-  /** "urban" = town neighborhoods only; "all" = also the rural communities. */
+  /** "urban" = só os bairros da cidade; "all" = também as comunidades rurais. */
   areas: "urban" | "all" | string[];
   scheduled?: { cutoff?: string; windowStart?: string; windowEnd?: string };
   pizzaPricing?: "highest" | "average";
   featured?: boolean;
   founder?: boolean;
-  /** Relative share of the generated order history. */
+  /** Participação relativa no histórico de pedidos gerado. */
   weight: number;
   groups?: GroupDef[];
   products: ProductDef[];
 };
 
-/** R$ 12,50 -> 1250 cents. */
+/** R$ 12,50 -> 1250 centavos. */
 const c = (reais: number) => Math.round(reais * 100);
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const MON_SAT = [1, 2, 3, 4, 5, 6];
@@ -172,7 +172,7 @@ const marketProducts: ProductDef[] = [
 marketProducts[4].noImage = true;
 marketProducts[12].noImage = true;
 
-// --------------------------------------------------------------------- stores
+// ---------------------------------------------------------------------- lojas
 
 export const STORES: StoreDef[] = [
   {

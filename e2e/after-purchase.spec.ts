@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { db, loginAs, placePaidOrder, setClock, visible, freshDatabase } from "./helpers";
 
-// A Friday at 20h: the burger place is open.
+// Uma sexta às 20h: a hamburgueria está aberta.
 test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
 
-/** A delivered order of the customer at Brasa Burger, straight in the database. */
+/** Um pedido entregue do cliente no Brasa Burger, direto no banco. */
 async function completeOrder(orderId: string, completedAt = new Date("2026-10-09T20:00:00-03:00")) {
   await db`
     update orders set status = 'delivered', accepted_at = ${completedAt}, ready_at = ${completedAt},
@@ -28,7 +28,7 @@ test("mensagens do pedido: conversa normal passa, telefone é bloqueado e regist
     await chat().getByRole("button", { name: "Enviar" }).click();
     await expect(chat().getByText("Por segurança, não é permitido trocar contatos por aqui.")).toBeVisible();
     await expect.poll(blockedCount).toBe(index + 1);
-    // What was typed stays in the box (so it can be fixed), but is never shown as a sent message.
+    // O que foi digitado continua na caixa (para ser corrigido), mas nunca aparece como mensagem enviada.
     await expect(chat().getByLabel("Escrever mensagem")).toHaveValue(attempt);
     await expect(chat().locator("li").filter({ hasText: attempt })).toHaveCount(0);
   }
@@ -36,7 +36,7 @@ test("mensagens do pedido: conversa normal passa, telefone é bloqueado e regist
   const rules = await db`select matched_rule from blocked_message_attempts where order_id = ${orderId} order by created_at`;
   expect(rules.map((row) => row.matched_rule)).toEqual(["phone", "phone", "handle", "link"]);
 
-  // The store answers; the customer sees it.
+  // A loja responde; o cliente vê.
   const store = await (await browser.newContext()).newPage();
   await loginAs(store, "Thiago Bezerra");
   await store.goto(`/lojista/pedidos/${orderId}`);
@@ -50,7 +50,7 @@ test("mensagens do pedido: conversa normal passa, telefone é bloqueado e regist
   await page.reload();
   await expect(chat()).toContainText("Pode deixar, vai caprichado!");
 
-  // Someone else's order has no chat for this customer.
+  // O pedido de outra pessoa não tem conversa para este cliente.
   await loginAs(page, "Bruno Henrique Lima");
   await page.goto(`/pedidos/${orderId}`);
   await expect(page.getByRole("heading", { name: "Oxe, essa página não existe." })).toBeVisible();
@@ -72,7 +72,7 @@ test("mensagens encerram 2 horas depois da entrega", async ({ page }) => {
 test("avaliar depois da entrega: uma vez só, dentro de 7 dias, e a nota da loja muda", async ({ page }) => {
   const orderId = await placePaidOrder(page, "Ana Clara Souza", "brasa-burger", ["Batata com cheddar e bacon"]);
 
-  // Before the delivery there is nothing to review.
+  // Antes da entrega não há o que avaliar.
   await expect(page.locator('[data-testid="review-box"]:visible')).toHaveCount(0);
   await completeOrder(orderId);
   const [before] = await db`select rating_count from stores where slug = 'brasa-burger'`;
@@ -92,7 +92,7 @@ test("avaliar depois da entrega: uma vez só, dentro de 7 dias, e a nota da loja
   expect(after.rating_count).toBe(before.rating_count + 1);
   expect((await db`select rating from reviews where order_id = ${orderId}`)[0].rating).toBe(4);
 
-  // After 7 days the form is gone for orders never reviewed.
+  // Depois de 7 dias o formulário some para pedidos nunca avaliados.
   const [old] = await db`
     select o.id from orders o join profiles p on p.id = o.customer_id
     where p.full_name = 'Ana Clara Souza' and o.status = 'delivered' and o.completed_at < now() - interval '20 days'
@@ -138,7 +138,7 @@ test("preciso de ajuda: abre chamado com motivo e conversa nele", async ({ page 
   await expect(ticket).toContainText("Atraso");
   await expect(ticket.locator('[data-testid="ticket-status"]')).toHaveText("Aberto");
   await expect(ticket).toContainText("O pedido está demorando muito mais que o previsto.");
-  // One open ticket per order: the form to open another is gone.
+  // Um chamado aberto por pedido: o formulário para abrir outro some.
   await expect(page.getByRole("button", { name: "Abrir chamado" })).toHaveCount(0);
 
   await ticket.getByLabel("Responder").fill("Já faz uma hora.");
@@ -166,7 +166,7 @@ test("sino de notificações: contador, lista e marcar como lidas", async ({ pag
   await expect(visible(page, "unread-count")).toHaveText("Você está em dia.");
   await expect(visible(page, "bell")).toHaveAttribute("aria-label", "Notificações");
 
-  // Nobody else's notifications are ever listed.
+  // As notificações de outra pessoa nunca são listadas.
   const mine = await db`
     select count(*)::int as total from notifications n join profiles p on p.id = n.profile_id where p.full_name = 'Ana Clara Souza'`;
   expect(await page.locator('[data-testid="notification"]:visible').count()).toBe(Math.min(60, mine[0].total));
@@ -184,7 +184,7 @@ test("perfil: editar dados, endereços, baixar meus dados e preferência de prom
     email: "carla@exemplo.test", birth_date: "1990-04-02", promo_notifications: false,
   });
 
-  // Rural address without a landmark is refused.
+  // Endereço rural sem ponto de referência é recusado.
   await page.getByText("Adicionar endereço").click();
   await page.getByLabel("Rua").fill("Estrada Nova");
   await page.getByLabel("Bairro ou comunidade").selectOption({ label: "Sítio Mata Verde (zona rural)" });
@@ -203,7 +203,7 @@ test("perfil: editar dados, endereços, baixar meus dados e preferência de prom
   expect(data.account).toMatchObject({ full_name: "Carla Mendes", email: "carla@exemplo.test" });
   expect(Array.isArray(data.orders)).toBe(true);
   expect(data.addresses).toHaveLength(1);
-  // Nothing about other people leaks into the export.
+  // Nada sobre outras pessoas vaza para a exportação.
   expect(JSON.stringify(data)).not.toContain("Ana Clara");
 });
 
@@ -230,7 +230,7 @@ test("excluir conta: dados pessoais somem, pedidos ficam anônimos", async ({ pa
   expect((await db`select count(*)::int as total from orders where customer_id = ${profile.id}`)[0].total).toBe(orders);
   expect((await db`select count(*)::int as total from addresses where profile_id = ${profile.id}`)[0].total).toBe(0);
 
-  // The old session is dead.
+  // A sessão antiga morreu.
   await page.goto("/perfil");
   await expect(page).toHaveURL(/\/entrar$/);
 });

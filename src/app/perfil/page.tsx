@@ -38,7 +38,7 @@ async function ProfileContent() {
       select email, referral_code, promo_notifications from profiles where id = ${profile.id}`,
     listCities(),
   ]);
-  // Read as the user: Row Level Security returns only what is theirs.
+  // Lido como o usuário: as regras de acesso por linha (RLS) devolvem só o que é dele.
   const { addresses, coupons } = await withUser(profile.id, async (tx) => ({
     addresses: await tx<{ id: string; street: string; number: string; neighborhood: string; reference: string | null; is_default: boolean }[]>`
       select a.id, a.street, a.number, n.name as neighborhood, a.reference, a.is_default

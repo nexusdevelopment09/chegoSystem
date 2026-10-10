@@ -14,15 +14,15 @@ export type Notice = {
   link?: string | null;
   orderId?: string | null;
   promotional?: boolean;
-  /** Besides the in-app bell. Simulated in the test environment. */
+  /** Além do sino dentro do app. Simulado no ambiente de testes. */
   channels?: Channel[];
   at?: Date;
 };
 
 /**
- * Records a notification for each person (the bell inside the app) and
- * "sends" it on the other channels. Promotional notices respect the
- * customer's preference; order notices always go out.
+ * Grava uma notificação para cada pessoa (o sino dentro do app) e a
+ * "envia" pelos outros canais. Avisos promocionais respeitam a preferência
+ * do cliente; avisos de pedido sempre saem.
  */
 export async function notify(notice: Notice, db: Db = sql) {
   if (notice.profileIds.length === 0) return;
@@ -36,7 +36,7 @@ export async function notify(notice: Notice, db: Db = sql) {
 
   const at = notice.at ?? new Date();
   if (notice.channels?.includes("push")) {
-    // Not awaited on purpose: the push service is on the internet and must not slow the order down.
+    // Sem esperar de propósito: o serviço de push fica na internet e não pode atrasar o pedido.
     void sendPush(recipients.map((person) => person.id), { title: notice.title, body: notice.body, url: notice.link });
   }
   for (const person of recipients) {
@@ -58,7 +58,7 @@ export async function notify(notice: Notice, db: Db = sql) {
   }
 }
 
-/** Owner and attendants of a store. */
+/** Dono e atendentes de uma loja. */
 export async function storeStaffIds(storeId: string, db: Db = sql, roles = ["owner", "attendant"]): Promise<string[]> {
   const rows = await db<{ profile_id: string }[]>`
     select profile_id from store_members where store_id = ${storeId} and role::text = any(${roles})`;

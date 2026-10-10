@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { sql } from "@/lib/db";
 
-/** Platform settings the admin can change, with their defaults. */
+/** Configurações da plataforma que o admin pode mudar, com os valores padrão. */
 const DEFAULTS = {
   service_fee_cents: 99,
   default_commission_rate: 0.1,

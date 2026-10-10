@@ -15,7 +15,7 @@ function keyBytes(base64: string): Uint8Array<ArrayBuffer> {
 
 type State = "unsupported" | "off" | "on" | "denied" | "working";
 
-/** Turns browser notifications on or off for this device. */
+/** Liga ou desliga as notificações do navegador neste aparelho. */
 export function PushToggle() {
   const [state, setState] = useState<State>("working");
 

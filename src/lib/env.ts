@@ -1,4 +1,4 @@
-/** True while the app runs on the test environment, never in production. */
+/** Verdadeiro enquanto o app roda no ambiente de testes, nunca em produção. */
 export const isLocalEnv = process.env.APP_ENV === "local";
 
 export const TIME_ZONE = "America/Maceio";

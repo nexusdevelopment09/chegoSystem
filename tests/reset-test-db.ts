@@ -4,9 +4,9 @@ export const TEST_DATABASE = "chego_test";
 export const TEST_DATABASE_URL = `postgres://chego@127.0.0.1:54329/${TEST_DATABASE}`;
 
 /**
- * Global setup for Vitest and Playwright: recreates the test database with
- * the full seed, starting the database server if it is off. The database you
- * use by hand (`chego`) is never touched.
+ * Preparação global do Vitest e do Playwright: recria o banco de teste com
+ * o seed completo, ligando o servidor do banco se estiver desligado. O banco que
+ * você usa à mão (`chego`) nunca é tocado.
  */
 export default function resetTestDatabase() {
   execFileSync(process.execPath, ["scripts/db.ts", "reset"], {

@@ -4,12 +4,12 @@ import { cache } from "react";
 import { sql } from "@/lib/db";
 import { isLocalEnv } from "@/lib/env";
 
-// The only place the app asks "what time is it?". Never call `new Date()` for
-// the current time elsewhere: in the test environment the /dev page can move
-// the clock (store hours, lunch cutoff, breakfast items, auto-reject...).
+// O único lugar em que o app pergunta "que horas são?". Nunca chame `new Date()` para
+// a hora atual em outro lugar: no ambiente de testes a página /dev pode mexer no
+// relógio (horários das lojas, limite do almoço, itens de café da manhã, recusa automática...).
 //
-// The offset is stored in the database, so every browser and every scheduled
-// task sees the same simulated time.
+// A diferença fica guardada no banco, então todo navegador e toda tarefa
+// agendada veem a mesma hora simulada.
 const SETTING_KEY = "dev_clock_offset_ms";
 
 const readOffset = cache(async (): Promise<number> => {
@@ -20,8 +20,8 @@ const readOffset = cache(async (): Promise<number> => {
 });
 
 export async function now(): Promise<Date> {
-  // The current time is request data: it must never be baked into a
-  // prerendered page.
+  // A hora atual é um dado da requisição: nunca pode ficar gravada em uma
+  // página pré-montada.
   await connection();
   return new Date(Date.now() + (await readOffset()));
 }
@@ -30,7 +30,7 @@ export async function isClockSimulated(): Promise<boolean> {
   return (await readOffset()) !== 0;
 }
 
-/** Test environment only. Pass `null` to go back to the real time. */
+/** Só no ambiente de testes. Passe `null` para voltar ao horário real. */
 export async function setSimulatedNow(date: Date | null) {
   if (!isLocalEnv) throw new Error("The simulated clock only exists in the test environment.");
 

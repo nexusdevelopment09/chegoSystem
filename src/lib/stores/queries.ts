@@ -27,9 +27,9 @@ export type StoreSummary = {
   featured: boolean;
   createdAt: Date;
   availability: StoreAvailability;
-  /** Delivery to the customer's neighborhood; null when the store does not deliver there. */
+  /** Entrega no bairro do cliente; null quando a loja não entrega lá. */
   area: DeliveryArea | null;
-  /** Cheapest delivery fee of the store, for when no neighborhood is known. */
+  /** Menor taxa de entrega da loja, para quando não se sabe o bairro. */
   minFeeCents: number | null;
   shifts: Shift[];
 };
@@ -54,14 +54,14 @@ export type StoreFilters = {
   ids?: string[];
 };
 
-/** Turns "pizza" into "%pizza%", escaping the LIKE wildcards the user typed. */
+/** Transforma "pizza" em "%pizza%", escapando os curingas do LIKE que o usuário digitou. */
 export const likePattern = (text: string) => `%${text.trim().replace(/[\\%_]/g, "\\$&")}%`;
 
 /**
- * Stores customers can see in a city, already in the fair default order:
- * open first, then the ones that deliver to the customer's neighborhood
- * (cheapest first), then by rating. Paid highlights never change this order;
- * they are shown in their own labelled section.
+ * Lojas que os clientes podem ver em uma cidade, já na ordem padrão justa:
+ * abertas primeiro, depois as que entregam no bairro do cliente
+ * (mais barata primeiro), depois pela avaliação. Destaques pagos nunca mudam esta ordem;
+ * eles aparecem em uma seção própria e identificada.
  */
 export async function listStores(filters: StoreFilters, at: Date): Promise<StoreSummary[]> {
   const rows = await sql<StoreRow[]>`
@@ -116,7 +116,7 @@ export async function listStores(filters: StoreFilters, at: Date): Promise<Store
     || a.name.localeCompare(b.name, "pt-BR"));
 }
 
-/** "35–50 min": preparation, extra time when busy, and delivery to the neighborhood. */
+/** "35–50 min": preparo, tempo extra de movimento alto e entrega no bairro. */
 export function estimateMinutes(store: StoreSummary): string {
   const base = store.prepMinutes + store.busyExtraMinutes;
   return store.area
@@ -130,7 +130,7 @@ export type MenuProduct = {
   description: string;
   imageUrl: string | null;
   fromCents: number;
-  /** The price depends on a mandatory choice (pizza flavor, size...). */
+  /** O preço depende de uma escolha obrigatória (sabor da pizza, tamanho...). */
   priceVaries: boolean;
   featured: boolean;
   status: ProductStatus;
@@ -138,7 +138,7 @@ export type MenuProduct = {
 
 export type MenuSection = { id: string; name: string; products: MenuProduct[] };
 
-/** The store's menu by section, with sold-out products at the end of each one. */
+/** O cardápio da loja por seção, com os produtos esgotados no fim de cada uma. */
 export async function getMenu(storeId: string, at: Date): Promise<MenuSection[]> {
   const rows = await sql<{ id: string; section_id: string | null; section_name: string | null; featured: boolean }[]>`
     select p.id, p.section_id, sec.name as section_name, p.featured
@@ -178,7 +178,7 @@ export type ProductHit = {
   storeSlug: string; storeName: string; storeId: string;
 };
 
-/** Products whose name matches, ignoring accents and letter case. */
+/** Produtos cujo nome combina, ignorando acentos e maiúsculas. */
 export async function searchProducts(cityId: string, query: string): Promise<ProductHit[]> {
   const rows = await sql<{ id: string }[]>`
     select p.id

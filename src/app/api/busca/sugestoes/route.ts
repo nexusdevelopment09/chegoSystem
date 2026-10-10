@@ -3,7 +3,7 @@ import { sql } from "@/lib/db";
 import { getShoppingContext } from "@/lib/shopping-context";
 import { likePattern } from "@/lib/stores/queries";
 
-// Names of stores and products that match what the customer is typing.
+// Nomes de lojas e produtos que combinam com o que o cliente está digitando.
 export async function GET(request: Request) {
   const parsed = z.string().trim().min(2).max(60).safeParse(new URL(request.url).searchParams.get("q"));
   const { city } = await getShoppingContext();

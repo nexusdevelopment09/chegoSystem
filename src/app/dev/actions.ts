@@ -14,8 +14,8 @@ import { buildMockWebhook } from "@/lib/payments/mock";
 import { handlePaymentWebhook } from "@/lib/payments/webhook";
 import { runScheduledTasks } from "@/lib/tasks/run";
 
-// Every action here is a shortcut for testing and refuses to run anywhere
-// but the test environment.
+// Toda ação aqui é um atalho de teste e se recusa a rodar em qualquer lugar
+// que não seja o ambiente de testes.
 function assertLocal() {
   if (!isLocalEnv) throw new Error("Not available outside the test environment.");
 }
@@ -36,7 +36,7 @@ export async function loginAs(formData: FormData) {
 
 export async function setClock(formData: FormData) {
   assertLocal();
-  // The field is a local date and time in Maceió, which is UTC-3 all year.
+  // O campo é uma data e hora local de Maceió, que é UTC-3 o ano todo.
   const value = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).parse(formData.get("datetime"));
   await setSimulatedNow(new Date(`${value}:00-03:00`));
   revalidatePath("/dev");
@@ -55,8 +55,8 @@ const EVENT_TYPES = {
 } as const;
 
 /**
- * Plays the part of the bank: the pretend gateway sends a signed webhook for
- * the order's payment, exactly the path a real gateway will use.
+ * Faz o papel do banco: o gateway de mentira manda um webhook assinado para
+ * o pagamento do pedido, exatamente o caminho que um gateway de verdade vai usar.
  */
 export async function simulatePayment(formData: FormData) {
   assertLocal();
@@ -76,18 +76,18 @@ export async function simulatePayment(formData: FormData) {
 
   revalidatePath("/dev");
   if (!back) return;
-  // Going "back" to the payment page of an order that is no longer waiting
-  // would show stale content: go straight to the tracking page.
+  // "Voltar" para a página de pagamento de um pedido que não está mais esperando
+  // mostraria conteúdo velho: vai direto para a página de acompanhamento.
   const [order] = await sql<{ status: string }[]>`select status from orders where id = ${orderId}`;
   if (order?.status !== "awaiting_payment") redirect(`/pedidos/${orderId}`);
   revalidatePath(back);
 }
 
-// ------------------------------------------------- tasks, random order, reset
+// ---------------------------------------- tarefas, pedido aleatório, reset
 
 export type DevState = { error?: string; ok?: boolean; message?: string };
 
-/** Runs every scheduled task now, at the (possibly simulated) current time. */
+/** Roda todas as tarefas agendadas agora, no horário atual (talvez simulado). */
 export async function runTasksNow(): Promise<DevState> {
   assertLocal();
   const report = await runScheduledTasks(await now());
@@ -98,7 +98,7 @@ export async function runTasksNow(): Promise<DevState> {
   return { ok: true, message: done.length > 0 ? `Tarefas rodadas. ${done.join(" · ")}.` : "Tarefas rodadas. Nada estava pendente." };
 }
 
-/** Creates a paid order from a random customer at a store that is open now, to test the store panel. */
+/** Cria um pedido pago de um cliente aleatório numa loja aberta agora, para testar o painel da loja. */
 export async function generateRandomOrder(): Promise<DevState> {
   assertLocal();
   const at = await now();
@@ -149,7 +149,7 @@ export async function generateRandomOrder(): Promise<DevState> {
   return { error: `Não deu para criar o pedido. ${lastReason} Ajuste o relógio simulado para um horário com lojas abertas.` };
 }
 
-/** Wipes the database and loads the test data again. Everyone is signed out. */
+/** Apaga o banco e carrega os dados de teste de novo. Todo mundo é desconectado. */
 export async function resetDatabase(_previous: DevState, formData: FormData): Promise<DevState> {
   assertLocal();
   if (formData.get("confirm") !== "on") return { error: "Marque a caixa para confirmar. Isso apaga tudo o que você testou." };

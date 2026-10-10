@@ -21,12 +21,12 @@ export type ActionState = { error?: string; ok?: boolean; message?: string };
 
 const uuid = z.uuid();
 
-// ----------------------------------------------------------------- messages
+// ---------------------------------------------------------------- mensagens
 
 /**
- * A message between the customer and the store about one order. Only the
- * two sides of that order can write, only after the payment and until two
- * hours after delivery, and nothing that looks like a contact goes through.
+ * Uma mensagem entre o cliente e a loja sobre um pedido. Só os dois
+ * lados daquele pedido podem escrever, só depois do pagamento e até duas
+ * horas depois da entrega, e nada que pareça um contato passa.
  */
 export async function sendOrderMessage(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const orderId = uuid.safeParse(formData.get("orderId"));
@@ -77,7 +77,7 @@ export async function sendOrderMessage(_previous: ActionState, formData: FormDat
   return { ok: true };
 }
 
-// ------------------------------------------------------------------ reviews
+// --------------------------------------------------------------- avaliações
 
 export async function submitReview(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = z
@@ -112,11 +112,11 @@ export async function submitReview(_previous: ActionState, formData: FormData): 
   return { ok: true, message: "Obrigado pela avaliação!" };
 }
 
-// ------------------------------------------------------------------ support
+// ------------------------------------------------------------------ suporte
 
 const REASONS = ["delay", "missing_item", "wrong_item", "damaged_item", "billing", "other"] as const;
 
-/** "Preciso de ajuda": opens a ticket for the platform team about one order. */
+/** "Preciso de ajuda": abre um chamado para a equipe da plataforma sobre um pedido. */
 export async function openTicket(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = z
     .object({ orderId: uuid, reason: z.enum(REASONS), message: z.string().trim().min(5, "Conte o que aconteceu em poucas palavras.").max(1000) })
@@ -161,7 +161,7 @@ export async function openTicket(_previous: ActionState, formData: FormData): Pr
   return { ok: true, message: "Chamado aberto. A gente responde por aqui." };
 }
 
-/** A reply inside a ticket, from the customer. (The admin's side lives in the admin panel.) */
+/** Uma resposta dentro de um chamado, vinda do cliente. (O lado do admin fica no painel do admin.) */
 export async function replyTicket(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const ticketId = uuid.safeParse(formData.get("ticketId"));
   const message = z.string().trim().min(1).max(1000).safeParse(formData.get("message"));
@@ -191,13 +191,13 @@ export async function replyTicket(_previous: ActionState, formData: FormData): P
   return { ok: true };
 }
 
-// ------------------------------------------------------------------ reorder
+// ------------------------------------------------------------ pedir de novo
 
 export type ReorderResult = { cart: Cart | null; notes: string[] };
 
 /**
- * "Pedir de novo": rebuilds a cart from an old order with what can still be
- * ordered today, at today's prices, and says what changed.
+ * "Pedir de novo": remonta a sacola a partir de um pedido antigo com o que ainda
+ * pode ser pedido hoje, aos preços de hoje, e diz o que mudou.
  */
 export async function reorder(orderId: string): Promise<ReorderResult> {
   const profile = await getCurrentProfile();

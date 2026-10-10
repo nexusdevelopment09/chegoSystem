@@ -109,7 +109,7 @@ Se não abrir, o Firewall do Windows pode estar bloqueando: Painel de Controle �
 db/
   migrations/          tabelas e regras do banco, numeradas (nunca editar uma já aplicada)
   seed/                dados de teste: lojas, cardápios, pessoas, pedidos e imagens
-docs/                  usuários de teste, roteiro de testes e notas para o futuro
+docs/                  arquitetura, regras de negócio, usuários de teste, roteiro de testes e notas para o futuro
 storage/               fotos de produtos, lojas e banners (geradas pelo seed e pelos envios)
 e2e/                   testes no navegador, em tela de celular (Playwright)
 tests/integration/     testes contra o banco (regras de quem vê o quê, pagamentos)
@@ -142,7 +142,8 @@ public/
 
 ## 7. Convenções
 
-- Código, tabelas e variáveis em inglês; textos da interface em português do Brasil.
+- Código, tabelas e variáveis em inglês; interface, comentários e documentação em português do Brasil.
+- Como o sistema é montado: [docs/ARQUITETURA.md](docs/ARQUITETURA.md). O que ele faz e por quê: [docs/REGRAS_DE_NEGOCIO.md](docs/REGRAS_DE_NEGOCIO.md).
 - Dinheiro sempre em **centavos inteiros** (`1234` = R$ 12,34). Use `formatCents` para mostrar.
 - Cores e fontes da marca são tokens do Tailwind (`bg-brand`, `text-coffee`, `font-display`), definidos em `src/app/globals.css`.
 - Botões com texto branco usam o laranja escuro (`brand-dark`), porque o branco sobre o laranja principal não atinge o contraste mínimo de 4,5:1.

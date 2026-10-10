@@ -13,9 +13,9 @@ if (pushConfigured) {
 export type PushPayload = { title: string; body: string; url?: string | null };
 
 /**
- * Sends a real browser notification to every device the person turned
- * notifications on for. Never throws: a notification that fails must not
- * break what the user was doing. Devices that no longer exist are forgotten.
+ * Envia uma notificação de verdade do navegador para todo aparelho em que a pessoa
+ * ligou as notificações. Nunca lança erro: uma notificação que falha não pode
+ * quebrar o que o usuário estava fazendo. Aparelhos que não existem mais são esquecidos.
  */
 export async function sendPush(profileIds: string[], payload: PushPayload): Promise<void> {
   if (!pushConfigured || profileIds.length === 0) return;

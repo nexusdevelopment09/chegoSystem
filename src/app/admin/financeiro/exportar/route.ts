@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth/session";
 
 const money = (cents: number) => (cents / 100).toFixed(2).replace(".", ",");
 
-// Monthly report of what each store paid the platform, for the accountant to issue the invoices.
+// Relatório mensal do que cada loja pagou à plataforma, para o contador emitir as notas.
 export async function GET(request: Request) {
   await requireRole("admin");
   const month = new URL(request.url).searchParams.get("mes") ?? "";

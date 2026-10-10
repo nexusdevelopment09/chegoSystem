@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { chooseNeighborhood, db, loginAs, loginWithPhone, productUrl, setClock, visible, freshDatabase } from "./helpers";
 
-// A Friday at 15h: the Empório, the Mercado and the Delícias da Vó are open.
+// Uma sexta às 15h: o Empório, o Mercado e a Delícias da Vó estão abertos.
 test.beforeAll(() => freshDatabase("2026-10-09T15:00"));
 test.afterAll(() => setClock(null));
 
@@ -26,7 +26,7 @@ test("esgotar com um toque aparece na hora para o cliente", async ({ page, brows
 test("criar produto com foto, ligar grupo de opções com preço próprio, duplicar e excluir", async ({ page, browser }) => {
   await loginAs(page, EMPORIO_OWNER);
 
-  // A reusable group, created once.
+  // Um grupo reutilizável, criado uma vez só.
   await page.goto("/lojista/cardapio/grupos");
   await page.getByLabel("Novo grupo").fill("Embalagem");
   await page.getByRole("button", { name: "Criar grupo" }).click();
@@ -45,7 +45,7 @@ test("criar produto com foto, ligar grupo de opções com preço próprio, dupli
   await page.getByRole("button", { name: "Criar produto" }).click();
   await expect(page).toHaveURL(/\/lojista\/cardapio\/produto\/[0-9a-f-]{36}$/);
 
-  // A file that is not a picture is refused, whatever its name.
+  // Um arquivo que não é imagem é recusado, seja qual for o nome.
   await page.locator('input[name="image"]:visible').setInputFiles({ name: "foto.png", mimeType: "image/png", buffer: Buffer.from("isto não é uma imagem") });
   await page.getByRole("button", { name: "Salvar produto" }).click();
   await expect(page.getByText("Use uma imagem JPG, PNG ou WebP.")).toBeVisible();
@@ -144,7 +144,7 @@ test("dados da loja, área de entrega nova e fechamento especial valem para o cl
   await expect(customer.getByText("Pedido mínimo R$ 22,50")).toBeVisible();
   await expect(customer.locator('[data-testid="store-state"]:visible')).toHaveText("Aberta");
 
-  // Closing for today (a holiday) closes the store for customers.
+  // Fechar por hoje (um feriado) fecha a loja para os clientes.
   await page.getByLabel("De", { exact: true }).fill("2026-10-09");
   await page.getByLabel("Motivo").fill("Feriado de teste");
   await page.getByRole("button", { name: "Adicionar", exact: true }).click();
@@ -191,7 +191,7 @@ test("convidar entregador por telefone: ele entra e cai nas entregas da loja", a
 
   const courier = await (await browser.newContext()).newPage();
   await loginWithPhone(courier, "(82) 96666-0001");
-  // First access: he accepts the terms (the merchant terms too).
+  // Primeiro acesso: ele aceita os termos (os do lojista também).
   await courier.getByRole("checkbox").check();
   await courier.getByRole("button", { name: "Aceitar e continuar" }).click();
   await expect(courier).toHaveURL(/\/lojista\/entregas$/);
@@ -252,7 +252,7 @@ test("relatórios e extrato são só do dono; atendente não entra", async ({ pa
   await expect(visible(page, "statement")).toBeVisible();
   await expect(page.getByText(/Sua taxa hoje: 12,0%/)).toBeVisible();
 
-  // The numbers match the database.
+  // Os números batem com o banco.
   const [expected] = await db`
     select count(*)::int as orders from orders o join stores s on s.id = o.store_id
     where s.slug = 'pizzaria-forno-de-barro' and o.paid_at is not null

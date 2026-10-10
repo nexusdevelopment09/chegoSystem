@@ -1,4 +1,4 @@
-// Fictional people and places for the development seed.
+// Pessoas e lugares fictícios do seed de desenvolvimento.
 
 export const URBAN = [
   { name: "Centro", fee: 300, min: 20, max: 35 },
@@ -28,14 +28,14 @@ export const CATEGORIES = [
   { name: "Mercado", slug: "mercado", icon: "basket" },
   { name: "Farmácia", slug: "farmacia", icon: "pill" },
   { name: "Saudável", slug: "saudavel", icon: "leaf" },
-  // Prepared for the future: no screens yet.
+  // Preparado para o futuro: ainda sem telas.
   { name: "Moda e calçados", slug: "moda-e-calcados", icon: "shirt", active: false },
   { name: "Papelaria", slug: "papelaria", icon: "pencil", active: false },
   { name: "Serviços", slug: "servicos", icon: "calendar", active: false },
   { name: "Classificados", slug: "classificados", icon: "tag", active: false },
 ];
 
-/** One owner per store, in the same order as STORES. */
+/** Um dono por loja, na mesma ordem de STORES. */
 export const OWNER_NAMES = [
   "Marcos Antônio Tavares", "Luciana Prado", "Maria Lia Correia", "Renato Yamada", "Sebastião Marinho",
   "Thiago Bezerra", "Dona Zefinha Moura", "Paulo Sérgio Leite", "Camila Duarte", "Wellington Farias",
@@ -50,7 +50,7 @@ export type CustomerDef = {
   street: string;
   number: string;
   reference?: string;
-  /** Relative share of the generated order history. */
+  /** Participação relativa no histórico de pedidos gerado. */
   weight: number;
   blocked?: boolean;
   minor?: boolean;

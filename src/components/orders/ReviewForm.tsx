@@ -7,7 +7,7 @@ import { inputClass } from "@/components/ui/Field";
 
 const LABELS = ["", "Muito ruim", "Ruim", "Mais ou menos", "Bom", "Muito bom"];
 
-/** Stars from 1 to 5 and an optional comment, once per order. */
+/** Estrelas de 1 a 5 e um comentário opcional, uma vez por pedido. */
 export function ReviewForm({ orderId, storeName }: { orderId: string; storeName: string }) {
   const [rating, setRating] = useState(0);
 

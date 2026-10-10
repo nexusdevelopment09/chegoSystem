@@ -1,9 +1,9 @@
-// Is the store open right now, and if not, when does it open? Pure functions.
+// A loja está aberta agora e, se não, quando abre? Funções puras.
 import { DAY_MS, formatHour, fromLocal, parseTime, toLocal, WEEKDAY_NAMES } from "../time.ts";
 
 export type Shift = {
   weekday: number;
-  /** "HH:MM" or "HH:MM:SS". A closing time at or before the opening crosses midnight. */
+  /** "HH:MM" ou "HH:MM:SS". Um fechamento igual ou anterior à abertura atravessa a meia-noite. */
   opensAt: string;
   closesAt: string;
   pickupOnly?: boolean;
@@ -19,11 +19,11 @@ export type StoreSchedule = {
 
 export type StoreAvailability = {
   state: "open" | "closed" | "paused";
-  /** The current shift only allows pickup at the counter. */
+  /** O turno atual só permite retirada no balcão. */
   pickupOnly: boolean;
-  /** When the current shift ends (only while open by the timetable). */
+  /** Quando o turno atual termina (só enquanto aberta pela grade de horários). */
   closesAt: Date | null;
-  /** Next opening by the timetable, when known. */
+  /** Próxima abertura pela grade de horários, quando se sabe. */
   opensAt: Date | null;
   /** "Aberta", "Abre hoje às 18h", "Abre amanhã às 6h", "Voltamos às 19h30"... */
   label: string;
@@ -31,7 +31,7 @@ export type StoreAvailability = {
 
 type Interval = { start: Date; end: Date; pickupOnly: boolean };
 
-/** Every shift as real instants, from yesterday (it may cross midnight) up to a week ahead. */
+/** Todos os turnos como instantes reais, de ontem (pode atravessar a meia-noite) até uma semana à frente. */
 function intervals(shifts: Shift[], now: Date): Interval[] {
   const result: Interval[] = [];
   for (let offset = -1; offset <= 7; offset += 1) {
@@ -67,7 +67,7 @@ export function storeAvailability(schedule: StoreSchedule, now: Date): StoreAvai
   const all = intervals(schedule.shifts, now);
   const current = all.find((interval) => interval.start <= now && now < interval.end);
 
-  // Next opening by the timetable, skipping special closures (holidays).
+  // Próxima abertura pela grade de horários, pulando fechamentos especiais (feriados).
   let opensAt: Date | null = null;
   for (const interval of all) {
     if (interval.start <= now) continue;
@@ -96,7 +96,7 @@ export function storeAvailability(schedule: StoreSchedule, now: Date): StoreAvai
   if (current && !closure) {
     return { state: "open", pickupOnly: current.pickupOnly, closesAt: current.end, opensAt: null, label: "Aberta" };
   }
-  // A closure that ends in the middle of a shift reopens the store then.
+  // Um fechamento que termina no meio de um turno reabre a loja naquele momento.
   if (current && closure && closure.endsAt < current.end) opensAt = closure.endsAt;
 
   return closed(opensAt ? opensLabel(opensAt, now) : "Fechada");

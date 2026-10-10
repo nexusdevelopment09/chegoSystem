@@ -1,4 +1,4 @@
-// Portuguese labels for values stored in English in the database.
+// Rótulos em português para valores guardados em inglês no banco.
 
 export const STORE_ROLE_LABELS = {
   owner: "Dono",
@@ -6,7 +6,7 @@ export const STORE_ROLE_LABELS = {
   courier: "Entregador",
 } as const;
 
-/** Emoji shown for each category icon key (light, no icon library needed). */
+/** Emoji mostrado para cada chave de ícone de categoria (leve, sem biblioteca de ícones). */
 export const CATEGORY_EMOJI: Record<string, string> = {
   utensils: "🍽️",
   burger: "🍔",

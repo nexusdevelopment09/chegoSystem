@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { storeAvailability, type Shift, type StoreSchedule } from "./hours";
 
-// 2026-10-09 is a Friday. Times below are Maceió time (UTC-3).
+// 09/10/2026 é uma sexta. Os horários abaixo são de Maceió (UTC-3).
 const at = (date: string, time: string) => new Date(`${date}T${time}:00-03:00`);
 const everyDay = (opensAt: string, closesAt: string): Shift[] =>
   [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, opensAt, closesAt }));
@@ -23,7 +23,7 @@ describe("storeAvailability", () => {
     expect(storeAvailability(dinner, at("2026-10-09", "10:00")).label).toBe("Abre hoje às 18h");
     expect(storeAvailability(dinner, at("2026-10-09", "23:45")).label).toBe("Abre amanhã às 18h");
 
-    // Closed on Monday and Tuesday (Sushi Maré): on Sunday night the next opening is Wednesday.
+    // Fechada segunda e terça (Sushi Maré): no domingo à noite a próxima abertura é na quarta.
     const sushi = schedule([3, 4, 5, 6, 0].map((weekday) => ({ weekday, opensAt: "18:00", closesAt: "23:00" })));
     expect(storeAvailability(sushi, at("2026-10-11", "23:30")).label).toBe("Abre quarta às 18h");
     expect(storeAvailability(sushi, at("2026-10-12", "20:00")).state).toBe("closed");

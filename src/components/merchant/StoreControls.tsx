@@ -16,7 +16,7 @@ function Toggle({ kind, value, label, active }: { kind: string; value: string | 
   );
 }
 
-/** Open/close now, pause for a while, and the "busy" extra time: one tap each. */
+/** Abrir/fechar agora, pausar por um tempo e o tempo extra de "movimento alto": um toque cada. */
 export function StoreControls({ store }: { store: MerchantStore }) {
   const paused = store.availability.state === "paused";
   return (

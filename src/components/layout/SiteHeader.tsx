@@ -9,7 +9,7 @@ import { sql } from "@/lib/db";
 
 const small = "min-h-11 px-3 text-sm sm:px-4";
 
-/** Top bar of every page: logo on the left, who is signed in on the right. */
+/** Barra do topo de todas as páginas: logo à esquerda, quem entrou à direita. */
 export function SiteHeader() {
   return (
     <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3">

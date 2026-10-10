@@ -28,9 +28,9 @@ type ProductRow = {
 };
 
 /**
- * Products with their option groups, prices on that product and availability
- * windows, straight from the database. Only products of stores customers can
- * see. This is what both the product page and the checkout price from.
+ * Produtos com os grupos de opções, os preços naquele produto e as faixas de
+ * disponibilidade, direto do banco. Só produtos de lojas que os clientes podem
+ * ver. É daqui que a página do produto e o checkout tiram o preço.
  */
 export async function loadProducts(productIds: string[]): Promise<Map<string, ProductDetail>> {
   const result = new Map<string, ProductDetail>();

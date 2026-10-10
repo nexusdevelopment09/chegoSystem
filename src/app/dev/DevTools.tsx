@@ -6,7 +6,7 @@ import { generateRandomOrder, resetDatabase, runTasksNow, type DevState } from "
 
 const small = "min-h-11 px-4 text-sm";
 
-/** One-click helpers of the /dev page. */
+/** Atalhos de um clique da página /dev. */
 export function DevTools() {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<DevState | null>(null);

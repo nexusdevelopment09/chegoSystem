@@ -25,7 +25,7 @@ export function CartView() {
 
   const quote = state.quote;
   const lineOf = (key: string) => quote?.lines.find((line) => line.key === key);
-  // Problems that are solved on the next page (login, address) do not block going on.
+  // Problemas que se resolvem na página seguinte (login, endereço) não impedem de continuar.
   const blocking = quote ? quote.lines.some((line) => line.error) || quote.missingForMinCents > 0 : true;
 
   return (

@@ -1,8 +1,8 @@
 import "server-only";
 import { sql } from "@/lib/db";
 
-// Sales numbers of one store. Call only for the owner of that store (or the admin).
-// "Sold" means paid and not refused, cancelled or fully refunded.
+// Números de venda de uma loja. Chame só para o dono daquela loja (ou o admin).
+// "Vendido" significa pago e não recusado, cancelado nem reembolsado por inteiro.
 
 const SOLD = sql`o.paid_at is not null and o.status not in ('rejected', 'cancelled', 'refunded', 'expired')`;
 const LOCAL = sql`(o.paid_at at time zone 'America/Maceio')`;
@@ -59,7 +59,7 @@ export async function storeReport(storeId: string, period: Period): Promise<Stor
       group by 1 order by 1`,
   ]);
 
-  // Refunds given back by the store reduce what it actually receives.
+  // Reembolsos devolvidos pela loja diminuem o que ela recebe de fato.
   const [{ refunded }] = await sql<{ refunded: number }[]>`
     select coalesce(sum(r.store_share_cents), 0)::int as refunded
     from refunds r join orders o on o.id = r.order_id
@@ -86,7 +86,7 @@ export type StatementLine = {
   commissionCents: number; storeDiscountCents: number; refundedFromStoreCents: number; netCents: number;
 };
 
-/** One line per paid order: what the customer paid, what the platform kept, what the store gets. */
+/** Uma linha por pedido pago: o que o cliente pagou, o que ficou com a plataforma, o que a loja recebe. */
 export async function storeStatement(storeId: string, period: Period): Promise<StatementLine[]> {
   const rows = await sql<{
     id: string; code: string; paid_at: Date; status: string; total_cents: number; delivery_fee_cents: number;
@@ -108,7 +108,7 @@ export async function storeStatement(storeId: string, period: Period): Promise<S
   }));
 }
 
-/** The split pays the store two working days after the sale (mock rule for the test environment). */
+/** A divisão paga a loja dois dias úteis depois da venda (regra de mentira para o ambiente de testes). */
 export function payoutDate(paidAt: Date): Date {
   const date = new Date(paidAt.getTime());
   let added = 0;

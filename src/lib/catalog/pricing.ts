@@ -1,5 +1,5 @@
-// Price of a menu item from its option groups. Pure functions, in cents.
-// Also imported by the seed, so no Next.js or "@/" imports here.
+// Preço de um item do cardápio a partir dos grupos de opções. Funções puras, em centavos.
+// Também é importado pelo seed, então nada de Next.js nem de "@/" aqui.
 
 export type PriceMode = "sum" | "highest" | "average" | "free_up_to";
 
@@ -7,9 +7,9 @@ export type ChosenOption = { priceCents: number; quantity: number };
 
 export type ChosenGroup = {
   mode: PriceMode;
-  /** For "free_up_to": how many choices cost nothing. */
+  /** Para "free_up_to": quantas escolhas não custam nada. */
   freeQuantity?: number;
-  /** In the order the customer picked them. */
+  /** Na ordem em que o cliente escolheu. */
   choices: ChosenOption[];
 };
 
@@ -27,12 +27,12 @@ export function groupPriceCents(group: ChosenGroup): number {
     case "average":
       return Math.round(units.reduce((total, price) => total + price, 0) / units.length);
     case "free_up_to":
-      // The first N picks are free; every pick after that pays its own price.
+      // As N primeiras escolhas são grátis; cada escolha depois disso paga o próprio preço.
       return units.slice(group.freeQuantity ?? 0).reduce((total, price) => total + price, 0);
   }
 }
 
-/** Unit price of the item: base price plus what each option group adds. */
+/** Preço unitário do item: preço base mais o que cada grupo de opções acrescenta. */
 export function itemUnitPriceCents(basePriceCents: number, groups: ChosenGroup[]): number {
   return groups.reduce((total, group) => total + groupPriceCents(group), basePriceCents);
 }

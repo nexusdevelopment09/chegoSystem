@@ -26,9 +26,9 @@ const schema = z.object({
 });
 
 /**
- * "Quero vender no Chegô": the store signs itself up. It stays pending,
- * invisible to customers, until the admin goes through the checklist and
- * approves it. Meanwhile the owner can already sign in and build the menu.
+ * "Quero vender no Chegô": a loja se cadastra sozinha. Fica pendente,
+ * invisível para os clientes, até o admin passar pelo checklist e
+ * aprovar. Enquanto isso o dono já pode entrar e montar o cardápio.
  */
 export async function requestStore(_previous: SignupState, formData: FormData): Promise<SignupState> {
   if (!(await rateLimit(`store-signup:${await clientIp()}`, 5, 3600))) return { error: TOO_MANY_ATTEMPTS };
@@ -69,7 +69,7 @@ export async function requestStore(_previous: SignupState, formData: FormData): 
       select 1 from stores where owner_id = ${owner.id} and lower(name) = lower(${data.storeName}) and status in ('pending', 'active', 'paused')`;
     if (duplicate) return { error: "Você já cadastrou uma loja com esse nome. A gente avisa quando ela for aprovada." };
 
-    // The address in the link is unique: a number is added when the name is taken.
+    // O endereço no link é único: um número é acrescentado quando o nome já existe.
     const base = slugify(data.storeName) || "loja";
     const taken = await tx<{ slug: string }[]>`select slug from stores where slug = ${base} or slug like ${`${base}-%`}`;
     const slug = taken.length === 0 ? base : `${base}-${taken.length + 1}`;

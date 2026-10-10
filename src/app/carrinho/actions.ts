@@ -19,7 +19,7 @@ const cardSchema = z.object({
 
 export type SubmitResponse = { ok: true; orderId: string } | { ok: false; errors: string[] };
 
-/** Places the order. Prices come from the server; the payload only says what was chosen. */
+/** Fecha o pedido. Os preços vêm do servidor; o que chega do navegador só diz o que foi escolhido. */
 export async function submitOrder(payload: unknown, cardPayload?: unknown): Promise<SubmitResponse> {
   const profile = await getCurrentProfile();
   if (!profile) return { ok: false, errors: ["Entre na sua conta para fazer o pedido."] };
@@ -38,7 +38,7 @@ export async function submitOrder(payload: unknown, cardPayload?: unknown): Prom
   const result = await placeOrder(parsed.data, profile, await now(), card);
   if (!result.ok) return result;
 
-  // The pretend gateway answers a card right away, through the same webhook a real one uses.
+  // O gateway de mentira responde o cartão na hora, pelo mesmo webhook que um de verdade usa.
   if (card) {
     const outcome = mockCardOutcome(card.number);
     const { rawBody, signature } = buildMockWebhook(result.providerPaymentId, outcome === "approved" ? "payment.approved" : "payment.declined");
@@ -47,7 +47,7 @@ export async function submitOrder(payload: unknown, cardPayload?: unknown): Prom
   return { ok: true, orderId: result.orderId };
 }
 
-// --------------------------------------------------------------- addresses
+// ---------------------------------------------------------------- endereços
 
 const addressSchema = z.object({
   street: z.string().trim().min(2, "Diga o nome da rua.").max(120),
@@ -69,7 +69,7 @@ export async function saveAddress(payload: unknown): Promise<AddressResponse> {
 
   const [hood] = await sql<{ is_rural: boolean }[]>`select is_rural from neighborhoods where id = ${data.neighborhoodId} and active`;
   if (!hood) return { ok: false, error: "Escolha o bairro ou a comunidade." };
-  // In the countryside there is often no street number: the landmark is what finds the house.
+  // Na zona rural muitas vezes não há número: é o ponto de referência que acha a casa.
   if (hood.is_rural && !data.reference) {
     return { ok: false, error: "Na zona rural, diga um ponto de referência para o entregador achar." };
   }

@@ -1,16 +1,16 @@
 import { LogoIcon } from "@/components/brand/LogoIcon";
 
 type Props = {
-  /** Path ending in "-800.webp"; the 400px version sits next to it. */
+  /** Caminho terminado em "-800.webp"; a versão de 400px fica ao lado. */
   url: string | null;
   alt: string;
-  /** Rendered width in CSS pixels, to pick the right file. */
+  /** Largura desenhada em pixels de CSS, para escolher o arquivo certo. */
   size: number;
   className?: string;
   priority?: boolean;
 };
 
-/** Product picture in WebP with two sizes, or a soft placeholder when there is none. */
+/** Foto do produto em WebP com dois tamanhos, ou um fundo suave quando não há foto. */
 export function ProductImage({ url, alt, size, className = "", priority = false }: Props) {
   if (!url) {
     return (
@@ -22,7 +22,7 @@ export function ProductImage({ url, alt, size, className = "", priority = false 
 
   const small = url.replace(/-800\.webp$/, "-400.webp");
   return (
-    // Plain <img>: the files are already WebP in the two sizes needed.
+    // <img> comum: os arquivos já são WebP nos dois tamanhos necessários.
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={size > 400 ? url : small}

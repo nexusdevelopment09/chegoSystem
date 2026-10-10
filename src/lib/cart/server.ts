@@ -8,7 +8,7 @@ import type { Cart } from "./local";
 
 const savedCartSchema = cartInputSchema.pick({ storeId: true, items: true, notes: true });
 
-/** Keeps a copy of the cart on the server, so it follows the customer to another device. */
+/** Guarda uma cópia da sacola no servidor, para ela acompanhar o cliente em outro aparelho. */
 export async function saveCartOnServer(payload: unknown) {
   const profile = await getCurrentProfile();
   if (!profile) return;
@@ -33,7 +33,7 @@ export async function saveCartOnServer(payload: unknown) {
   });
 }
 
-/** The cart saved on the server, rebuilt with today's names and prices. */
+/** A sacola salva no servidor, remontada com os nomes e preços de hoje. */
 export async function loadCartFromServer(): Promise<Cart | null> {
   const profile = await getCurrentProfile();
   if (!profile) return null;

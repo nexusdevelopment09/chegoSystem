@@ -1,8 +1,8 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { chooseNeighborhood, db, loginAs, loginWithPhone, placePaidOrder, setClock, visible, freshDatabase } from "./helpers";
 
-// This file runs last (alphabetical order): moving the clock forward here
-// expires and refuses whatever the other files left open.
+// Este arquivo roda por último (ordem alfabética): adiantar o relógio aqui
+// expira e recusa o que os outros arquivos deixaram em aberto.
 test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
 
@@ -28,7 +28,7 @@ test("nova loja se cadastra, admin aprova e ela aparece para os clientes", async
   await page.getByLabel("Número do documento").fill("123.456.789-09");
   await page.getByRole("button", { name: "Enviar cadastro" }).click();
   await expect(page.getByText("Para continuar, aceite os Termos do Lojista.")).toBeVisible();
-  // What was typed is still there after the errors.
+  // O que foi digitado continua lá depois dos erros.
   await expect(page.getByLabel("Nome da loja")).toHaveValue("Tapiocaria da Praça");
 
   await page.getByRole("checkbox").check();
@@ -40,11 +40,11 @@ test("nova loja se cadastra, admin aprova e ela aparece para os clientes", async
     where s.name = 'Tapiocaria da Praça'`;
   expect(store).toMatchObject({ slug: "tapiocaria-da-praca", status: "pending", document_number: "12345678909", commission_rate: "0.1000" });
 
-  // Invisible to customers while pending.
+  // Invisível para os clientes enquanto estiver pendente.
   await page.goto("/loja/tapiocaria-da-praca");
   await expect(page.getByRole("heading", { name: "Oxe, essa página não existe." })).toBeVisible();
 
-  // The owner can already sign in and reach the panel.
+  // O dono já consegue entrar e chegar ao painel.
   const owner = await (await browser.newContext()).newPage();
   await loginWithPhone(owner, "(82) 95555-0001");
   await owner.getByRole("checkbox").check();
@@ -81,7 +81,7 @@ test("pedido sem aceite: alerta aos 8 minutos e recusa automática aos 15, com r
   await setClock("2026-10-09T20:10");
   await runTasks(request);
   expect(await noAccept()).toBe(1);
-  // Running again does not warn twice.
+  // Rodar de novo não avisa duas vezes.
   await runTasks(request);
   expect(await noAccept()).toBe(1);
   expect((await db`select count(*)::int as total from outbound_messages where channel = 'sms' and body like '%esperando aceite%'`)[0].total).toBeGreaterThan(0);
@@ -101,7 +101,7 @@ test("pedido sem aceite: alerta aos 8 minutos e recusa automática aos 15, com r
   await expect(visible(page, "order-status")).toHaveText("Recusado pela loja");
   await expect(visible(page, "refund-note")).toBeVisible();
 
-  // A third run changes nothing more for this order.
+  // Uma terceira rodada não muda mais nada neste pedido.
   await runTasks(request);
   expect((await db`select count(*)::int as total from refunds where order_id = ${orderId}`)[0].total).toBe(1);
 });
@@ -143,7 +143,7 @@ test("lembrete de avaliação uma hora depois da entrega, uma vez só", async ({
     select o.id from orders o where o.status = 'delivered' and not exists (select 1 from reviews r where r.order_id = o.id)
     order by o.created_at desc limit 1`;
   await db`update orders set completed_at = '2026-10-09T23:00:00-03:00' where id = ${order.id}`;
-  // Earlier runs in this file may already have reminded about this order.
+  // Rodadas anteriores neste arquivo podem já ter lembrado deste pedido.
   await db`delete from notifications where order_id = ${order.id} and type = 'review_reminder'`;
   const reminders = async () => (await db`select count(*)::int as total from notifications where order_id = ${order.id} and type = 'review_reminder'`)[0].total;
 
@@ -186,7 +186,7 @@ test("faturas: uma por loja no mês, sem duplicar, e vencem depois do prazo", as
   await runTasks(request);
   expect(await november()).toBe(created);
 
-  // The founding store is still inside its free months, and a pending store pays nothing.
+  // A loja fundadora ainda está nos meses grátis, e uma loja pendente não paga nada.
   const free = await db`
     select s.slug from invoices i join stores s on s.id = i.store_id
     where i.period_start = '2026-11-01' and s.slug in ('padaria-pao-quentinho')`;
@@ -196,7 +196,7 @@ test("faturas: uma por loja no mês, sem duplicar, e vencem depois do prazo", as
   const second = await runTasks(request);
   expect(second.faturas_vencidas).toBe(created);
   expect((await db`select count(*)::int as total from invoices where period_start = '2026-11-01' and status = 'overdue'`)[0].total).toBe(created);
-  // Overdue never suspends a store by itself: that is the admin's decision.
+  // Fatura vencida nunca suspende a loja sozinha: essa decisão é do admin.
   expect((await db`select count(*)::int as total from stores where status = 'suspended'`)[0].total).toBe(1);
 });
 
@@ -222,7 +222,7 @@ test("ferramentas do /dev: rodar tarefas e gerar pedido aleatório", async ({ pa
   await expect(visible(page, "dev-result")).toContainText("Pedido pago criado:");
   expect((await db`select count(*)::int as total from orders where status = 'paid'`)[0].total).toBe(before + 1);
 
-  // Resetting needs the confirmation box.
+  // Resetar exige a caixa de confirmação.
   await page.getByRole("button", { name: "Resetar banco" }).click();
   await expect(page.getByText("Marque a caixa para confirmar.")).toBeVisible();
 });

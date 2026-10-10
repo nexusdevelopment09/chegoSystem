@@ -50,12 +50,12 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
-  // The scheduled time only counts while "Agendar" is the selected option.
+  // O horário agendado só vale enquanto "Agendar" for a opção escolhida.
   const state = useQuote(cart, { ...choices, couponCode: couponCode || null, scheduledFor: chosenTiming === "schedule" ? choices.scheduledFor : null });
   const quote = state.quote;
   const set = (changes: CheckoutChoices) => setChoices((current) => ({ ...current, ...changes }));
 
-  // When the store cannot take the order for now, scheduling is the only way.
+  // Quando a loja não pode receber o pedido para agora, agendar é o único jeito.
   const mustSchedule = quote ? !quote.orderNow.allowed && quote.slots.length > 0 : false;
   const timing = mustSchedule ? "schedule" : chosenTiming;
   const effective = { ...choices, couponCode: couponCode || null, scheduledFor: timing === "schedule" ? choices.scheduledFor : null };
@@ -153,7 +153,7 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
               <form
                 className="flex flex-col gap-3 rounded-2xl bg-cream p-3"
                 onSubmit={(event) => {
-                  // Sent by hand so the fields are not cleared if the address is refused.
+                  // Enviado à mão para os campos não serem limpos se o endereço for recusado.
                   event.preventDefault();
                   void addAddress(new FormData(event.currentTarget));
                 }}

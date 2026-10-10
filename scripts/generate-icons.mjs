@@ -1,5 +1,5 @@
-// Generates the PWA icons in public/icons from the logo drawing.
-// Run with: npm run icons   (only needed when the logo changes)
+// Gera os ícones do PWA em public/icons a partir do desenho do logo.
+// Rode com: npm run icons   (só é preciso quando o logo muda)
 import { mkdir, writeFile } from "node:fs/promises";
 import sharp from "sharp";
 
@@ -14,8 +14,8 @@ const bag = `
 
 const rounded = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="28" fill="#E8611A"/>${bag}</svg>`;
 
-// Maskable and Apple icons are cropped by the system, so they fill the whole
-// square and keep the bag inside the central safe area.
+// Os ícones maskable e da Apple são recortados pelo sistema, então ocupam o
+// quadrado inteiro e mantêm a sacola dentro da área central segura.
 const fullBleed = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#E8611A"/><g transform="translate(12.5 12.5) scale(0.75)">${bag}</g></svg>`;
 
 const png = (svg, size) => sharp(Buffer.from(svg), { density: 600 }).resize(size, size).png().toBuffer();

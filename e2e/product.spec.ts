@@ -13,7 +13,7 @@ test("montador de pizza: sabores, desenho, borda e preço pelo maior valor", asy
   await expect(page.getByText("A partir de R$ 45,00")).toBeVisible();
   await expect(page.getByText("Com mais de um sabor, cobramos o valor do sabor mais caro.")).toBeVisible();
 
-  // Nothing chosen yet: the button explains what is missing.
+  // Nada escolhido ainda: o botão explica o que falta.
   await expect(addButton(page)).toBeDisabled();
   await expect(page.getByTestId("disabled-reason")).toHaveText("Escolha pelo menos 1 em “Sabores”");
   await expect(page.getByTestId("pizza-caption")).toHaveText("Escolha até 2 sabores");
@@ -29,7 +29,7 @@ test("montador de pizza: sabores, desenho, borda e preço pelo maior valor", asy
   );
   await expect(addButton(page)).toHaveText("Adicionar • R$ 56,00");
 
-  // Two flavors is the limit for the large pizza, and Camarão is sold out.
+  // Dois sabores é o limite da pizza grande, e o de Camarão está esgotado.
   await expect(page.getByRole("checkbox", { name: "Mussarela" })).toBeDisabled();
   await expect(page.getByRole("checkbox", { name: "Camarão" })).toBeDisabled();
 

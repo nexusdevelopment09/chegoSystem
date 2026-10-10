@@ -1,7 +1,7 @@
 import type { Totals } from "@/lib/orders/totals";
 import { formatCents } from "@/lib/format";
 
-/** Subtotal, discount, delivery, service fee and total. Used on cart, checkout and order pages. */
+/** Subtotal, desconto, entrega, taxa de serviço e total. Usado na sacola, no checkout e nas páginas de pedido. */
 export function OrderSummary({ totals, fulfillment }: { totals: Totals; fulfillment: "delivery" | "pickup" }) {
   const row = "flex justify-between gap-3 py-1";
   return (

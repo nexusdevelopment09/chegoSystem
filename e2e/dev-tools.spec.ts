@@ -8,7 +8,7 @@ test("login rápido entra como cliente e como admin", async ({ page }) => {
   await page.getByRole("button", { name: "Entrar como Ana Clara Souza" }).click();
   await expect(page).toHaveURL(/\/$/);
 
-  // A customer is not let into the admin panel.
+  // Um cliente não entra no painel do admin.
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/$/);
 

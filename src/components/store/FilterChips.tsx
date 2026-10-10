@@ -2,13 +2,13 @@ import Link from "next/link";
 import { FILTER_LABELS, type StoreFilterParams } from "@/lib/stores/filters";
 
 type Props = {
-  /** Page the chips link to, e.g. "/busca" or "/categoria/lanches". */
+  /** Página para onde os filtros levam, ex.: "/busca" ou "/categoria/lanches". */
   basePath: string;
-  /** Current query string values, including ones that are not filters (q, categoria). */
+  /** Valores atuais da query string, incluindo os que não são filtros (q, categoria). */
   params: Record<string, string | undefined>;
 };
 
-/** Filter toggles as plain links: they work without JavaScript and can be shared. */
+/** Filtros como links comuns: funcionam sem JavaScript e podem ser compartilhados. */
 export function FilterChips({ basePath, params }: Props) {
   const href = (key: keyof StoreFilterParams) => {
     const next = new URLSearchParams();

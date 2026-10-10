@@ -10,7 +10,7 @@ import { TICKET_REASON_LABELS } from "@/lib/labels";
 export const metadata: Metadata = { title: "Suporte" };
 
 const STATUS = { open: "Aberto", in_progress: "Em andamento", waiting_customer: "Aguardando cliente", resolved: "Resolvido" } as const;
-// Money problems first, then what spoils the order, then the rest.
+// Primeiro os problemas de dinheiro, depois o que estraga o pedido, depois o resto.
 const PRIORITY: Record<string, number> = { billing: 0, missing_item: 1, wrong_item: 1, damaged_item: 1, delay: 2, other: 3 };
 
 export default function AdminSupportPage() {

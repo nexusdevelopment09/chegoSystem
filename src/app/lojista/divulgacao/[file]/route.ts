@@ -2,8 +2,8 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import QRCode from "qrcode";
 import { getMerchantContext } from "@/lib/merchant/context";
 
-// /lojista/divulgacao/qrcode  -> PNG of the store's QR code
-// /lojista/divulgacao/cartaz  -> A4 poster "Peça também pelo Chegô" (PDF)
+// /lojista/divulgacao/qrcode  -> PNG do QR Code da loja
+// /lojista/divulgacao/cartaz  -> cartaz A4 "Peça também pelo Chegô" (PDF)
 export async function GET(request: Request, { params }: { params: Promise<{ file: string }> }) {
   const { file } = await params;
   const { store } = await getMerchantContext(["owner"]);
@@ -19,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
 
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Cartaz Chegô - ${store.name}`);
-  const page = pdf.addPage([595.28, 841.89]); // A4 in points
+  const page = pdf.addPage([595.28, 841.89]); // A4 em pontos
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const { width, height } = page.getSize();
@@ -27,7 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
   const coffee = rgb(0.14, 0.09, 0.05);
 
   const centered = (text: string, y: number, size: number, font = bold, color = coffee) => {
-    // The standard PDF fonts cover Latin-1, which is enough for Portuguese.
+    // As fontes padrão do PDF cobrem o Latin-1, o que basta para o português.
     page.drawText(text, { x: (width - font.widthOfTextAtSize(text, size)) / 2, y, size, font, color });
   };
 

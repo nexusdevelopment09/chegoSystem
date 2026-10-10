@@ -2,7 +2,7 @@ import { withUser } from "@/lib/db";
 import { getMerchantContext } from "@/lib/merchant/context";
 import { toMenuCsv, type CsvProduct } from "@/lib/merchant/csv";
 
-// The store's menu as a spreadsheet (CSV) to edit in Excel and send back.
+// O cardápio da loja em planilha (CSV), para editar no Excel e enviar de volta.
 export async function GET() {
   const { profile, store } = await getMerchantContext(["owner", "attendant"]);
 

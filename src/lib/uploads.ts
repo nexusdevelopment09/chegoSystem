@@ -21,10 +21,10 @@ export const COVER_VARIANTS: Variant[] = [{ suffix: "-cover", width: 1200, heigh
 export const BANNER_VARIANTS: Variant[] = [{ suffix: "", width: 1200, height: 500 }];
 
 /**
- * Stores an uploaded picture: checks the real file type (not the name) and
- * the size, then re-encodes it as WebP in the sizes needed. Re-encoding also
- * drops every piece of metadata, such as the GPS position a phone saves.
- * Returns the public address of the first variant.
+ * Guarda uma foto enviada: confere o tipo real do arquivo (não o nome) e
+ * o tamanho, depois regrava em WebP nos tamanhos necessários. Regravar também
+ * apaga todos os metadados, como a posição do GPS que o celular salva.
+ * Devolve o endereço público da primeira variante.
  */
 export async function saveImage(file: File, bucket: "products" | "stores" | "banners", folder: string, variants: Variant[]): Promise<string> {
   if (file.size === 0) throw new UploadError("Escolha uma imagem.");
@@ -45,7 +45,7 @@ export async function saveImage(file: File, bucket: "products" | "stores" | "ban
 
   for (const variant of variants) {
     await sharp(input)
-      .rotate() // applies the camera orientation before the metadata is dropped
+      .rotate() // aplica a orientação da câmera antes de os metadados serem apagados
       .resize(variant.width, variant.height, { fit: "cover" })
       .webp({ quality: 80 })
       .toFile(join(directory, `${name}${variant.suffix}.webp`));
@@ -53,7 +53,7 @@ export async function saveImage(file: File, bucket: "products" | "stores" | "ban
   return `/files/${bucket}/${folder ? `${folder}/` : ""}${name}${variants[0].suffix}.webp`;
 }
 
-/** The file chosen in a form field, or null when the field was left empty. */
+/** O arquivo escolhido em um campo do formulário, ou null quando o campo ficou vazio. */
 export function pickedFile(value: FormDataEntryValue | null): File | null {
   return value instanceof File && value.size > 0 ? value : null;
 }

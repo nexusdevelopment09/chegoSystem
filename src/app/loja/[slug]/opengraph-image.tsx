@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { sql } from "@/lib/db";
 
-// Preview picture for when the store link is shared (WhatsApp, etc.).
+// Imagem de prévia para quando o link da loja é compartilhado (WhatsApp etc.).
 export const alt = "Loja no Chegô";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";

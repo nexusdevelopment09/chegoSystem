@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { chooseNeighborhood, db, loginAs, placePaidOrder, setClock, visible, freshDatabase } from "./helpers";
 
-// A Friday at 20h: the pizzaria and the burger place are open.
+// Uma sexta às 20h: a pizzaria e a hamburgueria estão abertas.
 test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
 
@@ -19,7 +19,7 @@ test("loja recebe o alerta, aceita, prepara e despacha; entregador conclui com o
 
   const card = () => page.locator('[data-testid="merchant-order"]:visible').filter({ hasText: order.code });
   await expect(column(page, "Novos").getByText(order.code)).toBeVisible();
-  // The store sees who to deliver to only now, after the payment.
+  // A loja só vê para quem entregar agora, depois do pagamento.
   await expect(card()).toContainText("Ana Clara Souza");
 
   await card().getByLabel("Preparo (min)").fill("40");
@@ -34,7 +34,7 @@ test("loja recebe o alerta, aceita, prepara e despacha; entregador conclui com o
   await card().getByRole("button", { name: "Saiu para entrega" }).click();
   await expect(column(page, "Em entrega").getByText(order.code)).toBeVisible();
 
-  // The courier only has his own deliveries, and needs the customer's code.
+  // O entregador só tem as próprias entregas e precisa do código do cliente.
   await loginAs(page, "Robson Entregas");
   await expect(page).toHaveURL(/\/lojista\/entregas$/);
   const delivery = page.locator('[data-testid="delivery"]:visible').filter({ hasText: order.code });
@@ -70,7 +70,7 @@ test("loja recusa com motivo: cliente recebe o dinheiro e o aviso", async ({ pag
   const card = page.locator('[data-testid="merchant-order"]:visible').filter({ hasText: order.code });
   await card.getByText("Recusar pedido").click();
   await card.getByRole("button", { name: "Confirmar recusa e reembolsar" }).click();
-  // The reason is mandatory.
+  // O motivo é obrigatório.
   await card.getByLabel("Motivo").selectOption("Item esgotado");
   await card.getByRole("button", { name: "Confirmar recusa e reembolsar" }).click();
   await expect(card).toHaveCount(0);
@@ -110,7 +110,7 @@ test("mercado remove item em falta: reembolso parcial com os lançamentos certos
     await expect(item).toContainText("Removido: Item em falta");
     await expect(visible(page, "merchant-refunded")).toHaveText("Reembolsado ao cliente: R$ 16,90");
 
-    // The order keeps going; only the money of that item went back.
+    // O pedido segue em frente; só o dinheiro daquele item voltou.
     const [after] = await db`select status, refunded_cents from orders where id = ${orderId}`;
     expect(after).toEqual({ status: "accepted", refunded_cents: 1690 });
     const [refund] = await db`select amount_cents, store_share_cents, platform_share_cents from refunds where order_id = ${orderId}`;
@@ -136,18 +136,18 @@ test("cada um só vê o que é da sua loja e do seu papel", async ({ page }) => 
     select o.id from orders o join stores s on s.id = o.store_id
     where s.slug = 'pizzaria-forno-de-barro' and o.status = 'out_for_delivery' limit 1`;
 
-  // An attendant of another store cannot open the pizzaria's order.
+  // Um atendente de outra loja não consegue abrir o pedido da pizzaria.
   await loginAs(page, "Cícero Vieira");
   await page.goto(`/lojista/pedidos/${pizzaOrder.id}`);
   await expect(page.getByRole("heading", { name: "Oxe, essa página não existe." })).toBeVisible();
 
-  // A courier has no counter: the orders page sends him to his deliveries.
+  // Um entregador não tem balcão: a página de pedidos o manda para as entregas dele.
   await loginAs(page, "Robson Entregas");
   await page.goto("/lojista/pedidos");
   await expect(page).toHaveURL(/\/lojista\/entregas$/);
   await expect(page.getByRole("link", { name: "Financeiro" })).toHaveCount(0);
 
-  // An attendant sees orders and menu, not the money.
+  // Um atendente vê pedidos e cardápio, não o dinheiro.
   await loginAs(page, "Juliana Peixoto");
   await expect(page.getByRole("link", { name: "Cardápio" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Financeiro" })).toHaveCount(0);

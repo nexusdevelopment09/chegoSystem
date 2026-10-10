@@ -10,7 +10,7 @@ export type CheckoutChoices = {
   paymentMethod?: "pix" | "card";
 };
 
-/** What is sent to the server about a cart. The displayed price only goes as "what I saw". */
+/** O que é enviado ao servidor sobre uma sacola. O preço mostrado só vai como "o que eu vi". */
 export function toCartPayload(cart: Cart, choices: CheckoutChoices = {}) {
   return {
     storeId: cart.storeId,

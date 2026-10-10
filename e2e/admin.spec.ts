@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { chooseNeighborhood, db, loginAs, placePaidOrder, setClock, visible, freshDatabase } from "./helpers";
 
-// A Friday at 20h: the burger place and the açaí shop are open.
+// Uma sexta às 20h: a hamburgueria e a loja de açaí estão abertas.
 test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
 
@@ -23,7 +23,7 @@ test("painel geral mostra os números do período e só o admin entra", async ({
   await expect(stat(page, "Lojas abertas agora")).toContainText(/\d+ de \d+/);
   await expect(page.getByRole("link", { name: /1 loja esperando aprovação/ })).toBeVisible();
 
-  // Each one ends where their own role lives; the URL is checked after the redirects settle.
+  // Cada um termina onde o seu papel mora; a URL é conferida depois que os redirecionamentos assentam.
   const landing: [string, RegExp][] = [["Ana Clara Souza", /\/$/], ["Marcos Antônio Tavares", /\/boas-vindas$/]];
   for (const [who, home] of landing) {
     await loginAs(page, who);
@@ -132,7 +132,7 @@ test("pedidos: buscar, reembolsar em parte e depois o resto", async ({ page }) =
   await page.locator('[data-testid="admin-order"]:visible').click();
 
   await page.getByLabel("Valor do reembolso parcial (R$)").fill("10,00");
-  // The reason is a required field: without it the form does not even go.
+  // O motivo é um campo obrigatório: sem ele o formulário nem é enviado.
   await expect(page.getByLabel("Motivo").first()).toHaveAttribute("required", "");
   await page.getByLabel("Motivo").first().fill("Item chegou frio");
   await page.getByRole("button", { name: "Reembolsar", exact: true }).click();
@@ -243,7 +243,7 @@ test("financeiro: comissões por loja, CSV do contador e conciliação que acusa
   expect(text).toMatch(/^﻿mes;loja;documento;pedidos;vendas;comissao;taxa_de_servico;mensalidade;total_a_faturar/);
   expect(text).toContain('2026-09;"Pizzaria Forno de Barro"');
 
-  // The gateway "charged" a different amount for one order: the reconciliation must point at it.
+  // O gateway "cobrou" um valor diferente em um pedido: a conciliação tem que apontar.
   const [payment] = await db`
     select p.id, p.amount_cents, o.code from payments p join orders o on o.id = p.order_id
     where p.status = 'approved' and o.paid_at >= '2026-09-01T03:00:00Z' and o.paid_at < '2026-10-01T03:00:00Z' limit 1`;
@@ -306,7 +306,7 @@ test("cadastros: bairro novo aparece para o cliente e manutenção fecha a cidad
       await expect(customer.getByRole("heading", { name: "Abertas agora" })).toBeVisible({ timeout: 5_000 });
     }).toPass({ timeout: 30_000 });
   } finally {
-    // A city left in maintenance would break every shopping test that runs after this one.
+    // Uma cidade deixada em manutenção quebraria todos os testes de compra que rodam depois deste.
     await db`update cities set maintenance_mode = false`;
     await customer.context().close();
   }
@@ -350,7 +350,7 @@ test("publicar nova versão dos termos obriga todo mundo a aceitar de novo", asy
   await page.getByRole("button", { name: "Publicar nova versão" }).click();
 
   try {
-    // The admin too, on the very next page.
+    // O admin também, já na página seguinte.
     await expect.poll(async () => (await db`select count(*)::int as total from legal_documents where type = 'privacy' and version = 2`)[0].total).toBe(1);
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/termos\/aceitar$/);
@@ -382,7 +382,7 @@ test("log de auditoria lista as ações e filtra por tipo", async ({ page }) => 
 
 test("pedidos ao vivo avisam quando a loja não aceita", async ({ page }) => {
   await loginAs(page, ADMIN);
-  // A day later, the seeded paid order at the pizzaria has clearly waited too long.
+  // Um dia depois, o pedido pago do seed na pizzaria claramente esperou demais.
   await setClock("2026-10-10T20:00");
   try {
     await page.goto("/admin/ao-vivo");

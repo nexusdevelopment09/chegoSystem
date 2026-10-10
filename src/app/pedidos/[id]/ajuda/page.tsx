@@ -38,7 +38,7 @@ async function Help({ params }: { params: Params }) {
   const order = await loadOrder(profile.id, id);
   if (!order || order.customerId !== profile.id || !order.paidAt) notFound();
 
-  // Read as the customer: Row Level Security only returns their own tickets.
+  // Lido como o cliente: as regras de acesso por linha (RLS) só devolvem os chamados dele.
   const { tickets, messages } = await withUser(profile.id, async (tx) => {
     const found = await tx<{ id: string; reason: keyof typeof TICKET_REASON_LABELS; status: keyof typeof TICKET_STATUS_LABELS; created_at: Date }[]>`
       select id, reason, status, created_at from support_tickets where order_id = ${order.id} order by created_at desc`;

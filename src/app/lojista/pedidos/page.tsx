@@ -36,7 +36,7 @@ async function OrdersBoard() {
   const [settings, team] = await Promise.all([getSettings(), getTeam(store.id)]);
   const startOfDay = fromLocal(toLocal(at).date, 0);
 
-  // Loaded as this user: Row Level Security only returns paid orders of their store.
+  // Carregado como este usuário: as regras de acesso por linha (RLS) só devolvem pedidos pagos da loja dele.
   const [open, doneToday] = await Promise.all([
     loadOrders(profile.id, { storeId: store.id, statuses: ["paid", "accepted", "preparing", "ready", "out_for_delivery"] }),
     loadOrders(profile.id, { storeId: store.id, statuses: ["delivered", "picked_up", "partially_refunded"], since: startOfDay, limit: 30 }),

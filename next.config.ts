@@ -1,15 +1,15 @@
 import { networkInterfaces } from "node:os";
 import type { NextConfig } from "next";
 
-// Lets a phone on the same Wi-Fi open the dev server through this computer's
-// IP (http://192.168.x.x:3000). Only affects `next dev`.
+// Deixa um celular no mesmo Wi-Fi abrir o servidor de desenvolvimento pelo IP
+// deste computador (http://192.168.x.x:3000). Só afeta o `next dev`.
 const lanAddresses = Object.values(networkInterfaces())
   .flat()
   .filter((net) => net && net.family === "IPv4" && !net.internal)
   .map((net) => net!.address);
 
 const nextConfig: NextConfig = {
-  // The end-to-end tests run a second dev server with its own build folder.
+  // Os testes de ponta a ponta rodam um segundo servidor com a própria pasta de build.
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   cacheComponents: true,
   partialPrefetching: true,
@@ -30,10 +30,10 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Basic protections on every page: no sniffing of file types, no
-        // embedding of the app inside another site (clickjacking), no leaking
-        // of full addresses to other sites, and no access to sensors the app
-        // does not use.
+        // Proteções básicas em todas as páginas: não adivinhar o tipo dos arquivos,
+        // não deixar o app ser embutido em outro site (clickjacking), não vazar
+        // endereços completos para outros sites e não dar acesso a sensores que
+        // o app não usa.
         source: "/:path*",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },

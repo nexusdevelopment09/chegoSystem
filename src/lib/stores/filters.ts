@@ -1,4 +1,4 @@
-// Filters of the store lists (home, search, category). Pure functions.
+// Filtros das listas de lojas (início, busca, categoria). Funções puras.
 import type { StoreSummary } from "./queries";
 
 export type StoreFilterParams = {
@@ -15,7 +15,7 @@ export const FILTER_LABELS: Record<keyof StoreFilterParams, string> = {
   nota: "Melhor avaliadas",
 };
 
-/** Keeps the fair default order; "nota" is the only filter that reorders, by rating. */
+/** Mantém a ordem padrão justa; "nota" é o único filtro que reordena, pela avaliação. */
 export function applyStoreFilters(stores: StoreSummary[], params: StoreFilterParams): StoreSummary[] {
   let result = stores;
   if (params.aberto) result = result.filter((store) => store.availability.state === "open");

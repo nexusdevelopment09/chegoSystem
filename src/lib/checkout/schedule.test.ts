@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Shift, StoreSchedule } from "../stores/hours";
 import { canOrderNow, isValidSlot, scheduleSlots, type ScheduleRules } from "./schedule";
 
-// 2026-10-09 is a Friday. Maceió time.
+// 09/10/2026 é uma sexta. Horário de Maceió.
 const at = (date: string, time: string) => new Date(`${date}T${time}:00-03:00`);
 const days = (list: number[], opensAt: string, closesAt: string): Shift[] =>
   list.map((weekday) => ({ weekday, opensAt, closesAt }));
@@ -31,7 +31,7 @@ describe("quentinha: pedidos até 11h, entrega entre 11h30 e 13h30", () => {
     });
     const slots = scheduleSlots(lunchRules, lunch, now, 0);
     expect(slots[0].label).toBe("Amanhã às 11h30");
-    // Closed on Sunday: after Saturday comes Monday.
+    // Fechada no domingo: depois do sábado vem a segunda.
     expect(slots.some((slot) => slot.label.startsWith("Domingo"))).toBe(false);
     expect(slots[5].label).toBe("Segunda, 12/10 às 11h30");
   });

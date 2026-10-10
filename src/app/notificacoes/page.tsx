@@ -25,7 +25,7 @@ export default function NotificationsPage() {
 
 async function Notifications() {
   const profile = await requireUser();
-  // Read as the user: Row Level Security returns only their own notifications.
+  // Lido como o usuário: as regras de acesso por linha (RLS) devolvem só as notificações dele.
   const notifications = await withUser(profile.id, (tx) => tx<{ id: string; title: string; body: string; link: string | null; read_at: Date | null; created_at: Date }[]>`
     select id, title, body, link, read_at, created_at from notifications order by created_at desc limit 60`);
   const unread = notifications.filter((notification) => !notification.read_at).length;

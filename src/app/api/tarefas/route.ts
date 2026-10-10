@@ -4,11 +4,11 @@ import { isLocalEnv } from "@/lib/env";
 import { runScheduledTasks } from "@/lib/tasks/run";
 
 /**
- * Runs the scheduled tasks that are due (expire unpaid orders, refuse orders
- * nobody accepted, reminders, invoices...). Safe to call as often as wanted.
+ * Roda as tarefas agendadas que estão na hora (expirar pedidos não pagos, recusar
+ * pedidos que ninguém aceitou, lembretes, faturas...). Pode ser chamada quantas vezes quiser.
  *
- * In the test environment anyone on this computer can call it. Anywhere
- * else the caller must send the secret in the "x-cron-secret" header.
+ * No ambiente de testes qualquer pessoa neste computador pode chamar. Em qualquer
+ * outro lugar quem chama precisa mandar o segredo no cabeçalho "x-cron-secret".
  */
 export async function POST(request: Request) {
   if (!isLocalEnv) {

@@ -9,7 +9,7 @@ import { chooseLocation } from "./actions";
 
 export const metadata: Metadata = { title: "Boas-vindas" };
 
-// First visit (and "trocar endereço"): where are you ordering from?
+// Primeira visita (e "trocar endereço"): de onde você está pedindo?
 export default function WelcomePage() {
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-4 py-10 text-center">

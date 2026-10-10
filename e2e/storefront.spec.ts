@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { chooseNeighborhood, loginAs, setClock, freshDatabase } from "./helpers";
 
-// A Friday at 20h: dinner places are open, the lunch-box store is closed.
+// Uma sexta às 20h: os lugares de jantar estão abertos e a loja de quentinhas, fechada.
 test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
 
@@ -14,7 +14,7 @@ test("primeira visita escolhe o bairro e vê só as lojas da cidade", async ({ p
 
   await expect(page.getByRole("heading", { name: "Abertas agora" })).toBeVisible();
   await expect(page.getByText("Pizzaria Forno de Barro").first()).toBeVisible();
-  // Pending, suspended and other-city stores never show up.
+  // Lojas pendentes, suspensas e de outra cidade nunca aparecem.
   for (const hidden of ["Espetinho do Zé", "Pastelaria Sabor Antigo", "Lanchonete Ponto Certo"]) {
     await expect(page.getByText(hidden)).toHaveCount(0);
   }
@@ -58,7 +58,7 @@ test("busca acha loja e produto sem acento, e avisa quando não acha nada", asyn
   await page.goto("/busca?q=xyzabc");
   await expect(page.getByText("Oxe, não achamos nada com “xyzabc”.")).toBeVisible();
 
-  // Typing shows suggestions.
+  // Digitar mostra sugestões.
   await page.goto("/busca");
   await page.getByRole("searchbox").fill("pizza");
   await expect(page.getByRole("button", { name: "Pizzaria Forno de Barro" })).toBeVisible();
@@ -99,7 +99,7 @@ test("página da loja: seções, esgotados no fim, avisos e informações", asyn
   await expect(page.getByRole("heading", { name: "Avaliações" })).toBeVisible();
   await expect(page.getByText("Sítio Riacho Fundo (zona rural)")).toBeVisible();
 
-  // Stores that are not approved, or from an inactive city, have no page.
+  // Lojas não aprovadas, ou de uma cidade inativa, não têm página.
   for (const slug of ["espetinho-do-ze", "pastelaria-sabor-antigo", "lanchonete-ponto-certo"]) {
     await page.goto(`/loja/${slug}`);
     await expect(page.getByRole("heading", { name: "Oxe, essa página não existe." })).toBeVisible();

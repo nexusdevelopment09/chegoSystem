@@ -17,7 +17,7 @@ const smallButton = "min-h-11 px-4 text-sm";
 const inputClass =
   "min-h-11 rounded-2xl border-2 border-peach bg-white px-3 text-base text-coffee focus:border-brand-dark focus:outline-none";
 
-// Testing tools. This page only exists in the test environment.
+// Ferramentas de teste. Esta página só existe no ambiente de testes.
 export default function DevPage() {
   if (!isLocalEnv) notFound();
 

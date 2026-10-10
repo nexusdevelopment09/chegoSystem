@@ -16,11 +16,11 @@ export type TransitionInput = {
   orderId: string;
   to: OrderStatus;
   actor: Actor;
-  /** Who did it; null for the system (webhook, scheduled task). */
+  /** Quem fez; null para o sistema (webhook, tarefa agendada). */
   actorId: string | null;
   reason?: string | null;
   at: Date;
-  /** Admin override in exceptional cases: skips the state machine, never the log. */
+  /** Exceção do admin em casos excepcionais: pula a máquina de estados, nunca o registro. */
   force?: boolean;
   courierId?: string | null;
 };
@@ -32,10 +32,10 @@ type OrderRow = {
 };
 
 /**
- * The single way an order changes status. Checks the state machine, writes
- * the history, and does everything that comes with the change: ledger on
- * payment, refund on rejection or cancellation, stock and coupon given back,
- * and the notifications. Must run inside a transaction.
+ * O único jeito de um pedido mudar de status. Confere a máquina de estados, grava
+ * o histórico e faz tudo o que vem junto com a mudança: lançamentos no
+ * pagamento, reembolso na recusa ou no cancelamento, devolução do estoque e do cupom,
+ * e as notificações. Tem que rodar dentro de uma transação.
  */
 export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<OrderRow> {
   const [order] = await tx<OrderRow[]>`
@@ -79,7 +79,7 @@ export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<O
     }, tx);
   }
 
-  // Money goes back in full whenever a paid order is refused or cancelled.
+  // O dinheiro volta por inteiro sempre que um pedido pago é recusado ou cancelado.
   const paid = order.paid_at !== null || order.status !== "awaiting_payment";
   if ((to === "rejected" || to === "cancelled") && paid && order.refunded_cents < order.total_cents) {
     await refundOrder(tx, {
@@ -109,7 +109,7 @@ export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<O
   return { ...order, status: to };
 }
 
-/** Puts the stock back and frees the coupon of an order that will not happen. */
+/** Devolve o estoque e libera o cupom de um pedido que não vai acontecer. */
 async function releaseReservations(tx: Tx, order: OrderRow) {
   await tx`
     update products p set stock_qty = p.stock_qty + i.quantity

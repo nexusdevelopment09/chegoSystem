@@ -6,7 +6,7 @@ import { z } from "zod";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { withUser } from "@/lib/db";
 
-/** Adds or removes a store from the customer's favorites. */
+/** Adiciona ou remove uma loja dos favoritos do cliente. */
 export async function toggleFavorite(formData: FormData) {
   const storeId = z.uuid().parse(formData.get("storeId"));
   const slug = z.string().max(120).parse(formData.get("slug"));
@@ -14,7 +14,7 @@ export async function toggleFavorite(formData: FormData) {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/entrar");
 
-  // Runs as the user: Row Level Security only lets them touch their own favorites.
+  // Roda como o usuário: as regras de acesso por linha (RLS) só deixam mexer nos próprios favoritos.
   await withUser(profile.id, async (tx) => {
     const removed = await tx`delete from favorites where profile_id = ${profile.id} and store_id = ${storeId} returning store_id`;
     if (removed.length === 0) {

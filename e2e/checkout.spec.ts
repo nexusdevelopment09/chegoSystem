@@ -2,17 +2,17 @@ import { createHmac, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { chooseNeighborhood, db, loginAs, loginWithPhone, productUrl, setClock, freshDatabase } from "./helpers";
 
-// A Friday at 20h: dinner places, the depot and the pharmacy are open.
+// Uma sexta às 20h: os lugares de jantar, o depósito e a farmácia estão abertos.
 test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
-// Each test starts without a cart saved on the server by an earlier one.
+// Cada teste começa sem uma sacola salva no servidor por um teste anterior.
 test.beforeEach(() => db`delete from carts`);
 
 test.use({ testIdAttribute: "data-testid" });
 
 const addButton = (page: Page) => page.getByRole("button", { name: /^Adicionar/ });
 
-/** Adds a product that needs no choices and lands on the store page. */
+/** Adiciona um produto que não precisa de escolhas e cai na página da loja. */
 async function addSimple(page: Page, storeSlug: string, product: string) {
   await page.goto(await productUrl(storeSlug, product));
   await addButton(page).click();
@@ -47,7 +47,7 @@ test("cliente novo monta pizza de 2 sabores, usa PRIMEIRA, paga com Pix e acompa
   await expect(page.locator('[data-testid="summary-discount"]:visible')).toHaveText("− R$ 10,00");
   await page.getByRole("link", { name: "Continuar" }).click();
 
-  // No address yet: the form is already open.
+  // Ainda sem endereço: o formulário já vem aberto.
   await page.getByLabel("Rua").fill("Rua das Acácias");
   await page.getByLabel("Número").fill("77");
   await page.getByLabel("Bairro ou comunidade").selectOption({ label: "Centro" });
@@ -61,7 +61,7 @@ test("cliente novo monta pizza de 2 sabores, usa PRIMEIRA, paga com Pix e acompa
   await expect(page.locator('[data-testid="pix-code"]:visible')).toHaveValue(/^000201/);
   await expect(page.locator('[data-testid="pix-countdown"]:visible')).toHaveText(/^1[45]:\d\d$/);
 
-  // The store must not see the order before the payment is confirmed.
+  // A loja não pode ver o pedido antes de o pagamento ser confirmado.
   const [before] = await db`select status, paid_at from orders where id = ${orderId}`;
   expect(before).toMatchObject({ status: "awaiting_payment", paid_at: null });
 
@@ -263,7 +263,7 @@ test("menor de idade não consegue comprar bebida alcoólica; adulto precisa con
   await page.getByRole("button", { name: /^Fazer pedido/ }).click();
   await expect(page.locator('[data-testid="checkout-errors"]:visible')).toContainText("Bebidas alcoólicas só podem ser vendidas para maiores de 18 anos.");
 
-  // An adult has to tick the confirmation.
+  // Um adulto precisa marcar a confirmação.
   await loginAs(page, "Ana Clara Souza");
   await page.goto("/checkout");
   await page.getByRole("button", { name: /^Fazer pedido/ }).click();
@@ -350,7 +350,7 @@ test("a sacola acompanha o cliente em outro aparelho", async ({ page, browser })
   await addSimple(page, "brasa-burger", "Batata com cheddar e bacon");
   await page.goto("/carrinho");
   await expect(page.locator('[data-testid="cart-item"]:visible')).toHaveCount(1);
-  // Give the background save a moment.
+  // Dá um instante para o salvamento em segundo plano.
   await expect.poll(async () => (await db`
     select count(*)::int as total from cart_items i join carts c on c.id = i.cart_id
     join profiles p on p.id = c.profile_id where p.full_name = 'Gabriela Nunes'`)[0].total).toBe(1);

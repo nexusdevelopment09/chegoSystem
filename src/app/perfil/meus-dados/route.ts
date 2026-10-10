@@ -1,7 +1,7 @@
 import { getCurrentProfile } from "@/lib/auth/session";
 import { sql } from "@/lib/db";
 
-// "Baixar meus dados" (LGPD): everything the app keeps about the signed-in person, as JSON.
+// "Baixar meus dados" (LGPD): tudo o que o app guarda sobre a pessoa que entrou, em JSON.
 export async function GET() {
   const profile = await getCurrentProfile();
   if (!profile) return new Response("Unauthorized", { status: 401 });

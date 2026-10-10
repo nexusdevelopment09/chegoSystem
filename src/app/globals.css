@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Brand tokens. Use these names (bg-brand, text-coffee...) instead of raw hex. */
+/* Tokens da marca. Use estes nomes (bg-brand, text-coffee...) em vez do hexadecimal direto. */
 @theme {
   --color-brand: #e8611a;
   --color-brand-dark: #b4480f;
@@ -9,7 +9,7 @@
   --color-cream: #fff8f1;
   --color-coffee: #24160c;
   --color-coffee-soft: #5c4632;
-  /* Only for success and error states, never as brand colors. */
+  /* Só para estados de sucesso e erro, nunca como cores da marca. */
   --color-success: #1e7b4f;
   --color-danger: #b42318;
 

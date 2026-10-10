@@ -4,7 +4,7 @@ import { sql } from "@/lib/db";
 
 type Db = postgres.Sql | postgres.TransactionSql;
 
-/** Records a sensitive action of an admin or a store user: who, what, on what. */
+/** Registra uma ação sensível de um admin ou de um usuário de loja: quem, o quê, em quê. */
 export async function audit(
   entry: { actorId: string | null; action: string; entityType: string; entityId?: string | null; storeId?: string | null; details?: Record<string, unknown> },
   db: Db = sql,

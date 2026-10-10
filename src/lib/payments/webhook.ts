@@ -8,12 +8,12 @@ import { refundOrder } from "./refunds";
 export type WebhookOutcome = "processed" | "duplicate" | "invalid_signature" | "unknown_payment";
 
 /**
- * Handles a payment event from the gateway. This is the only way an order
- * becomes "paid".
+ * Trata um evento de pagamento vindo do gateway. É o único jeito de um pedido
+ * virar "paid".
  *
- * - The signature is checked first; a wrong one changes nothing.
- * - Each event id is stored once. The same event arriving again (gateways
- *   retry) finds the row already there and stops: nothing is duplicated.
+ * - A assinatura é conferida primeiro; uma errada não muda nada.
+ * - Cada id de evento é guardado uma vez. O mesmo evento chegando de novo (os gateways
+ *   tentam de novo) encontra a linha já gravada e para: nada é duplicado.
  */
 export async function handlePaymentWebhook(rawBody: string, signature: string | null): Promise<WebhookOutcome> {
   const provider = getPaymentProvider();
@@ -37,8 +37,8 @@ export async function handlePaymentWebhook(rawBody: string, signature: string | 
       for update`;
     if (!payment) return "unknown_payment";
 
-    // A payment that already reached a final answer ignores later events.
-    // (A declined payment can still be approved on a retry, or expire.)
+    // Um pagamento que já teve resposta final ignora os eventos seguintes.
+    // (Um pagamento recusado ainda pode ser aprovado numa nova tentativa, ou expirar.)
     const open = payment.status === "pending" || (payment.status === "declined" && event.type !== "payment.declined");
 
     if (open && event.type === "payment.approved") {
@@ -49,7 +49,7 @@ export async function handlePaymentWebhook(rawBody: string, signature: string | 
         if (order.status === "awaiting_payment") {
           await transitionOrder(tx, { orderId: payment.order_id, to: "paid", actor: "system", actorId: null, at });
         } else {
-          // Paid after the order expired or was cancelled: the money goes straight back.
+          // Pago depois que o pedido expirou ou foi cancelado: o dinheiro volta direto.
           await refundOrder(tx, { orderId: payment.order_id, amountCents: "all", reason: "Pagamento recebido depois do prazo", requestedBy: null, at });
         }
       } else if (payment.invoice_id) {

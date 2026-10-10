@@ -3,7 +3,7 @@ import { ALL_STATUSES, canTransition, nextStatuses, type Actor, type OrderStatus
 
 const ACTORS: Actor[] = ["system", "customer", "staff", "courier", "admin"];
 
-// Every transition that is allowed, written out. Anything else must be refused.
+// Todas as transições permitidas, escritas uma a uma. Qualquer outra tem que ser recusada.
 const ALLOWED: [OrderStatus, OrderStatus, Actor[], ("delivery" | "pickup")?][] = [
   ["awaiting_payment", "paid", ["system"]],
   ["awaiting_payment", "expired", ["system"]],

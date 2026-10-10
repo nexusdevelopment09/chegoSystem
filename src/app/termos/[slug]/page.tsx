@@ -8,7 +8,7 @@ import { currentLegalDocuments, LEGAL_SLUGS } from "@/lib/legal";
 
 export const metadata: Metadata = { title: "Termos e privacidade" };
 
-// Public pages: /termos/uso, /termos/lojista and /termos/privacidade.
+// Páginas públicas: /termos/uso, /termos/lojista e /termos/privacidade.
 export default function LegalPage({ params }: { params: Promise<{ slug: string }> }) {
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
@@ -36,7 +36,7 @@ async function LegalContent({ params }: { params: Promise<{ slug: string }> }) {
       <p className="mb-6 text-sm text-coffee-soft">
         Versão {document.version}, publicada em {formatDateTime(document.publishedAt)}
       </p>
-      {/* Rendered as plain text on purpose: the content is never treated as HTML. */}
+      {/* Mostrado como texto puro de propósito: o conteúdo nunca é tratado como HTML. */}
       <div className="whitespace-pre-wrap leading-relaxed">{document.content}</div>
     </article>
   );

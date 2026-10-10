@@ -23,7 +23,7 @@ async function Reviews() {
   const { store } = await getMerchantContext(["owner", "attendant"]);
   const [[summary], reviews] = await Promise.all([
     sql<{ rating_avg: string | null; rating_count: number }[]>`select rating_avg, rating_count from stores where id = ${store.id}`,
-    // The customer's first name is fine to show; the phone and the rest stay private.
+    // O primeiro nome do cliente pode aparecer; o telefone e o resto ficam privados.
     sql<{ id: string; rating: number; comment: string | null; reply: string | null; first_name: string; code: string; created_at: Date; reported_at: Date | null; hidden_at: Date | null }[]>`
       select r.id, r.rating, r.comment, r.reply, split_part(p.full_name, ' ', 1) as first_name, o.code, r.created_at, r.reported_at, r.hidden_at
       from reviews r join profiles p on p.id = r.customer_id join orders o on o.id = r.order_id

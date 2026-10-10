@@ -6,7 +6,7 @@ import { reorder } from "@/app/pedidos/more-actions";
 import { Button } from "@/components/ui/Button";
 import { writeCart } from "@/lib/cart/local";
 
-/** "Pedir de novo": refills the cart with what is still available and tells what changed. */
+/** "Pedir de novo": enche a sacola com o que ainda está disponível e diz o que mudou. */
 export function ReorderButton({ orderId, className }: { orderId: string; className?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);

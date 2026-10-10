@@ -13,11 +13,11 @@ import { acceptPendingLegalDocuments } from "@/lib/legal";
 import { clientIp, rateLimit, TOO_MANY_ATTEMPTS } from "@/lib/rate-limit";
 
 
-// ------------------------------------------------------------ phone + code
+// -------------------------------------------------------- telefone + código
 
 export type PhoneLoginState = { step: "phone" | "code"; phone?: string; error?: string };
 
-/** Step 1: receives the phone and sends the code. Step 2: checks the code. */
+/** Passo 1: recebe o telefone e envia o código. Passo 2: confere o código. */
 export async function phoneLogin(previous: PhoneLoginState, formData: FormData): Promise<PhoneLoginState> {
   const intent = formData.get("intent");
 
@@ -61,7 +61,7 @@ export async function phoneLogin(previous: PhoneLoginState, formData: FormData):
   redirect(profile.full_name ? homeFor(profile.role) : "/cadastro");
 }
 
-// ------------------------------------------------------------------ sign-up
+// ----------------------------------------------------------------- cadastro
 
 export type SignupState = { error?: string };
 
@@ -70,7 +70,7 @@ const signupSchema = z.object({
   accepted: z.literal("on", { error: "Para continuar, aceite os termos." }),
 });
 
-/** Finishes the sign-up: name and acceptance of the current terms. */
+/** Conclui o cadastro: nome e aceite dos termos atuais. */
 export async function completeSignup(_previous: SignupState, formData: FormData): Promise<SignupState> {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/entrar");
@@ -86,7 +86,7 @@ export async function completeSignup(_previous: SignupState, formData: FormData)
   redirect(homeFor(profile.role));
 }
 
-/** Accepts a new version of the terms. */
+/** Aceita uma nova versão dos termos. */
 export async function acceptTerms(_previous: SignupState, formData: FormData): Promise<SignupState> {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/entrar");
@@ -96,7 +96,7 @@ export async function acceptTerms(_previous: SignupState, formData: FormData): P
   redirect(homeFor(profile.role));
 }
 
-// -------------------------------------------------------- e-mail + password
+// ----------------------------------------------------------- e-mail + senha
 
 const passwordSchema = z.object({
   identifier: z.string().trim().toLowerCase().min(1).max(254),
@@ -106,7 +106,7 @@ const passwordSchema = z.object({
 export type LoginState = { error?: string };
 
 /**
- * In the test environment "admin" is accepted as a shortcut for
+ * No ambiente de testes "admin" é aceito como atalho para
  * "admin@chego.local" (LOGIN_USERNAME_DOMAIN).
  */
 function toEmail(identifier: string): string | null {

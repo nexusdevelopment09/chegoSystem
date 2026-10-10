@@ -2,14 +2,14 @@ import "server-only";
 import postgres from "postgres";
 import { databaseUrl } from "@/lib/env";
 
-// One pool for the whole server. Kept on globalThis so the dev server's hot
-// reload does not open a new pool on every file change.
+// Um pool para o servidor inteiro. Fica no globalThis para o recarregamento
+// automático do servidor de desenvolvimento não abrir um pool novo a cada arquivo alterado.
 const globalForDb = globalThis as unknown as { chegoSql?: postgres.Sql };
 
 /**
- * Owner connection: bypasses Row Level Security. Use it only in server code
- * that has already checked who the user is (checkout, payments, status
- * changes, admin actions). For everything else use `withUser`.
+ * Conexão dona do banco: passa por cima das regras de acesso por linha (RLS). Use só em
+ * código de servidor que já conferiu quem é o usuário (checkout, pagamentos, mudanças
+ * de status, ações do admin). Para todo o resto use `withUser`.
  */
 export const sql =
   globalForDb.chegoSql ??
@@ -18,8 +18,8 @@ export const sql =
 if (process.env.NODE_ENV !== "production") globalForDb.chegoSql = sql;
 
 /**
- * Runs queries as a given user, with Row Level Security applied.
- * Pass `null` for an anonymous visitor.
+ * Roda consultas como um usuário, com as regras de acesso por linha (RLS) aplicadas.
+ * Passe `null` para um visitante anônimo.
  */
 export function withUser<T>(
   profileId: string | null,
@@ -32,7 +32,7 @@ export function withUser<T>(
   });
 }
 
-/** True when the error means the database could not be reached at all. */
+/** Verdadeiro quando o erro significa que nem deu para alcançar o banco. */
 export function isDatabaseOffline(error: unknown): boolean {
   const code = (error as { code?: string } | null)?.code;
   return code === "ECONNREFUSED" || code === "CONNECT_TIMEOUT" || code === "ECONNRESET";

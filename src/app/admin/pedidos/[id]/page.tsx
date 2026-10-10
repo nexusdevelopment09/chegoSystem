@@ -36,7 +36,7 @@ async function OrderDetail({ params }: { params: Params }) {
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
 
-  // Loaded as the admin: Row Level Security lets the admin see every order.
+  // Carregado como admin: as regras de acesso por linha (RLS) deixam o admin ver todos os pedidos.
   const order = await loadOrder(profile.id, id);
   if (!order) notFound();
 

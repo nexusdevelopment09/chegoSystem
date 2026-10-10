@@ -5,6 +5,7 @@ import { buttonClass } from "@/components/ui/Button";
 import { inputClass } from "@/components/ui/Field";
 import { Bars, Stat } from "@/components/ui/Stats";
 import { dashboard } from "@/lib/admin/metrics";
+import { PERIODS, withQuery } from "@/lib/admin/period";
 import { requireRole } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
@@ -13,13 +14,6 @@ import { storeAvailability, type Shift } from "@/lib/stores/hours";
 import { DAY_MS, fromLocal, toLocal } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Painel do admin" };
-
-const PERIODS = [
-  { key: "hoje", label: "Hoje" },
-  { key: "7", label: "7 dias" },
-  { key: "30", label: "30 dias" },
-  { key: "90", label: "90 dias" },
-];
 
 type SearchParams = Promise<{ periodo?: string; cidade?: string }>;
 
@@ -59,6 +53,10 @@ async function Overview({ searchParams }: { searchParams: SearchParams }) {
     return `/admin?${query}`;
   };
   const percent = (value: number | null) => (value === null ? "—" : `${(value * 100).toFixed(0)}%`);
+  // Cada número abre a lista que o explica, com o mesmo período e a mesma cidade.
+  const cut = { periodo: periodKey, cidade: cityId };
+  const ordersLink = (extra: Record<string, string>) => withQuery("/admin/pedidos", { ...cut, ...extra });
+  const moneyLink = withQuery("/admin/financeiro", cut);
 
   return (
     <div className="flex flex-col gap-4">
@@ -96,18 +94,18 @@ async function Overview({ searchParams }: { searchParams: SearchParams }) {
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Pedidos" value={data.orders} />
-        <Stat label="Faturamento total (GMV)" value={formatCents(data.gmvCents)} hint="Tudo o que os clientes pagaram, sem os reembolsos" />
-        <Stat label="Receita da plataforma" value={formatCents(data.platformRevenueCents)} hint="Comissões + taxas de serviço + mensalidades − cupons pagos pela plataforma" />
-        <Stat label="Ticket médio" value={formatCents(data.ticketCents)} />
-        <Stat label="Clientes novos" value={data.newCustomers} />
-        <Stat label="Recompra em 30 dias" value={percent(data.repurchaseRate)} hint="Clientes que compraram mais de uma vez" />
-        <Stat label="Recusas e cancelamentos" value={`${data.rejected} / ${data.cancelled}`} hint="Recusados pela loja / cancelados" />
-        <Stat label="Lojas abertas agora" value={`${openNow} de ${data.activeStores}`} />
-        <Stat label="Tempo médio de aceite" value={data.avgAcceptMinutes === null ? "—" : `${data.avgAcceptMinutes} min`} />
-        <Stat label="Tempo médio de entrega" value={data.avgDeliveryMinutes === null ? "—" : `${data.avgDeliveryMinutes} min`} hint="Do pagamento até a entrega" />
-        <Stat label="Comissões" value={formatCents(data.commissionCents)} />
-        <Stat label="Mensalidades" value={formatCents(data.subscriptionCents)} />
+        <Stat label="Pedidos" value={data.orders} href={ordersLink({ situacao: "vendidos" })} />
+        <Stat label="Faturamento total (GMV)" value={formatCents(data.gmvCents)} hint="Tudo o que os clientes pagaram, sem os reembolsos" href={ordersLink({ situacao: "vendidos" })} />
+        <Stat label="Receita da plataforma" value={formatCents(data.platformRevenueCents)} hint="Comissões + taxas de serviço + mensalidades − cupons pagos pela plataforma" href={moneyLink} />
+        <Stat label="Ticket médio" value={formatCents(data.ticketCents)} href={ordersLink({ situacao: "vendidos" })} />
+        <Stat label="Clientes novos" value={data.newCustomers} href={withQuery("/admin/clientes", { ...cut, novos: "1" })} />
+        <Stat label="Recompra em 30 dias" value={percent(data.repurchaseRate)} hint="Clientes que compraram mais de uma vez" href={withQuery("/admin/clientes", { cidade: cityId, recompra: "1" })} />
+        <Stat label="Recusas e cancelamentos" value={`${data.rejected} / ${data.cancelled}`} hint="Recusados pela loja / cancelados" href={ordersLink({ situacao: "problemas" })} />
+        <Stat label="Lojas abertas agora" value={`${openNow} de ${data.activeStores}`} href={withQuery("/admin/lojas", { cidade: cityId, abertas: "1" })} />
+        <Stat label="Tempo médio de aceite" value={data.avgAcceptMinutes === null ? "—" : `${data.avgAcceptMinutes} min`} href={ordersLink({ situacao: "vendidos" })} />
+        <Stat label="Tempo médio de entrega" value={data.avgDeliveryMinutes === null ? "—" : `${data.avgDeliveryMinutes} min`} hint="Do pagamento até a entrega" href={ordersLink({ situacao: "entregues" })} />
+        <Stat label="Comissões" value={formatCents(data.commissionCents)} href={moneyLink} />
+        <Stat label="Mensalidades" value={formatCents(data.subscriptionCents)} href={moneyLink} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -115,13 +113,16 @@ async function Overview({ searchParams }: { searchParams: SearchParams }) {
           <h2 className="mb-2 text-xl">Vendas por dia</h2>
           {data.byDay.length === 0
             ? <p className="text-sm text-coffee-soft">Nenhuma venda no período.</p>
-            : <Bars rows={data.byDay.slice(-31).map((row) => ({ label: row.day.split("-").reverse().slice(0, 2).join("/"), value: row.gmvCents }))} format={formatCents} />}
+            : <Bars format={formatCents} rows={data.byDay.slice(-31).map((row) => ({
+                label: row.day.split("-").reverse().slice(0, 2).join("/"), value: row.gmvCents,
+                href: withQuery("/admin/pedidos", { dia: row.day, cidade: cityId, situacao: "vendidos" }),
+              }))} />}
         </section>
         <section className="rounded-card bg-white p-4 ring-1 ring-peach">
           <h2 className="mb-2 text-xl">Lojas que mais venderam</h2>
           {data.byStore.length === 0
             ? <p className="text-sm text-coffee-soft">Nenhuma venda no período.</p>
-            : <Bars rows={data.byStore.map((row) => ({ label: row.name, value: row.gmvCents }))} format={formatCents} />}
+            : <Bars format={formatCents} rows={data.byStore.map((row) => ({ label: row.name, value: row.gmvCents, href: ordersLink({ situacao: "vendidos", loja: row.id }) }))} />}
         </section>
       </div>
     </div>

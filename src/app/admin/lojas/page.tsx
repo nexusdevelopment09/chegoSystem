@@ -6,10 +6,11 @@ import { requireRole } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
 import { STORE_STATUS_LABELS } from "@/lib/labels";
+import { storeAvailability, type Shift } from "@/lib/stores/hours";
 
 export const metadata: Metadata = { title: "Lojas" };
 
-type SearchParams = Promise<{ situacao?: string; q?: string }>;
+type SearchParams = Promise<{ situacao?: string; q?: string; abertas?: string; cidade?: string }>;
 
 export default function AdminStoresPage({ searchParams }: { searchParams: SearchParams }) {
   return (
@@ -21,26 +22,38 @@ export default function AdminStoresPage({ searchParams }: { searchParams: Search
 
 async function Stores({ searchParams }: { searchParams: SearchParams }) {
   await requireRole("admin");
-  const { situacao, q } = await searchParams;
+  const { situacao, q, abertas, cidade } = await searchParams;
+  // Filtros que vêm do número "Lojas abertas agora" do painel.
+  const onlyOpen = abertas === "1";
+  const cityId = cidade && /^[0-9a-f-]{36}$/i.test(cidade) ? cidade : null;
   const status = Object.keys(STORE_STATUS_LABELS).includes(situacao ?? "") ? situacao! : null;
   const at = await now();
 
-  const stores = await sql<{
+  const all = await sql<{
     id: string; name: string; status: keyof typeof STORE_STATUS_LABELS; city: string; category: string; commission_rate: string;
     featured: boolean; products: number; overdue: number;
+    manual_state: "auto" | "open" | "closed"; paused_until: Date | null; shifts: Shift[];
   }[]>`
     select s.id, s.name, s.status, c.name as city, cat.name as category, sp.commission_rate,
            coalesce(s.featured_until > ${at}, false) as featured,
            (select count(*)::int from products p where p.store_id = s.id and p.deleted_at is null) as products,
-           (select count(*)::int from invoices i where i.store_id = s.id and i.status = 'overdue') as overdue
+           (select count(*)::int from invoices i where i.store_id = s.id and i.status = 'overdue') as overdue,
+           s.manual_state, s.paused_until,
+           coalesce((select json_agg(json_build_object('weekday', h.weekday, 'opensAt', h.opens_at::text, 'closesAt', h.closes_at::text))
+                     from store_hours h where h.store_id = s.id), '[]') as shifts
     from stores s
     join cities c on c.id = s.city_id
     join categories cat on cat.id = s.category_id
     join store_private sp on sp.store_id = s.id
     where true
       ${status ? sql`and s.status = ${status}::store_status` : sql``}
+      ${cityId ? sql`and s.city_id = ${cityId}` : sql``}
       ${q ? sql`and unaccent(s.name) ilike unaccent(${`%${q.replace(/[\\%_]/g, "\\$&")}%`})` : sql``}
     order by (s.status = 'pending') desc, s.name`;
+  const isOpen = (store: (typeof all)[number]) =>
+    (store.status === "active" || store.status === "paused") &&
+    storeAvailability({ status: store.status, manualState: store.manual_state, pausedUntil: store.paused_until, shifts: store.shifts, closures: [] }, at).state === "open";
+  const stores = onlyOpen ? all.filter(isOpen) : all;
 
   const chip = (value: string | null, label: string) => (
     <Link key={label} href={value ? `/admin/lojas?situacao=${value}` : "/admin/lojas"} aria-current={status === value ? "true" : undefined}
@@ -61,6 +74,15 @@ async function Stores({ searchParams }: { searchParams: SearchParams }) {
         <button type="submit" className={buttonClass("secondary", "min-h-11 px-4 text-sm")}>Buscar</button>
       </form>
 
+      {(onlyOpen || cityId) && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="active-filters">
+          <span className="text-sm font-semibold">Filtrando por:</span>
+          {onlyOpen && <span className="rounded-full bg-cream px-3 py-1 text-sm font-semibold">Abertas agora</span>}
+          {cityId && stores[0] && <span className="rounded-full bg-cream px-3 py-1 text-sm font-semibold">Cidade: {stores[0].city}</span>}
+          <Link href="/admin/lojas" className="flex min-h-11 items-center text-sm font-bold text-brand-dark underline">Limpar filtros</Link>
+        </div>
+      )}
+      <p className="text-sm text-coffee-soft" data-testid="list-summary"><strong className="text-coffee">{stores.length} loja{stores.length === 1 ? "" : "s"}</strong></p>
       <ul className="flex flex-col gap-2">
         {stores.map((store) => (
           <li key={store.id}>

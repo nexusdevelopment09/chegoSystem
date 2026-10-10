@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { buttonClass } from "@/components/ui/Button";
 import { Stat } from "@/components/ui/Stats";
 import { commissionsByStore, reconciliation } from "@/lib/admin/metrics";
+import { resolvePeriod } from "@/lib/admin/period";
 import { requireRole } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
@@ -13,7 +14,7 @@ import { toLocal } from "@/lib/time";
 export const metadata: Metadata = { title: "Financeiro" };
 
 const INVOICE = { open: "Em aberto", paid: "Paga", overdue: "Vencida", cancelled: "Cancelada" } as const;
-type SearchParams = Promise<{ mes?: string }>;
+type SearchParams = Promise<{ mes?: string; periodo?: string; dia?: string }>;
 
 export default function AdminFinancePage({ searchParams }: { searchParams: SearchParams }) {
   return (
@@ -34,9 +35,12 @@ async function Finance({ searchParams }: { searchParams: SearchParams }) {
   await requireRole("admin");
   const at = await now();
   const current = toLocal(at).date.slice(0, 7);
-  const requested = (await searchParams).mes;
+  const params = await searchParams;
+  const requested = params.mes;
+  // Vindo de um número do painel, o recorte é o período de lá; senão, o mês.
+  const fromDashboard = requested ? null : resolvePeriod(params, at);
   const month = requested && /^\d{4}-(0[1-9]|1[0-2])$/.test(requested) ? requested : current;
-  const period = monthPeriod(month);
+  const period = fromDashboard ?? monthPeriod(month);
 
   const [lines, recon, invoices] = await Promise.all([
     commissionsByStore(period),
@@ -60,11 +64,19 @@ async function Finance({ searchParams }: { searchParams: SearchParams }) {
         <h1 className="text-3xl">Financeiro</h1>
         <div className="flex flex-wrap gap-2">
           {months.map((value) => (
-            <Link key={value} href={`/admin/financeiro?mes=${value}`} aria-current={value === month ? "true" : undefined}
-              className={buttonClass(value === month ? "primary" : "secondary", "min-h-11 px-3 text-sm")}>{br(value)}</Link>
+            <Link key={value} href={`/admin/financeiro?mes=${value}`} aria-current={!fromDashboard && value === month ? "true" : undefined}
+              className={buttonClass(!fromDashboard && value === month ? "primary" : "secondary", "min-h-11 px-3 text-sm")}>{br(value)}</Link>
           ))}
         </div>
       </header>
+
+      {fromDashboard && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="active-filters">
+          <span className="text-sm font-semibold">Filtrando por:</span>
+          <span className="rounded-full bg-cream px-3 py-1 text-sm font-semibold">Pagos {fromDashboard.text}</span>
+          <Link href="/admin/financeiro" className="flex min-h-11 items-center text-sm font-bold text-brand-dark underline">Ver o mês atual</Link>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Vendas das lojas (GMV)" value={formatCents(sum((line) => line.gmvCents))} />
@@ -75,7 +87,7 @@ async function Finance({ searchParams }: { searchParams: SearchParams }) {
 
       <section className="rounded-card bg-white p-4 ring-1 ring-peach">
         <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xl">Comissões por loja em {br(month)}</h2>
+          <h2 className="text-xl">Comissões por loja {fromDashboard ? fromDashboard.text : `em ${br(month)}`}</h2>
           <a href={`/admin/financeiro/exportar?mes=${month}`} download className={buttonClass("secondary", "min-h-11 px-4 text-sm")}>Baixar relatório do contador (CSV)</a>
         </header>
         <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela (role para o lado para ver tudo)">

@@ -23,7 +23,7 @@ export type Dashboard = {
   avgDeliveryMinutes: number | null;
   activeStores: number;
   byDay: { day: string; orders: number; gmvCents: number }[];
-  byStore: { name: string; orders: number; gmvCents: number }[];
+  byStore: { id: string; name: string; orders: number; gmvCents: number }[];
 };
 
 export async function dashboard(period: Period, cityId: string | null): Promise<Dashboard> {
@@ -71,11 +71,11 @@ export async function dashboard(period: Period, cityId: string | null): Promise<
              sum(o.total_cents - o.refunded_cents)::int as gmv
       from orders o where ${sold} and ${inPeriod} ${city}
       group by 1 order by 1`,
-    sql<{ name: string; orders: number; gmv: number }[]>`
-      select s.name, count(*)::int as orders, sum(o.total_cents - o.refunded_cents)::int as gmv
+    sql<{ id: string; name: string; orders: number; gmv: number }[]>`
+      select s.id, s.name, count(*)::int as orders, sum(o.total_cents - o.refunded_cents)::int as gmv
       from orders o join stores s on s.id = o.store_id
       where ${sold} and ${inPeriod} ${city}
-      group by s.name order by gmv desc limit 10`,
+      group by s.id, s.name order by gmv desc limit 10`,
   ]);
 
   return {
@@ -95,7 +95,7 @@ export async function dashboard(period: Period, cityId: string | null): Promise<
     avgDeliveryMinutes: totals.delivery === null ? null : Math.round(Number(totals.delivery)),
     activeStores: stores.total,
     byDay: byDay.map((row) => ({ day: row.day, orders: row.orders, gmvCents: row.gmv })),
-    byStore: byStore.map((row) => ({ name: row.name, orders: row.orders, gmvCents: row.gmv })),
+    byStore: byStore.map((row) => ({ id: row.id, name: row.name, orders: row.orders, gmvCents: row.gmv })),
   };
 }
 

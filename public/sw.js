@@ -1,7 +1,7 @@
 // Service worker básico: deixa o app instalável e mostra uma página amigável
 // quando não há conexão. Páginas e chamadas de API sempre vão para a rede,
 // então preços, estoque e status do pedido nunca são servidos desatualizados.
-const CACHE = "chego-v1";
+const CACHE = "chego-v2";
 const OFFLINE_URL = "/offline.html";
 
 self.addEventListener("install", (event) => {

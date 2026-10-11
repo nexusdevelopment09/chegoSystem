@@ -98,6 +98,7 @@ Se não abrir, o Firewall do Windows pode estar bloqueando: Painel de Controle �
 | Erro | Como resolver |
 |---|---|
 | Página "Banco de dados local desligado" | Rode `npm run db:start`. |
+| Página "O Chegô está desligado neste computador" (ou "sem internet") | O app não está ligado. Rode `npm run db:start` e depois `npm run dev`, e deixe essa janela do terminal aberta. |
 | Login diz "Usuário ou senha incorretos" com `admin`/`admin` | O banco está sem os dados de teste. Rode `npm run db:reset`. |
 | `O banco não ligou` | Abra o arquivo `.db\postgres.log` e veja a última linha. O mais comum é a porta 54329 em uso: reinicie o terminal e tente de novo. |
 | `PostgreSQL não encontrado` | Rode `npm install`. |

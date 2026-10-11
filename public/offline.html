@@ -41,7 +41,7 @@
     <script>
       // Neste computador (ou na rede de casa) o motivo quase nunca é a internet: é o app desligado.
       var host = location.hostname;
-      var local = host === "localhost" || host === "127.0.0.1" || /^(10|192.168|172.(1[6-9]|2d|3[01]))./.test(host);
+      var local = host === "localhost" || host === "127.0.0.1" || host.indexOf("192.168.") === 0 || host.indexOf("10.") === 0 || host.indexOf("172.") === 0;
       if (local) {
         document.getElementById("title").textContent = "O Chegô está desligado neste computador.";
         document.getElementById("text").innerHTML = "A sua internet está normal. No terminal, na pasta do projeto, rode <code>npm run db:start</code> e depois <code>npm run dev</code>. Depois toque em Tentar de novo.";

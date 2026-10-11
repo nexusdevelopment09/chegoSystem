@@ -66,7 +66,8 @@ O banco desliga quando o computador é desligado. Se você abrir o app com o ban
 | `npm run db:reset` | Apaga tudo e recria o banco com os dados de teste |
 | `npm run db:status` | Diz se o banco está ligado |
 | `npm run db:types` | Gera de novo os tipos TypeScript do banco (depois de criar uma migration) |
-| `npm run seed:images` | Gera de novo as fotos falsas de produtos, lojas e banners |
+| `npm run seed:images` | Monta de novo as imagens de produtos, lojas, banners e segmentos a partir das fotos guardadas |
+| `npm run seed:photos` | Gera por IA as fotos de produto que ainda faltam (precisa de internet; leva cerca de 45 s por foto) |
 | `npm test` | Roda os testes unitários e de integração |
 | `npm run test:e2e` | Roda os testes no navegador |
 | `npm run test:all` | Roda todos os testes |
@@ -112,6 +113,7 @@ db/
   seed/                dados de teste: lojas, cardápios, pessoas, pedidos e imagens
 docs/                  especificação original, arquitetura, regras de negócio, usuários de teste, roteiro de testes e notas para o futuro
 storage/               fotos de produtos, lojas, banners e segmentos (geradas pelo seed e pelos envios)
+db/seed/photos/        fotos de produto geradas por IA, guardadas no projeto
 e2e/                   testes no navegador, em tela de celular (Playwright)
 tests/integration/     testes contra o banco (regras de quem vê o quê, pagamentos, estoque, reembolsos)
 scripts/
@@ -173,6 +175,7 @@ public/
 - A especificação pedia Supabase local com Docker. Como o Docker exige ligar a virtualização na BIOS (e reiniciar), o projeto usa **PostgreSQL direto no Windows**. Por isso, login, armazenamento de fotos e atualização das telas são feitos dentro do próprio app, e não pelo Supabase. As telas se atualizam sozinhas consultando o servidor a cada poucos segundos.
 - O único gateway de pagamento é o **simulado**. A integração com um gateway real (Etapa 14) e a publicação (Etapa 15) não foram feitas: o sistema roda só neste computador. O que falta para ir ao ar está em [docs/PRODUCAO.md](docs/PRODUCAO.md).
 - A especificação deixava a frota de entregadores da plataforma para o futuro. A pedido, ela foi feita: a loja escolhe entre o próprio entregador e a rede do Chegô (entregadores da plataforma e parceiros). Veja [docs/REGRAS_DE_NEGOCIO.md](docs/REGRAS_DE_NEGOCIO.md).
+- A especificação pedia imagens de teste desenhadas, sem baixar nada. A pedido, os produtos usam **fotos geradas por IA** (serviço gratuito Pollinations), guardadas em `db/seed/photos/`. Elas levam a marca "pollinations.ai" no canto, que o serviço só tira para quem tem cadastro. Logos, banners e produtos sem foto gerada continuam desenhados.
 - As fotos aceitam qualquer formato de imagem até 15 MB (a especificação pedia só JPG, PNG e WebP até 5 MB), sempre regravadas em tamanho pequeno.
 - A ordem dos produtos e categorias do cardápio é mudada por setas (subir e descer), e não arrastando.
 - O botão "usar minha localização" não existe: o cliente escolhe o bairro na lista.

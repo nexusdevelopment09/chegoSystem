@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { isLocalEnv } from "@/lib/env";
 import { STORAGE_DIR } from "@/lib/storage-dir";
 
 // Serve as fotos da pasta local storage/ (buckets: products, stores,
@@ -29,7 +30,8 @@ export async function GET(
     const file = await readFile(join(STORAGE_DIR, ...path));
     return new Response(new Uint8Array(file), {
       headers: { "Content-Type": contentType, // Um dia no aparelho: na segunda visita as fotos nem trafegam, o que pesa muito no 3G.
-        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" },
+        // No ambiente de testes é só um minuto, porque o seed regrava as fotos com o mesmo nome.
+        "Cache-Control": isLocalEnv ? "public, max-age=60" : "public, max-age=86400, stale-while-revalidate=604800" },
     });
   } catch {
     return new Response("Not found", { status: 404 });

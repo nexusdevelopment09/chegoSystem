@@ -21,7 +21,8 @@
     "seed:images": "node db/seed/images.ts",
     "push:keys": "web-push generate-vapid-keys",
     "simulate": "vitest run --config vitest.simulate.config.ts",
-    "simulate:test": "vitest run --config vitest.simulate.config.ts --mode test-db"
+    "simulate:test": "vitest run --config vitest.simulate.config.ts --mode test-db",
+    "seed:photos": "node scripts/ai-photos.ts"
   },
   "dependencies": {
     "next": "16.4.0",

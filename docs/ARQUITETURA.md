@@ -117,7 +117,7 @@ Ficam em `src/lib/tasks/run.ts` e são chamadas por `POST /api/tarefas`. No ambi
 
 O campo de foto (`src/components/forms/ImageInput.tsx`) reduz a imagem no próprio aparelho antes de enviar. O servidor (`src/lib/uploads.ts`) aceita qualquer formato de imagem até 15 MB, confere pelo conteúdo que é mesmo uma imagem, regrava em WebP nos tamanhos necessários e, com isso, apaga os metadados. Capas, banners e logos ganham uma versão pequena, escolhida pelo navegador no celular (`WideImage`).
 
-As fotos do seed são desenhadas pelo próprio projeto (`db/seed/images.ts`), sem baixar nada: um desenho colorido por produto, escolhido pelo nome, mais logo e capa de cada loja e uma imagem por segmento. Os testes automáticos gravam em `storage-test/`, separado do `storage/` de quem testa à mão.
+As fotos de produto do seed foram geradas por IA e ficam guardadas em `db/seed/photos/`, uma por nome de produto (`npm run seed:photos` gera as que faltarem, a partir das descrições em `db/seed/photo-prompts.ts`). O `db/seed/images.ts` tira delas os tamanhos que as telas usam e monta a capa de cada loja com três fotos dos produtos dela. O que não tem foto gerada cai no desenho feito pelo próprio projeto: os logos, os banners, as imagens dos segmentos e qualquer produto novo. Os testes automáticos gravam em `storage-test/`, separado do `storage/` de quem testa à mão.
 
 ## PWA
 

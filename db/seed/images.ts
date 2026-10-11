@@ -15,6 +15,10 @@ import { STORES, type Art } from "./menus.ts";
 // Os testes automáticos gravam em outra pasta (STORAGE_DIR), para não misturar com as fotos de quem testa à mão.
 const STORAGE = join(dirname(fileURLToPath(import.meta.url)), "..", "..", process.env.STORAGE_DIR ?? "storage");
 
+/** Fotos dos produtos geradas por IA (`npm run seed:photos`), uma por nome de produto. Ficam guardadas no projeto. */
+export const PHOTOS_DIR = join(dirname(fileURLToPath(import.meta.url)), "photos");
+export const photoFile = (productName: string) => join(PHOTOS_DIR, `${slugify(productName)}.webp`);
+
 export const slugify = (text: string) =>
   text
     .normalize("NFD")
@@ -367,6 +371,25 @@ function categorySvg(slug: string, color: string) {
   </svg>`;
 }
 
+/** Grava uma foto (arquivo ou imagem em memória) no tamanho pedido, cortando para preencher. */
+async function writePhoto(path: string, source: string | Buffer, width: number, height: number, force: boolean) {
+  const file = join(STORAGE, path);
+  if (!force && existsSync(file)) return false;
+  mkdirSync(dirname(file), { recursive: true });
+  await sharp(source).resize(width, height, { fit: "cover" }).webp({ quality: 74, effort: 4 }).toFile(file);
+  return true;
+}
+
+/** Três fotos lado a lado: a capa da loja feita com os produtos dela. */
+async function collage(photos: string[], width: number, height: number): Promise<Buffer> {
+  const tile = Math.ceil(width / photos.length);
+  const tiles = await Promise.all(photos.map((photo) => sharp(photo).resize(tile, height, { fit: "cover" }).toBuffer()));
+  return sharp({ create: { width, height, channels: 3, background: "#FFF8F1" } })
+    .composite(tiles.map((input, index) => ({ input, left: index * tile, top: 0 })))
+    .webp({ quality: 92 })
+    .toBuffer();
+}
+
 async function write(path: string, svg: string, width: number, height: number, force: boolean) {
   const file = join(STORAGE, path);
   if (!force && existsSync(file)) return false;
@@ -401,12 +424,29 @@ export async function generateImages({ force = false } = {}) {
     const coverSvg = sceneSvg(1200, 400, store.color, cover.length > 0 ? cover : [{ name: store.name, art: "grocery" }]);
     // Versões pequenas, que o celular baixa no lugar das grandes.
     jobs.push(write(`stores/${store.slug}-logo-small.webp`, logo, 192, 192, force));
-    jobs.push(write(`stores/${store.slug}-cover.webp`, coverSvg, 1200, 400, force));
-    jobs.push(write(`stores/${store.slug}-cover-small.webp`, coverSvg, 600, 200, force));
+    // Com fotos de IA de pelo menos três produtos diferentes, a capa é uma montagem delas; senão, o desenho.
+    const photos = [...new Set([...cover, ...shown].map((item) => photoFile(item.name)))].filter((photo) => existsSync(photo)).slice(0, 3);
+    if (photos.length === 3) {
+      jobs.push(collage(photos, 1200, 400).then(async (image) => {
+        const big = await writePhoto(`stores/${store.slug}-cover.webp`, image, 1200, 400, force);
+        const small = await writePhoto(`stores/${store.slug}-cover-small.webp`, image, 600, 200, force);
+        return big || small;
+      }));
+    } else {
+      jobs.push(write(`stores/${store.slug}-cover.webp`, coverSvg, 1200, 400, force));
+      jobs.push(write(`stores/${store.slug}-cover-small.webp`, coverSvg, 600, 200, force));
+    }
 
     for (const product of shown) {
-      const svg = productSvg(product.name, product.art, store.color);
       const base = `products/${store.slug}/${slugify(product.name)}`;
+      // A foto gerada por IA, quando existe; senão, o desenho.
+      const photo = photoFile(product.name);
+      if (existsSync(photo)) {
+        jobs.push(writePhoto(`${base}-800.webp`, photo, 800, 800, force));
+        jobs.push(writePhoto(`${base}-400.webp`, photo, 400, 400, force));
+        continue;
+      }
+      const svg = productSvg(product.name, product.art, store.color);
       jobs.push(write(`${base}-800.webp`, svg, 800, 800, force));
       jobs.push(write(`${base}-400.webp`, svg, 400, 400, force));
     }

@@ -15,7 +15,10 @@ import { STORAGE_DIR } from "@/lib/storage-dir";
 import { getShoppingContext } from "@/lib/shopping-context";
 import { listStores, type StoreSummary } from "@/lib/stores/queries";
 
-export default function Home() {
+export default async function Home() {
+  const context = await getShoppingContext();
+  if (!context.city || context.firstVisit) redirect("/boas-vindas");
+
   return (
     <>
       <SiteHeader />

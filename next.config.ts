@@ -11,8 +11,8 @@ const lanAddresses = Object.values(networkInterfaces())
 const nextConfig: NextConfig = {
   // Os testes de ponta a ponta rodam um segundo servidor com a própria pasta de build.
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
-  cacheComponents: true,
-  partialPrefetching: true,
+  // cacheComponents: true,
+  // partialPrefetching: true,
   allowedDevOrigins: lanAddresses,
   experimental: {
     serverActions: {

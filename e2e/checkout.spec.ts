@@ -1,6 +1,6 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
-import { chooseNeighborhood, db, loginAs, loginWithPhone, productUrl, setClock, freshDatabase } from "./helpers";
+import { chooseNeighborhood, createAccount, db, loginAs, productUrl, setClock, freshDatabase } from "./helpers";
 
 // Uma sexta às 20h: os lugares de jantar, o depósito e a farmácia estão abertos.
 test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
@@ -26,10 +26,8 @@ async function placeOrder(page: Page) {
 }
 
 test("cliente novo monta pizza de 2 sabores, usa PRIMEIRA, paga com Pix e acompanha", async ({ page }) => {
-  await loginWithPhone(page, "(82) 97777-0001");
-  await page.getByLabel("Seu nome completo").fill("Cliente Novo de Teste");
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "Criar minha conta" }).click();
+  await createAccount(page, "Cliente Novo de Teste", "(82) 97777-0001");
+  await expect(page).toHaveURL(/\/boas-vindas$/);
   await chooseNeighborhood(page, "Centro");
 
   await page.goto(await productUrl("pizzaria-forno-de-barro", "Pizza Grande (8 fatias)"));

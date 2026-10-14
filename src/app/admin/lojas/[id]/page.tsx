@@ -19,6 +19,7 @@ import { storeReport } from "@/lib/merchant/reports";
 import { STATUS_LABELS, type OrderStatus } from "@/lib/orders/status";
 import { DAY_MS } from "@/lib/time";
 import { approveStore, setStoreStatus, updateStoreTerms } from "../../actions";
+import { ResetPasswordForm } from "../../ResetPasswordForm";
 
 export const metadata: Metadata = { title: "Loja" };
 
@@ -67,6 +68,8 @@ async function StoreDetail({ params, searchParams }: Props) {
 
   const plans = await sql<{ id: string; name: string; monthly_price_cents: number }[]>`
     select id, name, monthly_price_cents from subscription_plans where active order by monthly_price_cents`;
+
+  const team = await getTeam(store.id);
 
   // "Ver como esta loja": uma visão somente leitura do que a loja vê. Abrir fica registrado.
   const viewing = ver === "1";
@@ -121,6 +124,19 @@ async function StoreDetail({ params, searchParams }: Props) {
             {viewing ? "Fechar a visão da loja" : "Ver como esta loja"}
           </Link>
         </div>
+      </section>
+
+      <section className={card}>
+        <h2 className="text-xl">Equipe e senhas</h2>
+        <p className="-mt-2 text-sm text-coffee-soft">Para quem da loja esqueceu a senha: gera uma provisória e desconecta a pessoa de todos os aparelhos.</p>
+        <ul className="text-sm">
+          {team.map((member) => (
+            <li key={member.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-cream py-1">
+              <span>{member.name || "Sem nome"} · {STORE_ROLE_LABELS[member.role]}{member.phone && ` · ${formatPhone(member.phone)}`}</span>
+              <ResetPasswordForm profileId={member.id} />
+            </li>
+          ))}
+        </ul>
       </section>
 
       {view && (

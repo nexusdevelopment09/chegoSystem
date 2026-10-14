@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { AccountPasswordField } from "@/components/forms/AccountPasswordField";
 import { DocumentField } from "@/components/forms/DocumentField";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
 import { Field, inputClass } from "@/components/ui/Field";
+import { getCurrentProfile } from "@/lib/auth/session";
 import { sql } from "@/lib/db";
+import { formatPhone } from "@/lib/format";
 import { listCities } from "@/lib/shopping-context";
 import { requestStore } from "./actions";
 
@@ -35,7 +38,8 @@ export default function SellPage() {
 async function SellForm() {
   // Lista vinda do banco: monta a cada visita, nunca no build.
   await connection();
-  const [cities, categories] = await Promise.all([
+  const [profile, cities, categories] = await Promise.all([
+    getCurrentProfile(),
     listCities(),
     sql<{ id: string; name: string }[]>`select id, name from categories where active order by sort_order`,
   ]);
@@ -73,7 +77,8 @@ async function SellForm() {
 
       <h2 className="mt-2 text-xl">Sobre você</h2>
       <Field label="Nome do responsável" name="ownerName" required maxLength={80} autoComplete="name" />
-      <Field label="Telefone com DDD" name="phone" type="tel" required placeholder="(82) 90000-0000" hint="É com ele que você vai entrar no painel da loja." />
+      <Field label="Telefone com DDD" name="phone" type="tel" required defaultValue={profile?.phone ? formatPhone(profile.phone) : undefined} placeholder="(82) 90000-0000" hint="É com ele que você vai entrar no painel da loja." />
+      <AccountPasswordField signedInAs={profile?.fullName || null} purpose="Você vai entrar no painel com o telefone e esta senha." />
       <DocumentField />
 
       <label className="flex min-h-11 items-start gap-3 text-sm">

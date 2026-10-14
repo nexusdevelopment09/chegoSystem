@@ -12,6 +12,7 @@ import { formatDocument, type DocumentType } from "@/lib/documents";
 import { formatCents, formatPhone } from "@/lib/format";
 import { COURIER_KIND_LABELS, COURIER_STATUS_LABELS, VEHICLE_LABELS, type Vehicle } from "@/lib/labels";
 import { approveCourier, createPlatformCourier, payCourier, setCourierBlocked, setCourierKind } from "./actions";
+import { ResetPasswordForm } from "../ResetPasswordForm";
 
 export const metadata: Metadata = { title: "Entregadores" };
 
@@ -121,6 +122,7 @@ async function Couriers({ searchParams }: { searchParams: SearchParams }) {
               a receber <strong>{formatCents(courier.to_receive)}</strong> · já repassado {formatCents(courier.received)}
             </p>
             {courier.blocked_reason && <p className="text-sm font-semibold text-danger">Motivo do bloqueio: {courier.blocked_reason}</p>}
+            <ResetPasswordForm profileId={courier.id} />
 
             <div className="flex flex-wrap items-start gap-2">
               {courier.status === "pending" && (

@@ -17,7 +17,7 @@
 
 1. **Gateway real em modo de teste (Etapa 14).** Escrever um novo provedor de pagamento ao lado do simulado (`src/lib/payments/`). O resto do sistema não muda, porque só conversa com a interface `PaymentProvider`. Rodar todos os testes de pagamento contra o ambiente de teste do gateway.
 2. **Envio real de mensagens.** Trocar o envio simulado (`src/lib/notifications/outbound.ts`) por um fornecedor de SMS, WhatsApp e e-mail.
-3. **Login.** Tirar o código fixo `123456` e o login `admin`/`admin`. Eles só funcionam com `APP_ENV=local`, mas a senha do admin precisa ser trocada e a variável `LOGIN_USERNAME_DOMAIN` não pode existir em produção.
+3. **Login.** Hoje é por telefone e senha, e quem esquece a senha pede uma provisória ao admin. Com SMS ou WhatsApp de verdade, dá para acrescentar "esqueci a senha" por código. No servidor, o admin é criado pelo `.env` (`ADMIN_EMAIL`, `ADMIN_PASSWORD`), e `LOGIN_USERNAME_DOMAIN` não deve existir.
 4. **Banco.** Criar o PostgreSQL na nuvem, aplicar as migrations e **não** rodar o seed (ele só cria dados fictícios).
 5. **Fotos.** Hoje ficam na pasta `storage/` do computador. Em produção, usar um serviço de armazenamento de arquivos.
 6. **Tarefas agendadas.** Hoje um relógio dentro do app chama as tarefas a cada minuto. Em produção, usar o agendador do servidor chamando `POST /api/tarefas`.

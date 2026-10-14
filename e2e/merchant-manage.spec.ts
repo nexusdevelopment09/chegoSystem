@@ -189,8 +189,12 @@ test("convidar entregador por telefone: ele entra e cai nas entregas da loja", a
   await page.getByRole("button", { name: "Convidar" }).click();
   await expect(page.locator('[data-testid="team-member"]:visible').filter({ hasText: "Tiago Motoboy" })).toContainText("Entregador");
 
+  // Quem não tinha conta ganha uma senha provisória, mostrada ao dono para repassar.
+  const note = await page.getByText(/Senha provisória: \d{8}/).textContent();
+  const password = note!.match(/\d{8}/)![0];
+
   const courier = await (await browser.newContext()).newPage();
-  await loginWithPhone(courier, "(82) 96666-0001");
+  await loginWithPhone(courier, "(82) 96666-0001", password);
   // Primeiro acesso: ele aceita os termos (os do lojista também).
   await courier.getByRole("checkbox").check();
   await courier.getByRole("button", { name: "Aceitar e continuar" }).click();

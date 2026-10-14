@@ -1,16 +1,36 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { LoginChooser } from "@/app/entrar/LoginChooser";
 import { LogoIcon } from "@/components/brand/LogoIcon";
 import { InstallButton } from "@/components/layout/InstallButton";
 import { Button } from "@/components/ui/Button";
 import { inputClass } from "@/components/ui/Field";
+import { getCurrentProfile } from "@/lib/auth/session";
 import { getShoppingContext, listCities } from "@/lib/shopping-context";
 import { chooseLocation } from "./actions";
 
 export const metadata: Metadata = { title: "Boas-vindas" };
 
-// Primeira visita (e "trocar endereço"): de onde você está pedindo?
-export default function WelcomePage() {
+type SearchParams = Promise<Record<string, string | undefined>>;
+
+// Primeira visita: quem ainda não entrou vê primeiro as opções de entrada (cliente em
+// destaque, lojista e entregador). Depois de entrar, ou em "Só quero ver as lojas" e
+// em "trocar endereço", a pergunta é de onde a pessoa está pedindo.
+export default function WelcomePage({ searchParams }: { searchParams: SearchParams }) {
+  return (
+    <Suspense fallback={<div className="mx-auto mt-24 h-72 w-full max-w-sm animate-pulse rounded-card bg-peach" aria-busy="true" />}>
+      <Welcome searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function Welcome({ searchParams }: { searchParams: SearchParams }) {
+  const [profile, { onde }] = await Promise.all([getCurrentProfile(), searchParams]);
+  if (!profile && onde === undefined) return <LoginChooser />;
+  return <LocationStep />;
+}
+
+function LocationStep() {
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-4 py-10 text-center">
       <div className="self-center">

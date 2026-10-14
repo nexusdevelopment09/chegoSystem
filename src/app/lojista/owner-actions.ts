@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { audit } from "@/lib/audit";
+import { invitedAccount, temporaryPasswordNote } from "@/lib/auth/accounts";
 import { requireStoreMember } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
@@ -176,7 +177,10 @@ export async function saveAreas(_previous: ActionState, formData: FormData): Pro
 
 // ------------------------------------------------------------------- equipe
 
-/** Convida alguém pelo telefone. A pessoa entra com esse telefone e já cai no painel da loja. */
+/**
+ * Convida alguém pelo telefone. Quem ainda não tem conta ganha uma senha provisória,
+ * mostrada ao dono para repassar; com ela a pessoa entra e já cai no painel da loja.
+ */
 export async function inviteMember(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { profile, membership } = await owner();
   const phone = toE164(String(formData.get("phone") ?? ""));
@@ -185,21 +189,17 @@ export async function inviteMember(_previous: ActionState, formData: FormData): 
   if (!phone) return { error: "Telefone inválido. Use DDD + número." };
   if (!role.success) return { error: "Escolha o papel." };
 
-  await sql.begin(async (tx) => {
-    let [person] = await tx<{ id: string }[]>`select id from profiles where phone = ${phone} and deleted_at is null`;
-    if (person) {
-      await tx`update profiles set role = 'merchant' where id = ${person.id} and role = 'customer'`;
-    } else {
-      [person] = await tx<{ id: string }[]>`
-        insert into profiles (phone, full_name, role) values (${phone}, ${name}, 'merchant') returning id`;
-    }
+  const password = await sql.begin(async (tx) => {
+    const { account: person, password } = await invitedAccount(tx, { phone, fullName: name, role: "merchant" });
+    await tx`update profiles set role = 'merchant' where id = ${person.id} and role = 'customer'`;
     await tx`
       insert into store_members (store_id, profile_id, role) values (${membership.storeId}, ${person.id}, ${role.data}::store_member_role)
       on conflict (store_id, profile_id) do update set role = excluded.role where store_members.role <> 'owner'`;
     await audit({ actorId: profile.id, action: "store.member_invite", entityType: "profile", entityId: person.id, storeId: membership.storeId, details: { role: role.data } }, tx);
+    return password;
   });
   done();
-  return { ok: true, message: "Pessoa adicionada à equipe." };
+  return { ok: true, message: `Pessoa adicionada à equipe.${temporaryPasswordNote(password)}` };
 }
 
 export async function removeMember(formData: FormData): Promise<void> {

@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { AccountPasswordField } from "@/components/forms/AccountPasswordField";
 import { DocumentField } from "@/components/forms/DocumentField";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
 import { Field, inputClass } from "@/components/ui/Field";
+import { getCurrentProfile } from "@/lib/auth/session";
+import { formatPhone } from "@/lib/format";
 import { VEHICLE_LABELS } from "@/lib/labels";
 import { listCities } from "@/lib/shopping-context";
 import { requestCourier } from "./actions";
@@ -35,12 +38,13 @@ export default function DeliverPage() {
 async function DeliverForm() {
   // Lista vinda do banco: monta a cada visita, nunca no build.
   await connection();
-  const cities = await listCities();
+  const [profile, cities] = await Promise.all([getCurrentProfile(), listCities()]);
 
   return (
     <ActionForm action={requestCourier} className="flex flex-col gap-3 rounded-card bg-white p-5 shadow-sm ring-1 ring-peach">
       <Field label="Seu nome completo" name="fullName" required maxLength={80} autoComplete="name" />
-      <Field label="Telefone com DDD" name="phone" type="tel" required placeholder="(82) 90000-0000" hint="É com ele que você vai entrar para ver as entregas." />
+      <Field label="Telefone com DDD" name="phone" type="tel" required defaultValue={profile?.phone ? formatPhone(profile.phone) : undefined} placeholder="(82) 90000-0000" hint="É com ele que você vai entrar para ver as entregas." />
+      <AccountPasswordField signedInAs={profile?.fullName || null} purpose="Você vai entrar com o telefone e esta senha para ver as entregas." />
       <label className="flex flex-col gap-1.5 text-sm font-semibold">
         Cidade onde você entrega
         <select name="cityId" required defaultValue={cities.length === 1 ? cities[0].id : ""} className={inputClass}>

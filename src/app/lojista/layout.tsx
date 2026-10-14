@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/lojista/relatorios", label: "Relatórios", roles: ["owner"] },
   { href: "/lojista/financeiro", label: "Financeiro", roles: ["owner"] },
   { href: "/lojista/divulgacao", label: "Divulgação", roles: ["owner"] },
+  { href: "/perfil", label: "Minha conta", roles: ["owner", "attendant", "courier"] },
 ];
 
 export default function MerchantLayout({ children }: { children: ReactNode }) {

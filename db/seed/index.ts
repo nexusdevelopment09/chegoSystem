@@ -1,4 +1,6 @@
-// Seed de desenvolvimento, aplicado pelo `npm run db:reset`. Nunca rodar em produção.
+// Dois seeds. `seed` (padrão do `npm run db:reset` e dos testes) cria a cidade de
+// demonstração completa, com lojas, pessoas e pedidos fictícios: nunca rodar em produção.
+// `seedBase` (SEED_MODE=base, usado no servidor) cria só o necessário, sem nada fictício.
 // Tudo aqui é fictício. O mesmo número de semente sempre produz as mesmas
 // lojas, cardápios e histórico de pedidos.
 import { randomUUID } from "node:crypto";
@@ -106,15 +108,10 @@ type BuiltOrder = {
   completedAt: Date | null; order: Row; totalCents: number;
 };
 
-export async function seed(sql: Sql) {
-  const random = createRandom(20261009);
-  const adminId = randomUUID();
+// ------------------------------------------------- base (vai para produção)
 
-  const images = await generateImages();
-  if (images.written > 0) console.log(`  ${images.written} imagens geradas em storage/`);
-
-  // ---------------------------------------------- configurações e textos legais
-
+/** Configurações, recursos ligados e desligados e os textos legais (ainda provisórios). */
+async function insertPlatform(sql: Sql) {
   await insert(sql, "platform_settings", [
     { key: "service_fee_cents", value: sql.json(SERVICE_FEE_CENTS), description: "Taxa de serviço fixa por pedido, em centavos" },
     { key: "default_commission_rate", value: sql.json(0.1), description: "Comissão padrão de novas lojas" },
@@ -138,6 +135,73 @@ export async function seed(sql: Sql) {
     { id: legalIds.merchant_terms, type: "merchant_terms", version: 1, title: "Termos do Lojista", content: "[TEXTO PROVISÓRIO] Termos do Lojista do Chegô.", published_at: plus(START, -120 * DAY) },
     { id: legalIds.privacy, type: "privacy", version: 1, title: "Política de Privacidade", content: "[TEXTO PROVISÓRIO] Política de Privacidade do Chegô.", published_at: plus(START, -120 * DAY) },
   ]);
+  return legalIds;
+}
+
+async function insertCategories(sql: Sql) {
+  const categoryIds = new Map<string, string>();
+  await insert(sql, "categories", CATEGORIES.map((category, index) => ({
+    id: remember(categoryIds, category.slug), name: category.name, slug: category.slug, icon: category.icon,
+    color: CATEGORY_COLORS[category.slug] ?? "#5C4632", sort_order: index, active: category.active ?? true,
+  })));
+  return categoryIds;
+}
+
+async function insertPlans(sql: Sql) {
+  const plans = { basic: randomUUID(), featured: randomUUID() };
+  await insert(sql, "subscription_plans", [
+    { id: plans.basic, name: "Básico", monthly_price_cents: 4990 },
+    { id: plans.featured, name: "Destaque", monthly_price_cents: 9990 },
+  ]);
+  return plans;
+}
+
+export type BaseAdmin = { name: string; email: string; password: string };
+
+/**
+ * Seed de produção: só o que o sistema precisa para funcionar, sem nenhuma loja,
+ * pessoa ou pedido fictício. Joaquim Gomes começa com o bairro Centro; os outros
+ * bairros e comunidades reais são cadastrados pelo admin em Cadastros.
+ */
+export async function seedBase(sql: Sql, admin: BaseAdmin) {
+  const images = await generateImages({ categoriesOnly: true });
+  if (images.written > 0) console.log(`  ${images.written} imagens de segmentos geradas em storage/`);
+
+  const legalIds = await insertPlatform(sql);
+  const cityId = randomUUID();
+  await insert(sql, "cities", [
+    { id: cityId, name: "Joaquim Gomes", state: "AL", slug: "joaquim-gomes", order_code_prefix: "JG", active: true },
+  ]);
+  await insert(sql, "neighborhoods", [{ id: randomUUID(), city_id: cityId, name: "Centro", is_rural: false }]);
+  await insertCategories(sql);
+  await insertPlans(sql);
+
+  const adminId = randomUUID();
+  await insert(sql, "profiles", [{
+    id: adminId, full_name: admin.name, phone: null, email: admin.email.toLowerCase(), role: "admin",
+    password_hash: hashPassword(admin.password), city_id: cityId, accepted_terms_at: START,
+  }]);
+  await insert(sql, "legal_acceptances", [
+    { profile_id: adminId, document_id: legalIds.terms, accepted_at: START },
+    { profile_id: adminId, document_id: legalIds.privacy, accepted_at: START },
+  ]);
+  console.log(`  base criada: Joaquim Gomes (bairro Centro), ${CATEGORIES.length} categorias, planos e o admin ${admin.email}`);
+}
+
+// ----------------------------------------- demonstração (testes e este computador)
+
+/** Senha de todos os usuários de teste, para entrar com telefone e senha. */
+export const DEMO_PASSWORD = "123456";
+
+export async function seed(sql: Sql) {
+  const random = createRandom(20261009);
+  const adminId = randomUUID();
+  const demoPasswordHash = hashPassword(DEMO_PASSWORD);
+
+  const images = await generateImages();
+  if (images.written > 0) console.log(`  ${images.written} imagens geradas em storage/`);
+
+  const legalIds = await insertPlatform(sql);
 
   // ------------------------------------------------------------------ lugares
 
@@ -156,11 +220,7 @@ export async function seed(sql: Sql) {
     ...NEIGHBOR_CITY.map((hood) => ({ id: remember(neighborHoodIds, hood.name), city_id: neighborCityId, name: hood.name, is_rural: false })),
   ]);
 
-  const categoryIds = new Map<string, string>();
-  await insert(sql, "categories", CATEGORIES.map((category, index) => ({
-    id: remember(categoryIds, category.slug), name: category.name, slug: category.slug, icon: category.icon,
-    color: CATEGORY_COLORS[category.slug] ?? "#5C4632", sort_order: index, active: category.active ?? true,
-  })));
+  const categoryIds = await insertCategories(sql);
 
   // ------------------------------------------------------------------ pessoas
 
@@ -169,7 +229,7 @@ export async function seed(sql: Sql) {
     const id = (fields.id as string | undefined) ?? randomUUID();
     const { name, ...rest } = fields;
     profiles.push({
-      email: null, password_hash: null, birth_date: null, referral_code: null,
+      email: null, password_hash: demoPasswordHash, birth_date: null, referral_code: null,
       blocked_at: null, blocked_reason: null, city_id: cityId,
       ...rest, id, full_name: name, accepted_terms_at: plus(START, -100 * DAY),
     });
@@ -234,12 +294,7 @@ export async function seed(sql: Sql) {
 
   // -------------------------------------------------------------------- lojas
 
-  const basicPlanId = randomUUID();
-  const featuredPlanId = randomUUID();
-  await insert(sql, "subscription_plans", [
-    { id: basicPlanId, name: "Básico", monthly_price_cents: 4990 },
-    { id: featuredPlanId, name: "Destaque", monthly_price_cents: 9990 },
-  ]);
+  const { basic: basicPlanId, featured: featuredPlanId } = await insertPlans(sql);
 
   const rows = {
     stores: [] as Row[], store_private: [] as Row[], store_members: [] as Row[], store_hours: [] as Row[],

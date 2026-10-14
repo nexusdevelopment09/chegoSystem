@@ -4,8 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import QRCode from "qrcode";
 import { Suspense } from "react";
 import { z } from "zod";
-import { simulatePayment } from "@/app/dev/actions";
-import { payWithCard } from "@/app/pedidos/actions";
+import { payWithCard, simulateMyPayment } from "@/app/pedidos/actions";
 import { OrderSummary } from "@/components/cart/OrderSummary";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { AutoRefresh } from "@/components/orders/AutoRefresh";
@@ -17,6 +16,7 @@ import { now } from "@/lib/clock";
 import { withUser } from "@/lib/db";
 import { isLocalEnv } from "@/lib/env";
 import { loadOrder } from "@/lib/orders/queries";
+import { isMockPayments } from "@/lib/payments";
 
 export const metadata: Metadata = { title: "Pagamento" };
 
@@ -62,6 +62,12 @@ async function PaymentContent({ params }: { params: Params }) {
             <p className="text-xl font-bold text-danger">Pagamento recusado.</p>
             <p className="text-coffee-soft">Eita, o banco não aprovou. Você pode tentar de novo com outro cartão ou pagar com Pix.</p>
           </div>
+        ) : payment?.method === "pix" && isMockPayments() && !isLocalEnv ? (
+          // O código do Pix simulado não é um Pix de verdade: mostrá-lo faria alguém tentar pagar no banco.
+          <div role="status" data-testid="mock-pix-note">
+            <p className="text-xl font-bold">Pix de teste</p>
+            <p className="text-coffee-soft">Não pague nada no banco. Use o botão “Simular pagamento aprovado” logo abaixo.</p>
+          </div>
         ) : payment?.method === "pix" && payment.pix_copy_paste ? (
           <PixBox
             qrSvg={await QRCode.toString(payment.pix_copy_paste, { type: "svg", margin: 1, width: 220 })}
@@ -84,7 +90,7 @@ async function PaymentContent({ params }: { params: Params }) {
         <summary className="min-h-11 cursor-pointer text-lg font-bold text-brand-dark">Pagar com cartão de crédito</summary>
         <form action={payWithCard} className="mt-3 flex flex-col gap-3">
           <input type="hidden" name="orderId" value={order.id} />
-          {isLocalEnv && <p className="text-sm text-coffee-soft">Ambiente de testes: final 0000 aprova, final 1111 recusa.</p>}
+          {isMockPayments() && <p className="text-sm text-coffee-soft">Pagamento de teste, nenhum valor é cobrado: final 0000 aprova, final 1111 recusa.</p>}
           <Field label="Número do cartão" name="number" inputMode="numeric" autoComplete="cc-number" maxLength={23} required />
           <Field label="Nome no cartão" name="holder" autoComplete="cc-name" maxLength={60} required />
           <div className="grid grid-cols-2 gap-3">
@@ -95,15 +101,19 @@ async function PaymentContent({ params }: { params: Params }) {
         </form>
       </details>
 
-      {isLocalEnv && (
+      {isMockPayments() && (
         <section className="rounded-card bg-peach p-4" data-testid="payment-simulator">
-          <p className="mb-2 text-sm font-bold">Ambiente de testes: faça o papel do banco</p>
-          <form action={simulatePayment} className="flex flex-wrap gap-2">
+          <p className="mb-1 text-sm font-bold">Pagamento de teste</p>
+          <p className="mb-3 text-sm">O Chegô ainda está em testes: nenhum dinheiro é cobrado pelo app. Confirme abaixo para o pedido seguir para a loja.</p>
+          <form action={simulateMyPayment} className="flex flex-wrap gap-2">
             <input type="hidden" name="orderId" value={order.id} />
-            <input type="hidden" name="back" value={`/pedidos/${order.id}/pagamento`} />
             <Button type="submit" name="outcome" value="approve" className="min-h-11 px-4 text-sm">Simular pagamento aprovado</Button>
-            <Button type="submit" name="outcome" value="decline" variant="secondary" className="min-h-11 px-4 text-sm">Simular recusa</Button>
-            <Button type="submit" name="outcome" value="expire" variant="secondary" className="min-h-11 px-4 text-sm">Simular expiração</Button>
+            {isLocalEnv && (
+              <>
+                <Button type="submit" name="outcome" value="decline" variant="secondary" className="min-h-11 px-4 text-sm">Simular recusa</Button>
+                <Button type="submit" name="outcome" value="expire" variant="secondary" className="min-h-11 px-4 text-sm">Simular expiração</Button>
+              </>
+            )}
           </form>
         </section>
       )}

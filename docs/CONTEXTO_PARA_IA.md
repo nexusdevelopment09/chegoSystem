@@ -90,7 +90,7 @@ public/sw.js           service worker (página offline e push)
 |---|---|
 | `db.ts` | Pool `sql` (dono do banco, **ignora RLS**) e `withUser(profileId, fn)` (aplica RLS via `set local role app_user` + `app.user_id`) |
 | `auth/session.ts` | `requireUser`, `requireRole`, `requireStoreMember`, `getCurrentProfile` — proteção sempre no servidor |
-| `auth/phone-login.ts`, `auth/password.ts` | Login por telefone + código SMS (local: código fixo `123456`); admin com usuário/senha |
+| `auth/password.ts`, `auth/accounts.ts` | Login por telefone + senha (scrypt), senhas provisórias, contas criadas por cadastro ou por convite; admin com e-mail e senha |
 | `clock.ts` | **`now()`** — relógio único do sistema (pode ser adiantado na página `/dev`). Nunca use `new Date()` para regra de negócio |
 | `time.ts` | Fuso fixo America/Maceio (UTC-3), constantes `MINUTE_MS`, `DAY_MS`, `toLocal` |
 | `catalog/pricing.ts` | Preço do item pelos grupos de opções (`sum`, `highest`, `average`, `free_up_to`) |
@@ -232,7 +232,7 @@ npm run db:reset     # liga o banco, cria tabelas e dados de teste
 npm run dev          # http://localhost:3000
 ```
 
-Nos outros dias, basta `npm run db:start` e `npm run dev`. Página **`/dev`**: relógio simulado, login rápido como qualquer usuário de teste, aprovar/expirar Pix, gerar pedido aleatório, rodar tarefas agendadas, caixa de mensagens simuladas e resetar o banco. Login: telefone de teste + código `123456`, ou admin/admin.
+Nos outros dias, basta `npm run db:start` e `npm run dev`. Página **`/dev`**: relógio simulado, login rápido como qualquer usuário de teste, aprovar/expirar Pix, gerar pedido aleatório, rodar tarefas agendadas, caixa de mensagens simuladas e resetar o banco. Login: telefone de teste + senha `123456`, ou admin/admin. No servidor (VPS) o app roda com `APP_ENV=production`, seed `base` (sem dados fictícios) e pagamento simulado confirmado pelo próprio cliente.
 
 Testes: `npm test` (unitários e integração), `npm run simulate:test`, `npm run test:e2e` (sobe outra cópia do app na porta 3100 com o banco `chego_test`).
 

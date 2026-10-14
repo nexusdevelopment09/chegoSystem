@@ -99,7 +99,7 @@ async function HomeContent() {
     <>
       <p className="-mt-3 text-sm text-coffee-soft">
         Entregar em{" "}
-        <Link href="/boas-vindas" className="font-bold text-brand-dark underline" data-testid="current-location">
+        <Link href="/boas-vindas?onde=1" className="font-bold text-brand-dark underline" data-testid="current-location">
           {hoodName ?? "escolher bairro"}, {context.city.name}
         </Link>
       </p>

@@ -8,6 +8,9 @@
 //   node scripts/db.ts reset    apaga tudo e roda de novo as migrations e o seed
 //   node scripts/db.ts bootstrap  como start; com SEED_IF_EMPTY=1, roda o seed se o banco estiver vazio
 //
+// SEED_MODE=base troca os dados de demonstração pelo seed de produção (sem nada fictício),
+// que pede ADMIN_EMAIL e ADMIN_PASSWORD (e ADMIN_NAME, opcional) para criar o admin.
+//
 // Com DB_MODE=external (o servidor com Docker), o PostgreSQL já roda em outro
 // contêiner: o script não liga nem desliga nada e usa o endereço do DATABASE_URL.
 import { spawnSync } from "node:child_process";
@@ -15,7 +18,7 @@ import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
-import { seed } from "../db/seed/index.ts";
+import { seed, seedBase } from "../db/seed/index.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BIN = join(ROOT, "node_modules", "@embedded-postgres", "windows-x64", "native", "bin");
@@ -152,6 +155,20 @@ function stop() {
   console.log("Banco desligado. Os dados continuam guardados.");
 }
 
+/** O seed escolhido por SEED_MODE: "demo" (padrão) ou "base" (produção, sem dados fictícios). */
+async function runSeed(sql: postgres.Sql) {
+  if (process.env.SEED_MODE !== "base") {
+    await seed(sql);
+    return;
+  }
+  const email = process.env.ADMIN_EMAIL?.trim() ?? "";
+  const password = process.env.ADMIN_PASSWORD ?? "";
+  if (!email.includes("@") || password.length < 10) {
+    throw new Error("SEED_MODE=base precisa de ADMIN_EMAIL (um e-mail) e ADMIN_PASSWORD (pelo menos 10 caracteres).");
+  }
+  await seedBase(sql, { name: process.env.ADMIN_NAME?.trim() || "Admin Chegô", email, password });
+}
+
 async function reset() {
   await boot();
   const admin = postgres(url("postgres"), { max: 1, onnotice: () => {} });
@@ -165,11 +182,11 @@ async function reset() {
 
   const sql = postgres(url(DATABASE), { max: 1, onnotice: () => {} });
   try {
-    await seed(sql);
+    await runSeed(sql);
   } finally {
     await sql.end();
   }
-  console.log("Banco recriado com os dados de teste.");
+  console.log(process.env.SEED_MODE === "base" ? "Banco recriado, sem dados de teste." : "Banco recriado com os dados de teste.");
 }
 
 /** Usado ao ligar o contêiner do app: migrations sempre; dados de teste só na primeira vez. */
@@ -181,8 +198,8 @@ async function bootstrap() {
   try {
     const [{ count }] = await sql<{ count: number }[]>`select count(*)::int as count from profiles`;
     if (count > 0) return;
-    await seed(sql);
-    console.log("Banco vazio: dados de teste criados.");
+    await runSeed(sql);
+    console.log(process.env.SEED_MODE === "base" ? "Banco vazio: base criada, sem dados de teste." : "Banco vazio: dados de teste criados.");
   } finally {
     await sql.end();
   }

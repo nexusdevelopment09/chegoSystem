@@ -382,8 +382,10 @@ test("log de auditoria lista as ações e filtra por tipo", async ({ page }) => 
 
 test("pedidos ao vivo avisam quando a loja não aceita", async ({ page }) => {
   await loginAs(page, ADMIN);
-  // Um dia depois, o pedido pago do seed na pizzaria claramente esperou demais.
-  await setClock("2026-10-10T20:00");
+  // Um dia depois de agora, o pedido pago do seed na pizzaria claramente esperou demais.
+  // (O seed cria esse pedido na data real; uma data fixa aqui deixaria de funcionar com o tempo.)
+  const tomorrowInMaceio = new Date(Date.now() + 24 * 60 * 60 * 1000 - 3 * 60 * 60 * 1000).toISOString().slice(0, 16);
+  await setClock(tomorrowInMaceio);
   try {
     await page.goto("/admin/ao-vivo");
     await expect(visible(page, "live-alerts")).toContainText("precisando de atenção");

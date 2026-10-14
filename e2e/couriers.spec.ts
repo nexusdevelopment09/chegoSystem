@@ -8,6 +8,7 @@ test("entregador parceiro se cadastra com CPF ou CNPJ, espera a aprovação e o 
   await page.goto("/quero-entregar");
   await page.getByLabel("Seu nome completo").fill("Tiago Motoboy da Silva");
   await page.getByLabel("Telefone com DDD").fill("(82) 95555-0101");
+  await page.getByLabel("Crie uma senha").fill("senha-do-tiago");
   await page.getByLabel("Cidade onde você entrega").selectOption({ label: "Joaquim Gomes – AL" });
 
   // CPF com dígito verificador errado é recusado, e o que foi digitado continua lá.
@@ -34,7 +35,7 @@ test("entregador parceiro se cadastra com CPF ou CNPJ, espera a aprovação e o 
   expect(saved).toEqual({ kind: "partner", status: "pending", document_type: "cnpj", document_number: "11222333000181", plate: "ABC1D23", role: "courier" });
 
   // Enquanto não é aprovado, ele entra mas não vê nenhuma entrega.
-  await loginWithPhone(page, "(82) 95555-0101");
+  await loginWithPhone(page, "(82) 95555-0101", "senha-do-tiago");
   await expect(page).toHaveURL(/\/entregador$/);
   await expect(visible(page, "courier-waiting")).toContainText("Seu cadastro está em análise.");
   await expect(visible(page, "courier-offer")).toHaveCount(0);
@@ -47,7 +48,7 @@ test("entregador parceiro se cadastra com CPF ou CNPJ, espera a aprovação e o 
   await row.getByRole("button", { name: "Aprovar Tiago Motoboy da Silva" }).click();
   await expect(row).toHaveCount(0);
 
-  await loginWithPhone(page, "(82) 95555-0101");
+  await loginWithPhone(page, "(82) 95555-0101", "senha-do-tiago");
   await expect(page.getByRole("button", { name: "Ficar disponível" })).toBeVisible();
   // Parado, ele não vê as entregas; disponível, vê as que estão esperando.
   await expect(page.getByRole("heading", { name: "Entregas disponíveis" })).toHaveCount(0);

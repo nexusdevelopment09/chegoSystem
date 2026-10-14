@@ -39,11 +39,13 @@ Nada aqui usa dinheiro de verdade nem envia mensagem de verdade. Os "SMS", "What
 
 | ✔ | O que fazer | Resultado esperado |
 |---|---|---|
-| [ ] | Em `/entrar`, digite um telefone novo, por exemplo `(82) 95555-0001`, e clique em **Receber código** | Pede o código. No `/dev`, a Caixa de mensagens mostra o SMS |
-| [ ] | Digite o código `123456` | Vai para o cadastro (nome, data de nascimento) |
+| [ ] | Abra `/` sem ter entrado | Aparece a entrada do Chegô: **Entrar para pedir** em destaque, **Criar minha conta**, **Só quero ver as lojas** e, abaixo, **Sou lojista** e **Sou entregador** |
+| [ ] | Clique em **Criar minha conta** e use um telefone novo, por exemplo `(82) 95555-0001`, e uma senha de 8 caracteres | Cria a conta, já entra e pede o bairro |
 | [ ] | Preencha e clique em **Criar minha conta** | Aparecem os termos; depois de **Aceitar e continuar**, você entra |
-| [ ] | Digite um código errado mais de 10 vezes | O app bloqueia novas tentativas por 10 minutos |
-| [ ] | Em `/entrar`, clique em **Entrar com senha** e use `admin` / `admin` | Entra no painel do admin |
+| [ ] | Saia e tente entrar com a senha errada mais de 10 vezes | O app bloqueia novas tentativas por 10 minutos |
+| [ ] | Em **Meu perfil → Senha**, troque a senha | Os outros aparelhos pedem a senha nova |
+| [ ] | Em `/entrar`, clique em **Equipe Chegô** e use `admin` / `admin` | Entra no painel do admin |
+| [ ] | No admin, abra um cliente e clique em **Gerar senha nova** | Aparece uma senha provisória de 8 números; com ela o cliente entra |
 
 ## 3. Cliente: fazer um pedido
 
@@ -111,7 +113,7 @@ Entre como **Marcos Antônio Tavares** (Pizzaria Forno de Barro). Antes, faça u
 | [ ] | Em **Cardápio → Grupos**, crie um grupo de opções e ligue a um produto | As opções aparecem na página do produto |
 | [ ] | Em **Cardápio → Planilha**, baixe a planilha, mude um preço e importe | O preço muda; linhas com erro são apontadas sem estragar o resto |
 | [ ] | Em **Minha loja**, mude horários e áreas de entrega | A página da loja mostra os novos horários e taxas |
-| [ ] | Em **Minha loja**, convide uma pessoa para a equipe | A pessoa entra na equipe e passa a entrar no app com o telefone dela e o código `123456` |
+| [ ] | Em **Minha loja**, convide uma pessoa para a equipe | A pessoa entra na equipe. Se ela ainda não tinha conta, aparece uma senha provisória para repassar; com o telefone e essa senha ela entra no painel da loja |
 | [ ] | Em **Cupons**, crie um cupom | Dá para usar na sacola, só nesta loja |
 | [ ] | Em **Avaliações**, responda uma avaliação | A resposta aparece na página da loja |
 | [ ] | Em **Relatórios**, veja os mais vendidos e baixe o CSV | Os números batem com os pedidos |

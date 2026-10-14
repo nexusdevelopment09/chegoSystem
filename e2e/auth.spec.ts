@@ -1,60 +1,124 @@
 import { expect, test } from "@playwright/test";
-import { db, freshDatabase, loginAs, loginWithPhone } from "./helpers";
+import { createAccount, db, freshDatabase, loginAs, loginWithPhone } from "./helpers";
 
 test.beforeAll(() => freshDatabase());
 
-test("cliente novo se cadastra com telefone, nome e aceite dos termos", async ({ page }) => {
-  await loginWithPhone(page, "(82) 98888-1234");
-
-  await expect(page).toHaveURL(/\/cadastro$/);
-  await page.getByLabel("Seu nome completo").fill("Maria Teste da Silva");
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "Criar minha conta" }).click();
-
-  // Um cliente novinho ainda não tem endereço, então ele escolhe onde está.
+test("a entrada mostra o cliente em destaque e leva lojista e entregador às suas áreas", async ({ page }) => {
+  await page.goto("/");
   await expect(page).toHaveURL(/\/boas-vindas$/);
+  await expect(page.getByRole("heading", { name: "Entrar para pedir" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Criar minha conta" })).toBeVisible();
+
+  await page.getByRole("link", { name: /Sou lojista/ }).click();
+  await expect(page).toHaveURL(/\/entrar\/loja$/);
+  await expect(page.getByRole("heading", { name: "Área do lojista" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Cadastrar minha loja" })).toHaveAttribute("href", "/quero-vender");
+  // Dono da Açaí Tropical, com a senha dos usuários de teste.
+  await page.getByLabel("Seu telefone com DDD").fill("(82) 91000-0001");
+  await page.getByLabel("Senha", { exact: true }).fill("123456");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page).toHaveURL(/\/lojista/);
+
+  await page.context().clearCookies();
+  await page.goto("/entrar");
+  await page.getByRole("link", { name: /Sou entregador/ }).click();
+  await expect(page.getByRole("heading", { name: "Área do entregador" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Quero ser entregador" })).toHaveAttribute("href", "/quero-entregar");
+
+  // Quem só quer olhar escolhe o bairro sem entrar.
+  await page.goto("/entrar");
+  await page.getByRole("link", { name: "Só quero ver as lojas" }).click();
+  await expect(page.getByRole("button", { name: "Ver as lojas" })).toBeVisible();
+});
+
+test("cliente novo cria a conta com nome, telefone, senha e aceite dos termos", async ({ page }) => {
+  await createAccount(page, "Maria Teste da Silva", "(82) 98888-1234", "minha-senha-boa");
+
+  // Já entra na conta e escolhe onde está.
+  await expect(page).toHaveURL(/\/boas-vindas$/);
+  await expect(page.getByRole("button", { name: "Ver as lojas" })).toBeVisible();
   await page.goto("/perfil");
   await expect(page.getByLabel("Nome completo")).toHaveValue("Maria Teste da Silva");
   await expect(page.getByText("(82) 98888-1234")).toBeVisible();
 
   const [profile] = await db`
-    select p.role, p.accepted_terms_at, (select count(*)::int from legal_acceptances a where a.profile_id = p.id) as accepted
+    select p.role, p.password_hash, (select count(*)::int from legal_acceptances a where a.profile_id = p.id) as accepted
     from profiles p where p.phone = '+5582988881234'`;
   expect(profile.role).toBe("customer");
-  expect(profile.accepted_terms_at).not.toBeNull();
+  expect(profile.password_hash).toMatch(/^scrypt\$/);
+  expect(profile.password_hash).not.toContain("minha-senha-boa");
   expect(profile.accepted).toBe(2);
+
+  // Depois de sair, entra de novo com o telefone e a senha.
+  await page.context().clearCookies();
+  await loginWithPhone(page, "(82) 98888-1234", "minha-senha-boa");
+  await expect(page).toHaveURL(/\/$|\/boas-vindas$/);
 });
 
-test("sem aceitar os termos o cadastro não termina", async ({ page }) => {
-  await loginWithPhone(page, "(82) 98888-5678");
-  await expect(page).toHaveURL(/\/cadastro$/);
+test("criar conta recusa senha fácil e telefone que já tem conta", async ({ page }) => {
+  await createAccount(page, "Pedro Teste", "(82) 98888-5678", "11111111");
+  await expect(page.getByText("Essa senha é fácil demais de adivinhar.")).toBeVisible();
+  // O que foi digitado continua lá.
+  await expect(page.getByLabel("Seu nome completo")).toHaveValue("Pedro Teste");
 
-  // Largar o cadastro pela metade manda o usuário de volta para ele.
-  await page.goto("/perfil");
-  await expect(page).toHaveURL(/\/cadastro$/);
+  await createAccount(page, "Outra Ana", "82940000001", "senha-qualquer");
+  await expect(page.getByText("Esse telefone já tem conta no Chegô. Entre com a sua senha.")).toBeVisible();
+  const [{ count }] = await db`select count(*)::int as count from profiles where phone in ('+5582988885678')`;
+  expect(count).toBe(0);
 });
 
-test("cliente que já existe entra direto com o código", async ({ page }) => {
+test("cliente que já existe entra com telefone e senha", async ({ page }) => {
   await loginWithPhone(page, "82940000001");
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/perfil");
   await expect(page.getByLabel("Nome completo")).toHaveValue("Ana Clara Souza");
 });
 
-test("código errado e telefone inválido mostram o motivo", async ({ page }) => {
-  await page.goto("/entrar");
-  await page.getByLabel("Seu telefone com DDD").fill("12345");
-  await page.getByRole("button", { name: "Receber código" }).click();
+test("senha errada e telefone inválido mostram o motivo", async ({ page }) => {
+  await loginWithPhone(page, "12345", "qualquer-coisa");
   await expect(page.getByText("Oxe, esse telefone não parece certo.")).toBeVisible();
 
-  await loginWithPhone(page, "82940000002", "000000");
-  await expect(page.getByText("Código errado. Confere e tenta de novo.")).toBeVisible();
+  await loginWithPhone(page, "82940000002", "senha-errada");
+  await expect(page.getByText("Telefone ou senha incorretos.")).toBeVisible();
+  // Telefone sem conta recebe a mesma resposta: a tela não conta quem é cliente.
+  await loginWithPhone(page, "82977776666", "senha-errada");
+  await expect(page.getByText("Telefone ou senha incorretos.")).toBeVisible();
 });
 
-test("o código enviado aparece na caixa de mensagens e nenhum SMS real sai", async ({ page }) => {
+test("o cliente troca a senha em Meu perfil", async ({ page }) => {
   await loginWithPhone(page, "82940000003");
-  await page.goto("/dev");
-  await expect(page.getByText("Chegô: seu código é 123456.").first()).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto("/perfil");
+  await page.getByLabel("Senha atual").fill("errada");
+  await page.getByLabel("Nova senha").fill("nova-senha-da-carla");
+  await page.getByRole("button", { name: "Trocar senha" }).click();
+  await expect(page.getByText("A senha atual não confere.")).toBeVisible();
+
+  await page.getByLabel("Senha atual").fill("123456");
+  await page.getByLabel("Nova senha").fill("nova-senha-da-carla");
+  await page.getByRole("button", { name: "Trocar senha" }).click();
+  await expect(page.getByText("Senha trocada.")).toBeVisible();
+
+  await page.context().clearCookies();
+  await loginWithPhone(page, "82940000003", "123456");
+  await expect(page.getByText("Telefone ou senha incorretos.")).toBeVisible();
+  await loginWithPhone(page, "82940000003", "nova-senha-da-carla");
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("quem esqueceu a senha recebe uma provisória do admin", async ({ page }) => {
+  const [customer] = await db`select id from profiles where phone = '+5582940000004'`;
+  await loginAs(page, "Admin Chegô");
+  await page.goto(`/admin/clientes/${customer.id}`);
+  await page.getByRole("button", { name: "Gerar senha nova" }).click();
+  const note = await page.getByText(/Senha provisória de .*: \d{8}/).textContent();
+  const password = note!.match(/\d{8}/)![0];
+
+  await page.context().clearCookies();
+  await loginWithPhone(page, "82940000004", "123456");
+  await expect(page.getByText("Telefone ou senha incorretos.")).toBeVisible();
+  await loginWithPhone(page, "82940000004", password);
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test("cada papel só entra no seu painel", async ({ page }) => {
@@ -77,7 +141,7 @@ test("cada papel só entra no seu painel", async ({ page }) => {
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/boas-vindas$/);
 
-  await loginWithPhone(page, "82900000000");
+  await loginWithPhone(page, "82900000000", "admin");
   await expect(page).toHaveURL(/\/admin$/);
 });
 

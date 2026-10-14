@@ -11,7 +11,7 @@ Abra **http://localhost:3000/dev** e clique em **Entrar como** ao lado de qualqu
 
 Também dá para entrar em http://localhost:3000/entrar:
 
-- com o **telefone** de qualquer usuário de teste e o código fixo **123456**;
+- com o **telefone** de qualquer usuário de teste e a senha **123456** (todos os usuários de teste usam essa senha);
 - como admin, em **Entrar com senha**, com usuário `admin` e senha `admin`.
 
 A lista completa, com o que cada usuário serve para testar, está em [docs/USUARIOS_DE_TESTE.md](docs/USUARIOS_DE_TESTE.md). O passo a passo para conferir tudo à mão está em [docs/ROTEIRO_DE_TESTES.md](docs/ROTEIRO_DE_TESTES.md).
@@ -96,7 +96,7 @@ Se não abrir, o Firewall do Windows pode estar bloqueando: Painel de Controle �
 
 ## 4-B. Subir numa VPS (homologação)
 
-O projeto tem `Dockerfile` e `docker-compose.yml` para rodar numa VPS com PostgreSQL, HTTPS automático e o site protegido por senha, no mesmo modo de testes deste computador. Não precisa de GitHub. O passo a passo está em [docs/DEPLOY_VPS.md](docs/DEPLOY_VPS.md).
+O projeto tem `Dockerfile` e `docker-compose.yml` para rodar numa VPS com PostgreSQL e HTTPS automático, aberto ao público, **sem nenhum dado fictício** (só a cidade, as categorias e o admin) e com o pagamento ainda simulado. Lojas, entregadores e clientes reais se cadastram sozinhos. O passo a passo está em [docs/DEPLOY_VPS.md](docs/DEPLOY_VPS.md).
 
 ## 5. Erros comuns
 
@@ -185,3 +185,5 @@ public/
 - As fotos aceitam qualquer formato de imagem até 15 MB (a especificação pedia só JPG, PNG e WebP até 5 MB), sempre regravadas em tamanho pequeno.
 - A ordem dos produtos e categorias do cardápio é mudada por setas (subir e descer), e não arrastando.
 - O botão "usar minha localização" não existe: o cliente escolhe o bairro na lista.
+- O login é por **telefone e senha**, e não por código SMS, enquanto o SMS for simulado (um código simulado deixaria qualquer um entrar sabendo só o telefone). A primeira tela tem três entradas: cliente (em destaque), lojista e entregador. Quem esquece a senha pede uma provisória ao admin.
+- Com o pagamento simulado, o próprio cliente confirma o pagamento na tela do pedido ("Simular pagamento aprovado"). Nenhum dinheiro é cobrado.

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { APPROVAL_CHECKLIST } from "@/lib/admin/checklist";
 import { audit } from "@/lib/audit";
+import { hashPassword, temporaryPassword } from "@/lib/auth/password";
 import { requireRole } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
@@ -563,4 +564,30 @@ export async function publishLegal(_previous: ActionState, formData: FormData): 
   await audit({ actorId: profile.id, action: "legal.publish", entityType: "legal_document", entityId: document.id, details: { type: parsed.data.type, version: document.version } });
   done();
   return { ok: true, message: `Versão ${document.version} publicada. Todos vão precisar aceitar de novo.` };
+}
+
+// -------------------------------------------------------------------- senhas
+
+/**
+ * Sem SMS de verdade, quem esquece a senha pede ao suporte: o admin gera uma senha
+ * provisória, mostrada só agora, e a pessoa troca depois em Meu perfil. Todas as
+ * sessões da pessoa são encerradas.
+ */
+export async function resetPassword(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const profile = await admin();
+  const id = uuid.safeParse(formData.get("profileId"));
+  if (!id.success) return { error: "Conta inválida." };
+
+  const password = temporaryPassword();
+  const changed = await sql.begin(async (tx) => {
+    const updated = await tx<{ full_name: string }[]>`
+      update profiles set password_hash = ${hashPassword(password)}
+      where id = ${id.data} and deleted_at is null and role <> 'admin' returning full_name`;
+    if (updated.length === 0) return null;
+    await tx`delete from sessions where profile_id = ${id.data}`;
+    await audit({ actorId: profile.id, action: "profile.password_reset", entityType: "profile", entityId: id.data }, tx);
+    return updated[0];
+  });
+  if (!changed) return { error: "Não deu para trocar a senha desta conta." };
+  return { ok: true, message: `Senha provisória de ${changed.full_name || "esta conta"}: ${password}. Passe para a pessoa; ela troca em Meu perfil.` };
 }

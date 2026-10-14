@@ -12,7 +12,7 @@ FROM node:24-bookworm-slim AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 # APP_ENV e a chave pública do push entram no código do navegador, por isso são fixados no build.
-ARG APP_ENV=local
+ARG APP_ENV=production
 ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY=
 ENV APP_ENV=$APP_ENV \
     NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY \
@@ -21,8 +21,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-# 3. Execução. Fica com o projeto inteiro porque scripts/db.ts (migrations, seed e o
-# "Resetar banco" do /dev) usa o código-fonte e as fotos do seed.
+# 3. Execução. Fica com o projeto inteiro porque scripts/db.ts (migrations e seed)
+# usa o código-fonte e as imagens do seed.
 FROM node:24-bookworm-slim AS run
 WORKDIR /app
 ENV NODE_ENV=production \
@@ -34,5 +34,5 @@ COPY --from=build --chown=node:node /app ./
 RUN mkdir -p storage && chown node:node storage
 USER node
 EXPOSE 3000
-# Aplica as migrations que faltarem (e o seed, se o banco estiver vazio) e liga o app.
+# Aplica as migrations que faltarem (e o seed de produção, se o banco estiver vazio) e liga o app.
 CMD ["sh", "-c", "node scripts/db.ts bootstrap && exec node_modules/.bin/next start"]

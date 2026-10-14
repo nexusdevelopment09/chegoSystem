@@ -11,6 +11,7 @@ import { sql } from "@/lib/db";
 import { formatCents, formatDateTime, formatPhone } from "@/lib/format";
 import { STATUS_LABELS, type OrderStatus } from "@/lib/orders/status";
 import { setCustomerBlocked, toggleCustomerCash } from "../../actions";
+import { ResetPasswordForm } from "../../ResetPasswordForm";
 
 export const metadata: Metadata = { title: "Cliente" };
 
@@ -70,6 +71,12 @@ async function Customer({ params }: { params: Params }) {
         {!blocked && <Field label="Motivo do bloqueio" name="reason" required maxLength={300} hint="Cliente bloqueado continua entrando no app, mas não consegue fazer pedido." />}
         <SubmitButton variant="secondary" className="self-start">{blocked ? "Desbloquear" : "Bloquear"}</SubmitButton>
       </ActionForm>
+
+      <section className={card}>
+        <h2 className="text-xl">Senha</h2>
+        <p className="-mt-2 text-sm text-coffee-soft">Para quem esqueceu a senha: gera uma provisória e desconecta a pessoa de todos os aparelhos.</p>
+        <ResetPasswordForm profileId={customer.id} />
+      </section>
 
       <section className={card}>
         <h2 className="text-xl">Dinheiro na entrega</h2>

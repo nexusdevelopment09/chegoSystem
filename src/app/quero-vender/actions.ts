@@ -1,6 +1,8 @@
 "use server";
 
 import { z } from "zod";
+import { selfSignupAccount } from "@/lib/auth/accounts";
+import { getCurrentProfile } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
 import { parseDocument } from "@/lib/documents";
@@ -54,15 +56,17 @@ export async function requestStore(_previous: SignupState, formData: FormData): 
   const [category] = await sql`select id from categories where id = ${data.categoryId} and active`;
   if (!place || !category) return { error: "Escolha a categoria e o bairro da lista." };
 
-  const [at, settings] = await Promise.all([now(), getSettings()]);
+  const [at, settings, signedIn] = await Promise.all([now(), getSettings(), getCurrentProfile()]);
   const result = await sql.begin(async (tx) => {
-    let [owner] = await tx<{ id: string; role: string }[]>`select id, role from profiles where phone = ${phone} and deleted_at is null`;
-    if (owner?.role === "admin") return { error: "Use outro telefone para a loja." };
-    if (owner) {
+    const found = await selfSignupAccount(tx, {
+      phone, fullName: data.ownerName, role: "merchant", cityId: place.city_id,
+      password: String(formData.get("password") ?? ""), signedInId: signedIn?.id ?? null,
+    });
+    if ("error" in found) return { error: found.error };
+    const owner = found.account;
+    if (owner.role === "admin") return { error: "Use outro telefone para a loja." };
+    if (!found.created) {
       await tx`update profiles set role = 'merchant', full_name = case when full_name = '' then ${data.ownerName} else full_name end where id = ${owner.id}`;
-    } else {
-      [owner] = await tx<{ id: string; role: string }[]>`
-        insert into profiles (phone, full_name, role, city_id) values (${phone}, ${data.ownerName}, 'merchant', ${place.city_id}) returning id, role`;
     }
 
     const [duplicate] = await tx`
@@ -94,7 +98,7 @@ export async function requestStore(_previous: SignupState, formData: FormData): 
 
   await sendOutbound({
     channel: "sms", recipient: phone,
-    body: `Chegô: recebemos o cadastro da ${data.storeName}. Entre com este telefone para montar o cardápio enquanto analisamos.`,
+    body: `Chegô: recebemos o cadastro da ${data.storeName}. Entre como lojista, com este telefone e a sua senha, para montar o cardápio enquanto analisamos.`,
   });
-  return { ok: true, message: `Recebemos o cadastro da ${data.storeName}! Entre com o seu telefone para montar o cardápio. A gente avisa quando a loja for aprovada.` };
+  return { ok: true, message: `Recebemos o cadastro da ${data.storeName}! Entre em "Sou lojista" com o seu telefone e a sua senha para montar o cardápio. A gente avisa quando a loja for aprovada.` };
 }

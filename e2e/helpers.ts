@@ -13,13 +13,22 @@ export async function loginAs(page: Page, fullName: string) {
   await page.waitForURL((url) => !url.pathname.startsWith("/dev"));
 }
 
-/** Entra como um usuário de verdade: número de telefone e o código fixo de teste. */
-export async function loginWithPhone(page: Page, phone: string, code = "123456") {
+/** Entra como um usuário de verdade: telefone e senha (a dos usuários de teste é 123456). */
+export async function loginWithPhone(page: Page, phone: string, password = "123456") {
   await page.goto("/entrar");
   await page.getByLabel("Seu telefone com DDD").fill(phone);
-  await page.getByRole("button", { name: "Receber código" }).click();
-  await page.getByLabel("Código de 6 números").fill(code);
+  await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
+}
+
+/** Cria uma conta de cliente pela tela "Criar minha conta". */
+export async function createAccount(page: Page, fullName: string, phone: string, password = "senha-de-teste") {
+  await page.goto("/entrar/criar-conta");
+  await page.getByLabel("Seu nome completo").fill(fullName);
+  await page.getByLabel("Seu telefone com DDD").fill(phone);
+  await page.getByLabel("Crie uma senha").fill(password);
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Criar minha conta" }).click();
 }
 
 /** Move o relógio do sistema (horário de Maceió, ex.: "2026-10-09T11:30"), ou volta ao horário real com null. */
@@ -45,7 +54,7 @@ export async function productUrl(storeSlug: string, productName: string) {
 
 /** Passo da primeira visita: diz ao app em que bairro o cliente está. */
 export async function chooseNeighborhood(page: Page, name: string) {
-  await page.goto("/boas-vindas");
+  await page.goto("/boas-vindas?onde=1");
   await page.getByLabel("Seu bairro ou comunidade").selectOption({ label: name });
   await page.getByRole("button", { name: "Ver as lojas" }).click();
   await page.waitForURL((url) => url.pathname === "/");

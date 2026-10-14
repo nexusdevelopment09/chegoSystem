@@ -274,9 +274,10 @@ Onde: `src/lib/documents.ts`, `src/lib/uploads.ts` e `src/components/forms/`.
 
 | Ação | Limite |
 |---|---|
-| Pedir código de login | 5 por telefone a cada 10 minutos |
-| Conferir código de login | 10 por telefone a cada 10 minutos |
-| Login com senha | 10 por conta a cada 10 minutos |
+| Login com telefone e senha | 10 por telefone e 30 por endereço IP a cada 10 minutos |
+| Login da equipe (e-mail e senha) | 10 por conta a cada 10 minutos |
+| Criar conta de cliente | 10 por endereço IP por hora |
+| Trocar senha | 10 por conta a cada 10 minutos |
 | Fechar pedido | 10 por cliente a cada 10 minutos |
 | Testar cupom | 40 a cada 10 minutos |
 | Mensagens no pedido | 30 a cada 5 minutos |

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { audit } from "@/lib/audit";
+import { invitedAccount, temporaryPasswordNote } from "@/lib/auth/accounts";
 import { requireRole } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { OFFER_STATUSES } from "@/lib/couriers";
@@ -90,23 +91,22 @@ export async function createPlatformCourier(_previous: ActionState, formData: Fo
 
   const at = await now();
   const result = await sql.begin(async (tx) => {
-    let [person] = await tx<{ id: string; role: string }[]>`select id, role from profiles where phone = ${phone} and deleted_at is null`;
-    if (person && person.role !== "customer" && person.role !== "courier") return { error: "Esse telefone já é de uma loja ou do admin." };
-    const [existing] = person ? await tx`select 1 from couriers where profile_id = ${person.id}` : [];
+    const [taken] = await tx<{ role: string }[]>`select role from profiles where phone = ${phone} and deleted_at is null`;
+    if (taken && taken.role !== "customer" && taken.role !== "courier") return { error: "Esse telefone já é de uma loja ou do admin." };
+    const { account: person, password } = await invitedAccount(tx, { phone, fullName: data.fullName, role: "courier", cityId: data.cityId });
+    const [existing] = await tx`select 1 from couriers where profile_id = ${person.id}`;
     if (existing) return { error: "Esse telefone já tem cadastro de entregador." };
-    if (person) await tx`update profiles set role = 'courier', city_id = ${data.cityId} where id = ${person.id}`;
-    else [person] = await tx<{ id: string; role: string }[]>`
-      insert into profiles (phone, full_name, role, city_id) values (${phone}, ${data.fullName}, 'courier', ${data.cityId}) returning id, role`;
+    await tx`update profiles set role = 'courier', city_id = ${data.cityId} where id = ${person.id}`;
 
     await tx`
       insert into couriers (profile_id, kind, status, city_id, document_type, document_number, vehicle, plate, approved_at, created_at)
       values (${person.id}, 'platform', 'active', ${data.cityId}, ${document.type}, ${document.digits}, ${data.vehicle}, ${data.plate || null}, ${at}, ${at})`;
     await audit({ actorId: profile.id, action: "courier.create", entityType: "courier", entityId: person.id, details: { kind: "platform" } }, tx);
-    return { ok: true };
+    return { password };
   });
   if ("error" in result) return { error: result.error };
   done();
-  return { ok: true, message: `${data.fullName} cadastrado. Ele entra com o telefone e já pode pegar entregas.` };
+  return { ok: true, message: `${data.fullName} cadastrado e já pode pegar entregas.${temporaryPasswordNote(result.password)}` };
 }
 
 /** Marca como repassado tudo o que o entregador tem a receber. O pagamento em si é feito fora do sistema (Pix). */

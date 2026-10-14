@@ -1,4 +1,4 @@
-# Chegô no servidor (VPS): app + PostgreSQL + Caddy (HTTPS automático e senha de acesso).
+# Chegô no servidor (VPS): app + PostgreSQL + Caddy (HTTPS automático).
 # As variáveis vêm do arquivo .env ao lado deste (modelo em .env.vps.example).
 # Passo a passo em docs/DEPLOY_VPS.md.
 
@@ -25,24 +25,29 @@ services:
     build:
       context: .
       args:
-        APP_ENV: ${APP_ENV:-local}
+        APP_ENV: ${APP_ENV:-production}
         NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      # "local" = homologação: código de login 123456, página /dev e pagamento simulado.
-      # O site inteiro fica protegido pela senha do Caddy.
-      APP_ENV: ${APP_ENV:-local}
+      # "production": sem página /dev, sem atalhos de teste, login por telefone e senha.
+      APP_ENV: ${APP_ENV:-production}
       DB_MODE: external
       DATABASE_URL: postgres://chego:${POSTGRES_PASSWORD}@db:5432/chego
-      # Cria os dados de teste na primeira vez que o banco sobe vazio.
-      SEED_IF_EMPTY: ${SEED_IF_EMPTY:-1}
-      LOGIN_USERNAME_DOMAIN: ${LOGIN_USERNAME_DOMAIN:-chego.local}
+      # Na primeira vez que o banco sobe vazio, cria só o necessário (sem lojas nem pessoas de teste) e o admin.
+      SEED_IF_EMPTY: "1"
+      SEED_MODE: ${SEED_MODE:-base}
+      ADMIN_NAME: ${ADMIN_NAME:-Admin Chegô}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?defina ADMIN_EMAIL no .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?defina ADMIN_PASSWORD no .env}
+      # Pagamento simulado: nenhum dinheiro é cobrado e o cliente confirma o pagamento na tela.
       PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-mock}
       PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:?defina PAYMENT_WEBHOOK_SECRET no .env}
-      CRON_SECRET: ${CRON_SECRET:-}
+      # As tarefas agendadas (expirar Pix, recusa automática, lembretes, faturas) rodam dentro do app.
+      INTERNAL_TASK_RUNNER: "1"
+      CRON_SECRET: ${CRON_SECRET:?defina CRON_SECRET no .env}
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
     volumes:
@@ -60,8 +65,6 @@ services:
       - "443:443/udp"
     environment:
       DOMAIN: ${DOMAIN:?defina DOMAIN no .env}
-      BASIC_AUTH_USER: ${BASIC_AUTH_USER:?defina BASIC_AUTH_USER no .env}
-      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:?defina BASIC_AUTH_HASH no .env}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

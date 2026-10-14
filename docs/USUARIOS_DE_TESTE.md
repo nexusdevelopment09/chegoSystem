@@ -8,7 +8,9 @@ O jeito mais rápido é a página **http://localhost:3000/dev**: na seção "Log
 
 O admin também entra em http://localhost:3000/entrar com usuário `admin` e senha `admin`.
 
-Todos também entram pelo telefone: em http://localhost:3000/entrar, digite o número da tabela e o código fixo **`123456`**.
+Todos também entram pelo telefone: em http://localhost:3000/entrar, digite o número da tabela e a senha **`123456`** (a mesma para todos os usuários de teste; o admin usa `admin`).
+
+Estes usuários só existem no seu computador e nos testes automáticos. O servidor (VPS) começa sem nenhum deles.
 
 Para testar passo a passo, siga o [roteiro de testes](ROTEIRO_DE_TESTES.md).
 

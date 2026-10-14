@@ -60,7 +60,8 @@ As regras usam funções do banco como `current_user_id()`, `is_admin()`, `is_st
 
 ## Login e papéis
 
-- **Telefone e código.** O código vai por SMS simulado; no ambiente local é sempre `123456`. A equipe da plataforma também entra com usuário e senha.
+- **Telefone e senha.** Cliente, lojista e entregador entram com o telefone e uma senha (hash scrypt em `profiles.password_hash`, regras em `src/lib/auth/password.ts`). O login por código SMS foi tirado enquanto o SMS for simulado. A equipe da plataforma entra com e-mail e senha (link "Equipe Chegô").
+- **Contas.** O cliente cria a própria em `/entrar/criar-conta`. Lojista e entregador criam a senha no próprio cadastro ("Quero vender", "Quero entregar"); um telefone que já tem conta só vale se for de quem está conectado. Quem é cadastrado por outra pessoa (equipe da loja, entregador do Chegô) ou esquece a senha recebe uma senha provisória de 8 números, mostrada uma vez a quem cadastrou ou ao admin (`src/lib/auth/accounts.ts`).
 - **Sessão.** O navegador guarda um cookie que scripts não conseguem ler. No banco fica só o hash do cookie, então uma tabela vazada não serve para entrar.
 - **Papéis globais:** `customer`, `merchant` e `admin`. **Papéis dentro da loja:** `owner`, `attendant` e `courier`.
 - **Proteção das páginas** sempre no servidor, com `requireUser`, `requireRole` e `requireStoreMember` (`src/lib/auth/session.ts`). Quem ainda não aceitou a versão atual dos termos é mandado para aceitar.
@@ -125,7 +126,7 @@ As fotos de produto do seed foram geradas por IA e ficam guardadas em `db/seed/p
 
 ## Servidor (VPS) com Docker
 
-`docker-compose.yml` liga três contêineres: `db` (PostgreSQL 18), `app` (a imagem do `Dockerfile`, com `next start`) e `caddy` (HTTPS automático e senha de acesso, em `deploy/Caddyfile`). Só o Caddy fica exposto na internet. Ao ligar, o app roda `node scripts/db.ts bootstrap`: com `DB_MODE=external` o script não liga nenhum PostgreSQL, só usa o do `DATABASE_URL`, aplica as migrations e, com `SEED_IF_EMPTY=1`, cria os dados de teste se o banco estiver vazio. O build não consulta o banco: páginas que leem do banco sem depender da requisição chamam `connection()` para nunca serem montadas no build. Passo a passo em [DEPLOY_VPS.md](DEPLOY_VPS.md).
+`docker-compose.yml` liga três contêineres: `db` (PostgreSQL 18), `app` (a imagem do `Dockerfile`, com `next start` e `APP_ENV=production`) e `caddy` (HTTPS automático, em `deploy/Caddyfile`). Só o Caddy fica exposto na internet. Ao ligar, o app roda `node scripts/db.ts bootstrap`: com `DB_MODE=external` o script não liga nenhum PostgreSQL, só usa o do `DATABASE_URL`, aplica as migrations e, se o banco estiver vazio, roda o seed escolhido por `SEED_MODE`. No servidor é `base` (`seedBase` em `db/seed/index.ts`): só configurações, termos, a cidade com o bairro Centro, as categorias, os planos e o admin do `.env`, sem nada fictício. As tarefas agendadas rodam dentro do app (`INTERNAL_TASK_RUNNER=1`, com o `CRON_SECRET`). O pagamento continua simulado (`PAYMENT_PROVIDER=mock`): o cliente confirma o pagamento na tela do pedido (`simulateMyPayment`), pelo mesmo webhook assinado. O build não consulta o banco: páginas que leem do banco sem depender da requisição chamam `connection()` para nunca serem montadas no build. Passo a passo em [DEPLOY_VPS.md](DEPLOY_VPS.md).
 
 ## Ambiente de testes
 

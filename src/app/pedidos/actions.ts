@@ -6,13 +6,43 @@ import { z } from "zod";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
+import { isLocalEnv } from "@/lib/env";
 import { createOrderPayment } from "@/lib/checkout/place-order";
 import { TransitionError, transitionOrder } from "@/lib/orders/transitions";
+import { isMockPayments } from "@/lib/payments";
 import { buildMockWebhook, mockCardOutcome } from "@/lib/payments/mock";
 import { handlePaymentWebhook } from "@/lib/payments/webhook";
 import { rateLimit } from "@/lib/rate-limit";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+const SIMULATED_EVENTS = { approve: "payment.approved", decline: "payment.declined", expire: "payment.expired" } as const;
+
+/**
+ * Pagamento simulado: o próprio cliente faz o papel do banco, só no pedido dele e só
+ * enquanto o pagamento for simulado. O aviso passa pelo mesmo webhook assinado de um
+ * gateway de verdade. Recusa e expiração são só para os testes deste computador.
+ */
+export async function simulateMyPayment(formData: FormData): Promise<void> {
+  const profile = await getCurrentProfile();
+  if (!profile || !isMockPayments()) return;
+  const orderId = z.uuid().parse(formData.get("orderId"));
+  const outcome = z.enum(isLocalEnv ? ["approve", "decline", "expire"] : ["approve"]).parse(formData.get("outcome"));
+  if (!(await rateLimit(`simulate-payment:${profile.id}`, 20, 600))) return;
+
+  const [payment] = await sql<{ provider_payment_id: string }[]>`
+    select p.provider_payment_id from payments p join orders o on o.id = p.order_id
+    where p.order_id = ${orderId} and o.customer_id = ${profile.id} and p.status in ('pending', 'declined')
+    order by p.created_at desc limit 1`;
+  if (payment) {
+    const { rawBody, signature } = buildMockWebhook(payment.provider_payment_id, SIMULATED_EVENTS[outcome]);
+    await handlePaymentWebhook(rawBody, signature);
+  }
+
+  const [order] = await sql<{ status: string }[]>`select status from orders where id = ${orderId} and customer_id = ${profile.id}`;
+  if (order && order.status !== "awaiting_payment") redirect(`/pedidos/${orderId}`);
+  revalidatePath(`/pedidos/${orderId}/pagamento`);
+}
 
 /** O cliente desiste de um pedido que a loja ainda não aceitou. Pedidos pagos são reembolsados por inteiro. */
 export async function cancelOrder(formData: FormData): Promise<void> {

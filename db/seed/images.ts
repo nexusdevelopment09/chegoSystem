@@ -399,11 +399,14 @@ async function write(path: string, svg: string, width: number, height: number, f
   return true;
 }
 
-/** Grava todas as fotos do seed em storage/. Arquivos que já existem são mantidos, a não ser com `force`. */
-export async function generateImages({ force = false } = {}) {
+/**
+ * Grava todas as fotos do seed em storage/. Arquivos que já existem são mantidos, a não ser com `force`.
+ * Com `categoriesOnly` (seed de produção) grava só as imagens dos segmentos.
+ */
+export async function generateImages({ force = false, categoriesOnly = false } = {}) {
   const jobs: Promise<boolean>[] = [];
 
-  for (const store of STORES) {
+  for (const store of categoriesOnly ? [] : STORES) {
     const shown = store.products.filter((product) => !product.noImage);
     const main = shown[0] ?? store.products[0];
     // A capa mostra produtos bem diferentes entre si, quando a loja tem variedade.
@@ -452,7 +455,7 @@ export async function generateImages({ force = false } = {}) {
     }
   }
 
-  for (const banner of BANNERS) {
+  for (const banner of categoriesOnly ? [] : BANNERS) {
     const items = banner.arts.map((art) => ({ name: art, art: art as Drawing }));
     const svg = sceneSvg(1200, 500, banner.color, items, { title: banner.title, subtitle: banner.subtitle });
     jobs.push(write(`banners/${banner.key}.webp`, svg, 1200, 500, force));

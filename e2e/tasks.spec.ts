@@ -21,6 +21,7 @@ test("nova loja se cadastra, admin aprova e ela aparece para os clientes", async
   await page.getByLabel("Rua").fill("Praça da Matriz");
   await page.getByLabel("Nome do responsável").fill("Socorro Tapioqueira");
   await page.getByLabel("Telefone com DDD").fill("(82) 95555-0001");
+  await page.getByLabel("Crie uma senha").fill("senha-da-socorro");
   await page.getByLabel("Número do documento").fill("123.456.789-0");
   await page.getByRole("button", { name: "Enviar cadastro" }).click();
   await expect(page.getByText("O CPF tem 11 números.")).toBeVisible();
@@ -46,7 +47,7 @@ test("nova loja se cadastra, admin aprova e ela aparece para os clientes", async
 
   // O dono já consegue entrar e chegar ao painel.
   const owner = await (await browser.newContext()).newPage();
-  await loginWithPhone(owner, "(82) 95555-0001");
+  await loginWithPhone(owner, "(82) 95555-0001", "senha-da-socorro");
   await owner.getByRole("checkbox").check();
   await owner.getByRole("button", { name: "Aceitar e continuar" }).click();
   await expect(owner).toHaveURL(/\/lojista\/pedidos$/);

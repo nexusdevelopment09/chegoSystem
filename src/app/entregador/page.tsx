@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { AutoRefresh } from "@/components/orders/AutoRefresh";
@@ -82,6 +83,7 @@ async function Panel() {
         <div className="min-w-0">
           <h1 className="text-3xl">Oi, {profile.fullName.split(" ")[0]}!</h1>
           <p className="text-sm text-coffee-soft">{COURIER_KIND_LABELS[courier.kind]} · {VEHICLE_LABELS[courier.vehicle]} · {courier.cityName}</p>
+          <Link href="/perfil" className="text-sm font-semibold text-brand-dark underline">Minha conta</Link>
         </div>
         <form action={setAvailability}>
           {!courier.available && <input type="hidden" name="available" value="on" />}

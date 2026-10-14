@@ -11,7 +11,7 @@ import { requireUser } from "@/lib/auth/session";
 import { sql, withUser } from "@/lib/db";
 import { formatCents, formatDateTime, formatPhone } from "@/lib/format";
 import { listCities } from "@/lib/shopping-context";
-import { addAddress, deleteAccount, makeDefaultAddress, removeAddress, signOutEverywhere, updateProfile } from "./actions";
+import { addAddress, changePassword, deleteAccount, makeDefaultAddress, removeAddress, signOutEverywhere, updateProfile } from "./actions";
 
 export const metadata: Metadata = { title: "Meu perfil" };
 
@@ -76,6 +76,14 @@ async function ProfileContent() {
         </label>
         <p className="-mt-2 text-sm text-coffee-soft">Os avisos do seu pedido chegam sempre, mesmo com as promoções desligadas.</p>
         <SubmitButton className="self-start">Salvar meus dados</SubmitButton>
+      </ActionForm>
+
+      <ActionForm action={changePassword} resetOnSuccess className={card}>
+        <h2 className="text-xl">Senha</h2>
+        <p className="-mt-2 text-sm text-coffee-soft">Você entra com o seu telefone e esta senha.</p>
+        <Field label="Senha atual" name="currentPassword" type="password" autoComplete="current-password" required maxLength={72} />
+        <Field label="Nova senha" name="newPassword" type="password" autoComplete="new-password" required minLength={8} maxLength={72} hint="Pelo menos 8 caracteres." />
+        <SubmitButton className="self-start">Trocar senha</SubmitButton>
       </ActionForm>
 
       <section className={card}>

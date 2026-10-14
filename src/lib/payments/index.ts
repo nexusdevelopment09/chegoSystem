@@ -4,6 +4,12 @@ import type { PaymentProvider } from "./types";
 
 let provider: PaymentProvider | null = null;
 
+/**
+ * Pagamento simulado: nenhum dinheiro é cobrado e o próprio cliente confirma o pagamento
+ * na tela do pedido. Vale enquanto não houver um gateway de verdade.
+ */
+export const isMockPayments = () => (process.env.PAYMENT_PROVIDER ?? "mock") === "mock";
+
 /** O gateway escolhido por PAYMENT_PROVIDER. Por enquanto só existe o "mock". */
 export function getPaymentProvider(): PaymentProvider {
   if (provider) return provider;

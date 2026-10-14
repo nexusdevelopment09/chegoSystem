@@ -5,10 +5,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { saveAddress } from "@/app/carrinho/actions";
 import { audit } from "@/lib/audit";
-import { destroyAllSessions, getCurrentProfile } from "@/lib/auth/session";
+import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth/password";
+import { createSession, destroyAllSessions, getCurrentProfile } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql, withUser } from "@/lib/db";
 import { IN_PROGRESS } from "@/lib/orders/status";
+import { rateLimit, TOO_MANY_ATTEMPTS } from "@/lib/rate-limit";
 
 export type ActionState = { error?: string; ok?: boolean; message?: string };
 
@@ -16,6 +18,27 @@ export async function signOutEverywhere() {
   const profile = await getCurrentProfile();
   if (profile) await destroyAllSessions(profile.id);
   redirect("/entrar");
+}
+
+/** Troca a senha. Pede a atual, para um celular esquecido aberto não bastar. As outras sessões são encerradas. */
+export async function changePassword(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const profile = await getCurrentProfile();
+  if (!profile) redirect("/entrar");
+  const current = String(formData.get("currentPassword") ?? "");
+  const next = String(formData.get("newPassword") ?? "");
+  if (!(await rateLimit(`password-change:${profile.id}`, 10, 600))) return { error: TOO_MANY_ATTEMPTS };
+
+  const [row] = await sql<{ password_hash: string | null }[]>`select password_hash from profiles where id = ${profile.id}`;
+  if (!verifyPassword(current, row?.password_hash ?? null)) return { error: "A senha atual não confere." };
+  const problem = passwordProblem(next);
+  if (problem) return { error: problem };
+  if (next === current) return { error: "A nova senha precisa ser diferente da atual." };
+
+  await sql`update profiles set password_hash = ${hashPassword(next)} where id = ${profile.id}`;
+  // Sai de todos os aparelhos e entra de novo só neste.
+  await destroyAllSessions(profile.id);
+  await createSession(profile.id);
+  return { ok: true, message: "Senha trocada. Os outros aparelhos vão pedir a senha nova." };
 }
 
 const profileSchema = z.object({

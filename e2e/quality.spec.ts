@@ -47,8 +47,12 @@ async function check(page: Page, path: string, ready: () => Promise<unknown>) {
 }
 
 test("telas do cliente: acessíveis e sem estourar a tela do celular", async ({ page }) => {
-  await check(page, "/boas-vindas", () => page.getByRole("button", { name: "Ver as lojas" }).waitFor());
-  await check(page, "/entrar", () => page.getByRole("button", { name: "Receber código" }).waitFor());
+  await check(page, "/boas-vindas", () => page.getByRole("heading", { name: "Entrar para pedir" }).waitFor());
+  await check(page, "/boas-vindas?onde=1", () => page.getByRole("button", { name: "Ver as lojas" }).waitFor());
+  await check(page, "/entrar", () => page.getByRole("button", { name: "Entrar", exact: true }).waitFor());
+  await check(page, "/entrar/criar-conta", () => page.getByRole("button", { name: "Criar minha conta" }).waitFor());
+  await check(page, "/entrar/loja", () => page.getByRole("heading", { name: "Área do lojista" }).waitFor());
+  await check(page, "/entrar/entregador", () => page.getByRole("heading", { name: "Área do entregador" }).waitFor());
   await check(page, "/quero-vender", () => page.getByRole("button", { name: "Enviar cadastro" }).waitFor());
   await check(page, "/quero-entregar", () => page.getByRole("button", { name: "Enviar cadastro" }).waitFor());
   await check(page, "/ajuda", () => page.getByRole("heading", { name: "Ajuda" }).waitFor());

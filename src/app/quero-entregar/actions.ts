@@ -1,6 +1,8 @@
 "use server";
 
 import { z } from "zod";
+import { selfSignupAccount } from "@/lib/auth/accounts";
+import { getCurrentProfile } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
 import { parseDocument } from "@/lib/documents";
@@ -42,19 +44,21 @@ export async function requestCourier(_previous: SignupState, formData: FormData)
   const [city] = await sql`select id from cities where id = ${data.cityId} and active`;
   if (!city) return { error: "Escolha a cidade da lista." };
 
-  const at = await now();
+  const [at, signedIn] = await Promise.all([now(), getCurrentProfile()]);
   const result = await sql.begin(async (tx) => {
-    let [person] = await tx<{ id: string; role: string }[]>`select id, role from profiles where phone = ${phone} and deleted_at is null`;
+    const found = await selfSignupAccount(tx, {
+      phone, fullName: data.fullName, role: "courier", cityId: data.cityId,
+      password: String(formData.get("password") ?? ""), signedInId: signedIn?.id ?? null,
+    });
+    if ("error" in found) return { error: found.error };
+    const person = found.account;
     // Lojista e admin usam o telefone para outra coisa; cada papel tem o seu.
-    if (person && person.role !== "customer" && person.role !== "courier") return { error: "Esse telefone já é usado por uma loja. Use outro para entregar." };
-    const [existing] = person ? await tx`select 1 from couriers where profile_id = ${person.id}` : [];
-    if (existing) return { error: "Você já tem um cadastro de entregador. Entre com o seu telefone para acompanhar." };
+    if (person.role !== "customer" && person.role !== "courier") return { error: "Esse telefone já é usado por uma loja. Use outro para entregar." };
+    const [existing] = await tx`select 1 from couriers where profile_id = ${person.id}`;
+    if (existing) return { error: "Você já tem um cadastro de entregador. Entre com o seu telefone e a sua senha para acompanhar." };
 
-    if (person) {
+    if (!found.created) {
       await tx`update profiles set role = 'courier', full_name = case when full_name = '' then ${data.fullName} else full_name end, city_id = ${data.cityId} where id = ${person.id}`;
-    } else {
-      [person] = await tx<{ id: string; role: string }[]>`
-        insert into profiles (phone, full_name, role, city_id) values (${phone}, ${data.fullName}, 'courier', ${data.cityId}) returning id, role`;
     }
     await tx`
       insert into couriers (profile_id, kind, status, city_id, document_type, document_number, vehicle, plate, created_at)
@@ -71,5 +75,5 @@ export async function requestCourier(_previous: SignupState, formData: FormData)
   await acceptPendingLegalDocuments(result.profileId, "courier");
 
   await sendOutbound({ channel: "sms", recipient: phone, body: "Chegô: recebemos o seu cadastro de entregador. A gente avisa quando for aprovado." });
-  return { ok: true, message: "Recebemos o seu cadastro! Entre com o seu telefone para acompanhar. A gente avisa quando você puder começar." };
+  return { ok: true, message: "Recebemos o seu cadastro! Entre em \"Sou entregador\" com o seu telefone e a sua senha para acompanhar. A gente avisa quando você puder começar." };
 }

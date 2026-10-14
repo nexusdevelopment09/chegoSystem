@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { DocumentField } from "@/components/forms/DocumentField";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -32,6 +33,8 @@ export default function DeliverPage() {
 }
 
 async function DeliverForm() {
+  // Lista vinda do banco: monta a cada visita, nunca no build.
+  await connection();
   const cities = await listCities();
 
   return (

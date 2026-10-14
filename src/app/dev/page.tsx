@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 import { Logo } from "@/components/brand/Logo";
 import { Button } from "@/components/ui/Button";
@@ -102,6 +103,7 @@ type TestUser = {
 const STORE_ROLE_LABELS: Record<string, string> = { owner: "dono", attendant: "atendente", courier: "entregador" };
 
 async function QuickLoginSection() {
+  await connection();
   const users = await sql<TestUser[]>`
     select p.id, p.full_name, p.phone, p.role, p.blocked_at,
       (
@@ -179,6 +181,7 @@ type PendingOrder = {
 };
 
 async function PendingPaymentsSection() {
+  await connection();
   const orders = await sql<PendingOrder[]>`
     select o.id, o.code, o.customer_name, s.name as store_name, o.total_cents, o.payment_method, o.created_at,
       (select p.status from payments p where p.order_id = o.id order by p.created_at desc limit 1) as payment_status
@@ -235,6 +238,7 @@ const CHANNEL_LABELS: Record<OutboundMessage["channel"], string> = {
 };
 
 async function MessagesSection() {
+  await connection();
   const messages = await sql<OutboundMessage[]>`
     select id, channel, recipient, subject, body, created_at
     from outbound_messages

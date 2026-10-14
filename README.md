@@ -75,6 +75,7 @@ O banco desliga quando o computador é desligado. Se você abrir o app com o ban
 | `npm run lint` / `npm run typecheck` | Verifica o código |
 | `npm run build` e `npm run start` | Monta e liga a versão otimizada (só para medir desempenho) |
 | `npm run icons` | Gera de novo os ícones do app (só se o logo mudar) |
+| `npm run deploy:vps -- root@IP` | Envia o projeto para a VPS e liga com Docker (veja [docs/DEPLOY_VPS.md](docs/DEPLOY_VPS.md)) |
 
 Os testes usam um banco separado (`chego_test`), recriado a cada execução. Eles nunca mexem nos dados que você está testando à mão, e ligam o banco sozinhos se estiver desligado.
 
@@ -92,6 +93,10 @@ O celular e o computador precisam estar **no mesmo Wi-Fi**.
 2. Com o `npm run dev` rodando, abra no navegador do celular: `http://192.168.0.15:3000` (troque pelo seu IP).
 
 Se não abrir, o Firewall do Windows pode estar bloqueando: Painel de Controle → Firewall do Windows Defender → "Permitir um aplicativo" → marque **Node.js** em "Privada".
+
+## 4-B. Subir numa VPS (homologação)
+
+O projeto tem `Dockerfile` e `docker-compose.yml` para rodar numa VPS com PostgreSQL, HTTPS automático e o site protegido por senha, no mesmo modo de testes deste computador. Não precisa de GitHub. O passo a passo está em [docs/DEPLOY_VPS.md](docs/DEPLOY_VPS.md).
 
 ## 5. Erros comuns
 

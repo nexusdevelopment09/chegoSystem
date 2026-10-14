@@ -6,6 +6,10 @@
 //   node scripts/db.ts status   diz se o servidor está ligado
 //   node scripts/db.ts migrate  aplica as migrations pendentes
 //   node scripts/db.ts reset    apaga tudo e roda de novo as migrations e o seed
+//   node scripts/db.ts bootstrap  como start; com SEED_IF_EMPTY=1, roda o seed se o banco estiver vazio
+//
+// Com DB_MODE=external (o servidor com Docker), o PostgreSQL já roda em outro
+// contêiner: o script não liga nem desliga nada e usa o endereço do DATABASE_URL.
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -24,8 +28,16 @@ const PORT = 54329;
 const USER = "chego";
 // Os testes automáticos usam o próprio banco (CHEGO_DB=chego_test), então
 // nunca mexem nos dados que você está testando à mão.
-const DATABASE = process.env.CHEGO_DB ?? "chego";
-const url = (database: string) => `postgres://${USER}@127.0.0.1:${PORT}/${database}`;
+const EXTERNAL = process.env.DB_MODE === "external";
+const EXTERNAL_URL = EXTERNAL ? new URL(process.env.DATABASE_URL ?? "") : null;
+const DATABASE = process.env.CHEGO_DB ?? (EXTERNAL_URL ? EXTERNAL_URL.pathname.slice(1) : "chego");
+
+function url(database: string) {
+  if (!EXTERNAL_URL) return `postgres://${USER}@127.0.0.1:${PORT}/${database}`;
+  const external = new URL(EXTERNAL_URL);
+  external.pathname = `/${database}`;
+  return external.toString();
+}
 
 function run(exe: string, args: string[], quiet = false) {
   const result = spawnSync(join(BIN, exe), args, {
@@ -93,6 +105,11 @@ async function start() {
 
 /** Liga o servidor e garante que o banco existe. */
 async function boot() {
+  if (EXTERNAL) {
+    await waitForExternal();
+    await ensureDatabase();
+    return;
+  }
   initCluster();
   if (isRunning()) {
     console.log("O banco já estava ligado.");
@@ -106,7 +123,27 @@ async function boot() {
   await ensureDatabase();
 }
 
+/** O contêiner do banco pode levar alguns segundos para aceitar conexões depois de ligar. */
+async function waitForExternal() {
+  for (let attempt = 1; ; attempt++) {
+    const admin = postgres(url("postgres"), { max: 1, connect_timeout: 5, onnotice: () => {} });
+    try {
+      await admin`select 1`;
+      return;
+    } catch (error) {
+      if (attempt >= 30) throw new Error(`O banco não respondeu em ${EXTERNAL_URL!.host}: ${(error as Error).message}`);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    } finally {
+      await admin.end();
+    }
+  }
+}
+
 function stop() {
+  if (EXTERNAL) {
+    console.log("Com DB_MODE=external o banco é desligado pelo Docker (docker compose stop db).");
+    return;
+  }
   if (!existsSync(DATA_DIR) || !isRunning()) {
     console.log("O banco já estava desligado.");
     return;
@@ -135,16 +172,38 @@ async function reset() {
   console.log("Banco recriado com os dados de teste.");
 }
 
+/** Usado ao ligar o contêiner do app: migrations sempre; dados de teste só na primeira vez. */
+async function bootstrap() {
+  await start();
+  if (process.env.SEED_IF_EMPTY !== "1") return;
+
+  const sql = postgres(url(DATABASE), { max: 1, onnotice: () => {} });
+  try {
+    const [{ count }] = await sql<{ count: number }[]>`select count(*)::int as count from profiles`;
+    if (count > 0) return;
+    await seed(sql);
+    console.log("Banco vazio: dados de teste criados.");
+  } finally {
+    await sql.end();
+  }
+}
+
 const command = process.argv[2];
 try {
   if (command === "start") await start();
+  else if (command === "bootstrap") await bootstrap();
   else if (command === "stop") stop();
   else if (command === "migrate") await migrate();
   else if (command === "reset") await reset();
   else if (command === "status") {
-    console.log(existsSync(DATA_DIR) && isRunning() ? `Ligado em localhost:${PORT}.` : "Desligado.");
+    if (EXTERNAL) {
+      await waitForExternal();
+      console.log(`Ligado em ${EXTERNAL_URL!.host}.`);
+    } else {
+      console.log(existsSync(DATA_DIR) && isRunning() ? `Ligado em localhost:${PORT}.` : "Desligado.");
+    }
   } else {
-    console.log("Use: start | stop | status | migrate | reset");
+    console.log("Use: start | stop | status | migrate | reset | bootstrap");
     process.exitCode = 1;
   }
 } catch (error) {

@@ -22,7 +22,8 @@
     "push:keys": "web-push generate-vapid-keys",
     "simulate": "vitest run --config vitest.simulate.config.ts",
     "simulate:test": "vitest run --config vitest.simulate.config.ts --mode test-db",
-    "seed:photos": "node scripts/ai-photos.ts"
+    "seed:photos": "node scripts/ai-photos.ts",
+    "deploy:vps": "node scripts/deploy-vps.ts"
   },
   "dependencies": {
     "next": "16.4.0",
@@ -37,7 +38,6 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
-    "@embedded-postgres/windows-x64": "^18.4.0-beta.17",
     "@playwright/test": "^1.64.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^24.19.1",
@@ -52,5 +52,8 @@
     "typescript": "^5",
     "vitest": "^5.0.3"
   },
-  "type": "module"
+  "type": "module",
+  "optionalDependencies": {
+    "@embedded-postgres/windows-x64": "^18.4.0-beta.17"
+  }
 }

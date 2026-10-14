@@ -123,6 +123,10 @@ As fotos de produto do seed foram geradas por IA e ficam guardadas em `db/seed/p
 
 `src/app/manifest.ts` e `public/sw.js` tornam o app instalável, mostram uma página própria quando não há internet e recebem os avisos push. Páginas e dados sempre vêm da rede, para preço, estoque e status nunca aparecerem desatualizados.
 
+## Servidor (VPS) com Docker
+
+`docker-compose.yml` liga três contêineres: `db` (PostgreSQL 18), `app` (a imagem do `Dockerfile`, com `next start`) e `caddy` (HTTPS automático e senha de acesso, em `deploy/Caddyfile`). Só o Caddy fica exposto na internet. Ao ligar, o app roda `node scripts/db.ts bootstrap`: com `DB_MODE=external` o script não liga nenhum PostgreSQL, só usa o do `DATABASE_URL`, aplica as migrations e, com `SEED_IF_EMPTY=1`, cria os dados de teste se o banco estiver vazio. O build não consulta o banco: páginas que leem do banco sem depender da requisição chamam `connection()` para nunca serem montadas no build. Passo a passo em [DEPLOY_VPS.md](DEPLOY_VPS.md).
+
 ## Ambiente de testes
 
 Com `APP_ENV=local` aparecem a faixa "Ambiente de testes" e a página `/dev`. Em qualquer outro ambiente `/dev` responde 404 e as ações dela se recusam a rodar. Se o banco estiver desligado, `src/proxy.ts` mostra a página "Banco de dados local desligado" em vez de fingir que funciona.

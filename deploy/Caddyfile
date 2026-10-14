@@ -1,0 +1,14 @@
+# Caddy: pede e renova sozinho o certificado HTTPS do domínio e repassa tudo para o app.
+# Enquanto o Chegô está em homologação, o site inteiro pede usuário e senha.
+{$DOMAIN} {
+	encode zstd gzip
+
+	# O webhook do gateway de pagamento não tem como digitar senha. Ele é protegido
+	# pela assinatura de cada aviso, conferida pelo próprio app.
+	@protected not path /api/webhooks/*
+	basic_auth @protected {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+
+	reverse_proxy app:3000
+}

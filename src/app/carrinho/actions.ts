@@ -8,6 +8,7 @@ import { now } from "@/lib/clock";
 import { sql, withUser } from "@/lib/db";
 import { handlePaymentWebhook } from "@/lib/payments/webhook";
 import { buildMockWebhook, mockCardOutcome } from "@/lib/payments/mock";
+import { paymentCollection } from "@/lib/payments/collection";
 import { rateLimit, TOO_MANY_ATTEMPTS } from "@/lib/rate-limit";
 
 const cardSchema = z.object({
@@ -17,7 +18,8 @@ const cardSchema = z.object({
   cvv: z.string().regex(/^\d{3,4}$/, "Código de segurança inválido."),
 });
 
-export type SubmitResponse = { ok: true; orderId: string } | { ok: false; errors: string[] };
+/** `next`: para onde o cliente vai depois de pedir (pagar pelo app ou acompanhar o pedido). */
+export type SubmitResponse = { ok: true; orderId: string; next: string } | { ok: false; errors: string[] };
 
 /** Fecha o pedido. Os preços vêm do servidor; o que chega do navegador só diz o que foi escolhido. */
 export async function submitOrder(payload: unknown, cardPayload?: unknown): Promise<SubmitResponse> {
@@ -28,8 +30,10 @@ export async function submitOrder(payload: unknown, cardPayload?: unknown): Prom
   const parsed = cartInputSchema.safeParse(payload);
   if (!parsed.success) return { ok: false, errors: ["Seu carrinho está com um problema. Esvazie e monte de novo."] };
 
+  // O cartão só é digitado no app quando o pagamento é pelo app; direto à loja ele é
+  // passado na maquininha na entrega.
   let card: z.infer<typeof cardSchema> | undefined;
-  if (parsed.data.paymentMethod === "card") {
+  if (paymentCollection() === "app" && parsed.data.paymentMethod === "card") {
     const cardParsed = cardSchema.safeParse(cardPayload);
     if (!cardParsed.success) return { ok: false, errors: [cardParsed.error.issues[0].message] };
     card = cardParsed.data;
@@ -39,12 +43,14 @@ export async function submitOrder(payload: unknown, cardPayload?: unknown): Prom
   if (!result.ok) return result;
 
   // O gateway de mentira responde o cartão na hora, pelo mesmo webhook que um de verdade usa.
-  if (card) {
+  if (card && result.providerPaymentId) {
     const outcome = mockCardOutcome(card.number);
     const { rawBody, signature } = buildMockWebhook(result.providerPaymentId, outcome === "approved" ? "payment.approved" : "payment.declined");
     await handlePaymentWebhook(rawBody, signature);
   }
-  return { ok: true, orderId: result.orderId };
+  // Direto à loja não há pagamento no app: o cliente já vai acompanhar o pedido.
+  const next = result.providerPaymentId ? `/pedidos/${result.orderId}/pagamento` : `/pedidos/${result.orderId}`;
+  return { ok: true, orderId: result.orderId, next };
 }
 
 // ---------------------------------------------------------------- endereços

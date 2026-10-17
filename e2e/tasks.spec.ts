@@ -70,7 +70,7 @@ test("nova loja se cadastra, admin aprova e ela aparece para os clientes", async
   await customer.context().close();
 });
 
-test("pedido sem aceite: alerta aos 8 minutos e recusa automática aos 15, com reembolso", async ({ page, request }) => {
+test("pedido sem aceite: alerta aos 8 minutos e recusa automática aos 15", async ({ page, request }) => {
   const orderId = await placePaidOrder(page, "Felipe Rocha", "brasa-burger", ["Batata com cheddar e bacon"]);
   const noAccept = async () => (await db`select count(*)::int as total from notifications where order_id = ${orderId} and type = 'order_no_accept'`)[0].total;
 
@@ -93,37 +93,31 @@ test("pedido sem aceite: alerta aos 8 minutos e recusa automática aos 15, com r
 
   const [order] = await db`select status, refunded_cents, total_cents from orders where id = ${orderId}`;
   expect(order.status).toBe("rejected");
-  expect(order.refunded_cents).toBe(order.total_cents);
+  // Pagando direto à loja, nada foi cobrado pelo app: não há reembolso a fazer.
+  expect(order.refunded_cents).toBe(0);
   const [history] = await db`select reason, changed_by from order_status_history where order_id = ${orderId} and status = 'rejected'`;
   expect(history).toEqual({ reason: "A loja não respondeu a tempo", changed_by: null });
   expect((await db`select count(*)::int as total from notifications where order_id = ${orderId} and type = 'order_auto_rejected'`)[0].total).toBe(1);
 
   await page.goto(`/pedidos/${orderId}`);
   await expect(visible(page, "order-status")).toHaveText("Recusado pela loja");
-  await expect(visible(page, "refund-note")).toBeVisible();
+  await expect(page.locator('[data-testid="refund-note"]')).toHaveCount(0);
 
   // Uma terceira rodada não muda mais nada neste pedido.
   await runTasks(request);
-  expect((await db`select count(*)::int as total from refunds where order_id = ${orderId}`)[0].total).toBe(1);
+  expect((await db`select count(*)::int as total from order_status_history where order_id = ${orderId} and status = 'rejected'`)[0].total).toBe(1);
 });
 
-test("Pix não pago: aviso faltando 3 minutos e expiração no prazo, devolvendo o estoque", async ({ page, request }) => {
+test("Pix não pago (pedido pago pelo app): aviso faltando 3 minutos e expiração no prazo", async ({ request }) => {
+  // Os pedidos novos são pagos direto à loja; o Pix com prazo só existe nos pagos pelo app (do seed).
   await setClock("2026-10-09T21:00");
-  const stock = async () => (await db`select stock_qty from products where name = 'Termômetro digital'`)[0].stock_qty;
-  const before = await stock();
-
-  await db`delete from carts`;
-  await loginAs(page, "Bruno Henrique Lima");
-  await page.evaluate(() => window.localStorage.clear());
-  const [product] = await db`select id from products where name = 'Termômetro digital'`;
-  await page.goto(`/loja/farmacia-saude-mais/produto/${product.id}`);
-  await page.getByRole("button", { name: /^Adicionar/ }).click();
-  await page.waitForURL(/\/loja\/farmacia-saude-mais$/);
-  await page.goto("/checkout");
-  await page.getByRole("button", { name: /^Fazer pedido/ }).click();
-  await page.waitForURL(/\/pedidos\/[0-9a-f-]+\/pagamento$/);
-  const orderId = page.url().match(/pedidos\/([0-9a-f-]+)\//)![1];
-  expect(await stock()).toBe(before - 1);
+  const [order] = await db`
+    select o.id from orders o
+    where o.status = 'awaiting_payment' and o.payment_method = 'pix' and o.payment_collection = 'app'
+    order by o.created_at desc limit 1`;
+  const orderId = order.id;
+  await db`update orders set payment_expires_at = '2026-10-09T21:15:00-03:00' where id = ${orderId}`;
+  await db`delete from notifications where order_id = ${orderId} and type = 'pix_expiring'`;
 
   await setClock("2026-10-09T21:13");
   const first = await runTasks(request);
@@ -136,7 +130,35 @@ test("Pix não pago: aviso faltando 3 minutos e expiração no prazo, devolvendo
   await runTasks(request);
   expect((await db`select status from orders where id = ${orderId}`)[0].status).toBe("expired");
   expect((await db`select status from payments where order_id = ${orderId}`)[0].status).toBe("expired");
-  expect(await stock()).toBe(before);
+});
+
+test("taxas: expediente esquecido aberto fecha sozinho no dia seguinte e vence depois do prazo", async ({ request }) => {
+  const [store] = await db`select id from stores where slug = 'brasa-burger'`;
+  await db`delete from fee_entries where store_id = ${store.id} and closing_id is null`;
+  await db`
+    insert into fee_entries (store_id, kind, amount_cents, business_date) values
+      (${store.id}, 'order_fee', 50, '2026-11-20'), (${store.id}, 'order_fee', 50, '2026-11-20')`;
+
+  // Ainda no mesmo expediente (antes das 5h do dia seguinte), nada fecha.
+  await setClock("2026-11-21T04:30");
+  await runTasks(request);
+  expect((await db`select count(*)::int as total from store_closings where store_id = ${store.id}`)[0].total).toBe(0);
+
+  await setClock("2026-11-21T09:00");
+  const report = await runTasks(request);
+  expect(report.expedientes_fechados).toBeGreaterThanOrEqual(1);
+  const [closing] = await db`select business_date::text, status::text, total_due_cents, order_count, due_date::text from store_closings where store_id = ${store.id}`;
+  expect(closing).toEqual({ business_date: "2026-11-20", status: "awaiting_payment", total_due_cents: 100, order_count: 2, due_date: "2026-11-24" });
+  // Rodar de novo não cria outro fechamento.
+  await runTasks(request);
+  expect((await db`select count(*)::int as total from store_closings where store_id = ${store.id}`)[0].total).toBe(1);
+
+  await setClock("2026-11-25T09:00");
+  const later = await runTasks(request);
+  expect(later.taxas_vencidas).toBeGreaterThanOrEqual(1);
+  expect((await db`select status::text from store_closings where store_id = ${store.id}`)[0].status).toBe("overdue");
+  // Vencido nunca bloqueia a loja sozinho.
+  expect((await db`select status::text from stores where id = ${store.id}`)[0].status).toBe("active");
 });
 
 test("lembrete de avaliação uma hora depois da entrega, uma vez só", async ({ request }) => {
@@ -176,27 +198,18 @@ test("indicação: quem indicou ganha o cupom quando o indicado recebe o primeir
   expect(await rewards()).toBe(before + 1);
 });
 
-test("faturas: uma por loja no mês, sem duplicar, e vencem depois do prazo", async ({ request }) => {
+test("faturas mensais antigas: nenhuma nova é gerada, e as abertas ainda vencem", async ({ request }) => {
   await setClock("2026-11-02T09:00");
   const november = async () => (await db`select count(*)::int as total from invoices where period_start = '2026-11-01'`)[0].total;
-
   const first = await runTasks(request);
-  const created = await november();
-  expect(created).toBeGreaterThan(5);
-  expect(first.faturas_geradas).toBe(created);
-  await runTasks(request);
-  expect(await november()).toBe(created);
+  // A mensalidade foi trocada pela taxa por pedido.
+  expect(first.faturas_geradas).toBe(0);
+  expect(await november()).toBe(0);
 
-  // A loja fundadora ainda está nos meses grátis, e uma loja pendente não paga nada.
-  const free = await db`
-    select s.slug from invoices i join stores s on s.id = i.store_id
-    where i.period_start = '2026-11-01' and s.slug in ('padaria-pao-quentinho')`;
-  expect(free).toHaveLength(0);
-
+  const [open] = await db`select count(*)::int as total from invoices where status = 'open' and due_date < '2026-11-12'`;
   await setClock("2026-11-12T09:00");
   const second = await runTasks(request);
-  expect(second.faturas_vencidas).toBe(created);
-  expect((await db`select count(*)::int as total from invoices where period_start = '2026-11-01' and status = 'overdue'`)[0].total).toBe(created);
+  expect(second.faturas_vencidas).toBe(open.total);
   // Fatura vencida nunca suspende a loja sozinha: essa decisão é do admin.
   expect((await db`select count(*)::int as total from stores where status = 'suspended'`)[0].total).toBe(1);
 });
@@ -220,7 +233,7 @@ test("ferramentas do /dev: rodar tarefas e gerar pedido aleatório", async ({ pa
 
   const before = (await db`select count(*)::int as total from orders where status = 'paid'`)[0].total;
   await page.getByRole("button", { name: "Gerar pedido aleatório" }).click();
-  await expect(visible(page, "dev-result")).toContainText("Pedido pago criado:");
+  await expect(visible(page, "dev-result")).toContainText("Pedido criado:");
   expect((await db`select count(*)::int as total from orders where status = 'paid'`)[0].total).toBe(before + 1);
 
   // Resetar exige a caixa de confirmação.

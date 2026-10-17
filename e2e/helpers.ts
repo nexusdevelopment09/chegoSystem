@@ -71,8 +71,8 @@ export async function addSimple(page: Page, storeSlug: string, product: string) 
 }
 
 /**
- * Um cliente pede os produtos simples informados e o pagamento é aprovado.
- * Devolve o id do pedido. O cliente já precisa ter um endereço.
+ * Um cliente pede os produtos simples informados, pagando direto à loja (Pix da loja):
+ * o pedido já chega à loja. Devolve o id do pedido. O cliente já precisa ter um endereço.
  */
 export async function placePaidOrder(page: Page, customer: string, storeSlug: string, products: string[], beforeSubmit?: () => Promise<void>) {
   await db`delete from carts`;
@@ -82,11 +82,8 @@ export async function placePaidOrder(page: Page, customer: string, storeSlug: st
   await page.goto("/checkout");
   if (beforeSubmit) await beforeSubmit();
   await page.getByRole("button", { name: /^Fazer pedido/ }).click();
-  await page.waitForURL(/\/pedidos\/[0-9a-f-]+\/pagamento$/);
-  const orderId = page.url().match(/pedidos\/([0-9a-f-]+)\//)![1];
-  await page.getByRole("button", { name: "Simular pagamento aprovado" }).click();
-  await page.waitForURL(new RegExp(`/pedidos/${orderId}$`));
-  return orderId;
+  await page.waitForURL(/\/pedidos\/[0-9a-f-]+$/);
+  return page.url().match(/pedidos\/([0-9a-f-]+)$/)![1];
 }
 
 /**

@@ -57,16 +57,15 @@ test("entregador parceiro se cadastra com CPF ou CNPJ, espera a aprovação e o 
   await expect(visible(page, "courier-offer").first()).toContainText("Você ganha");
 });
 
-test("entrega pela rede do Chegô: o entregador pega, retira, entrega com o código e ganha a taxa", async ({ page, browser }) => {
+test("entrega pela rede do Chegô: o entregador pega, entrega com o código, a loja paga e fecha o expediente", async ({ page, browser }) => {
   const orderId = await placePaidOrder(page, "Ana Clara Souza", "forca-total-suplementos", ["Creatina 300 g"]);
   const [order] = await db`
     select code, delivery_code, delivery_provider, delivery_fee_cents, courier_fee_cents, subtotal_cents, commission_cents,
            service_fee_cents, store_amount_cents, platform_amount_cents
     from orders where id = ${orderId}`;
-  // A taxa de entrega (Centro, R$ 3,00) não vai para a loja: fica do lado da plataforma, que paga o entregador.
-  expect(order).toMatchObject({ delivery_provider: "platform", delivery_fee_cents: 300, courier_fee_cents: 300 });
-  expect(order.store_amount_cents).toBe(order.subtotal_cents - order.commission_cents);
-  expect(order.platform_amount_cents).toBe(order.commission_cents + order.service_fee_cents + 300);
+// O cliente paga tudo direto à loja (inclusive a entrega, Centro, R$ 3,00); a loja paga o entregador, por fora.
+  expect(order).toMatchObject({ delivery_provider: "platform", delivery_fee_cents: 300, courier_fee_cents: 300, commission_cents: 0, service_fee_cents: 0, platform_amount_cents: 0 });
+  expect(order.store_amount_cents).toBe(order.subtotal_cents + 300);
 
   // Antes de a loja aceitar, a entrega ainda não é oferecida.
   const courierPage = await (await browser.newContext()).newPage();
@@ -85,6 +84,7 @@ test("entrega pela rede do Chegô: o entregador pega, retira, entrega com o cód
   await expect(offer()).toContainText("Força Total Suplementos");
   await expect(offer()).toContainText("Entregar em Centro");
   await expect(offer()).toContainText("Você ganha R$ 3,00");
+  await expect(offer()).toContainText("pago pela loja, direto a você");
   await expect(offer()).not.toContainText("Ana Clara");
   await expect(offer()).not.toContainText("Rua do Comércio");
   const [notice] = await db`select count(*)::int as total from notifications where type = 'delivery_offer' and order_id = ${orderId}`;
@@ -124,16 +124,13 @@ test("entrega pela rede do Chegô: o entregador pega, retira, entrega com o cód
   await mine().getByRole("button", { name: "Entreguei" }).click();
   await expect(mine()).toHaveCount(0);
 
-  // O ganho aparece para o entregador e nos lançamentos: sai da plataforma, entra para ele.
-  const earning = visible(courierPage, "courier-earning").filter({ hasText: order.code });
-  await expect(earning).toContainText("R$ 3,00");
-  await expect(earning).toContainText("A receber");
-  const lines = await db`
-    select account::text, direction::text, amount_cents from ledger_entries where order_id = ${orderId} and reason = 'delivery' order by account`;
-  expect(lines).toEqual([
-    { account: "courier", direction: "credit", amount_cents: 300 },
-    { account: "platform", direction: "debit", amount_cents: 300 },
-  ]);
+// O ganho aparece para o entregador, a receber da loja. Nada passa pelos lançamentos do app.
+  const earning = () => visible(courierPage, "courier-earning").filter({ hasText: order.code });
+  await expect(earning()).toContainText("R$ 3,00");
+  await expect(earning()).toContainText("A receber da loja");
+  expect(await db`select count(*)::int as total from ledger_entries where order_id = ${orderId}`).toEqual([{ total: 0 }]);
+  // A entrega concluída gera a taxa do Chegô para a loja, uma vez.
+  expect(await db`select kind::text, amount_cents from fee_entries where order_id = ${orderId}`).toEqual([{ kind: "order_fee", amount_cents: 50 }]);
   const history = await db`select status from order_status_history where order_id = ${orderId} order by created_at`;
   expect(history.map((row) => row.status)).toEqual(["awaiting_payment", "paid", "accepted", "preparing", "ready", "out_for_delivery", "delivered"]);
 
@@ -142,18 +139,41 @@ test("entrega pela rede do Chegô: o entregador pega, retira, entrega com o cód
   await page.goto(`/pedidos/${orderId}`);
   await expect(visible(page, "order-status")).toHaveText("Entregue");
 
-  // O admin registra o repasse e o entregador passa a ver como repassado.
-  await loginAs(page, "Admin Chegô");
-  await page.goto("/admin/entregadores");
-  const row = visible(page, "admin-courier").filter({ hasText: "Wesley Santana" });
-  await expect(row).toContainText("Entregador do Chegô");
-  await row.getByRole("button", { name: /^Marcar repasse de/ }).click();
-  // Depois do repasse não sobra nada a receber, e o botão some.
-  await expect(row).toContainText("a receber R$ 0,00");
-  await expect(row.getByRole("button", { name: /^Marcar repasse de/ })).toHaveCount(0);
+// A loja paga o entregador por fora e marca no app; ele confirma que recebeu.
+  await loginAs(page, "Rafael Guedes");
+  await page.goto("/lojista/taxas");
+  const toPay = visible(page, "courier-to-pay").filter({ hasText: order.code });
+  await expect(toPay).toContainText("Wesley Santana");
+  await toPay.getByRole("button", { name: "Paguei o entregador" }).click();
+  await expect(toPay).toContainText("A loja disse que pagou");
   await courierPage.reload();
-  await expect(visible(courierPage, "courier-earning").filter({ hasText: order.code })).toContainText("Repassado");
+  await expect(earning()).toContainText("A loja disse que pagou");
+  await earning().getByRole("button", { name: "Recebi da loja" }).click();
+  await expect(earning()).toContainText("Recebido");
+  expect((await db`select status::text from courier_earnings where order_id = ${orderId}`)[0].status).toBe("confirmed");
   await courierPage.context().close();
+
+  // A loja confere e fecha o expediente: a taxa deste pedido, R$ 0,50.
+  await page.goto("/lojista/taxas");
+  await expect(visible(page, "open-summary")).toContainText("R$ 0,50");
+  await page.getByRole("button", { name: "Fechar expediente" }).click();
+  await expect(page.getByText("Confira o resumo e marque a caixa para fechar.")).toBeVisible();
+  await page.getByLabel("Conferi os valores acima").check();
+  await page.getByRole("button", { name: "Fechar expediente" }).click();
+  await expect(page).toHaveURL(/\/lojista\/taxas\/[0-9a-f-]+$/);
+  await expect(visible(page, "closing-due")).toHaveText("R$ 0,50");
+  await expect(visible(page, "closing-status")).toHaveText("Aguardando pagamento");
+
+  // Gera o Pix (simulado neste computador) e o "banco" confirma: o fechamento fica pago.
+  await page.getByRole("button", { name: "Gerar Pix de R$ 0,50" }).click();
+  await expect(visible(page, "fee-pix")).toContainText("Ambiente de testes: este Pix não é válido");
+  await page.getByRole("button", { name: "Simular pagamento do Pix" }).click();
+  await expect(visible(page, "closing-status")).toHaveText("Pago");
+
+  // O admin vê o recebido.
+  await loginAs(page, "Admin Chegô");
+  await page.goto("/admin/taxas");
+  await expect(visible(page, "stat").filter({ hasText: "Recebido" })).toContainText("R$ 0,50");
 });
 
 test("entregador desiste antes de retirar e a entrega volta para a fila; bloqueado não entrega", async ({ page }) => {

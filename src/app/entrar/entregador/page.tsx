@@ -11,6 +11,7 @@ export default function CourierLoginPage() {
       signupQuestion="Quer entregar pelo Chegô?"
       signupHref="/quero-entregar"
       signupLabel="Quero ser entregador"
+      area="courier"
     />
   );
 }

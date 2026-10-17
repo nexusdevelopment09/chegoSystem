@@ -12,6 +12,7 @@ import { withUser } from "@/lib/db";
 import { getMerchantContext } from "@/lib/merchant/context";
 import { WEEKDAY_NAMES } from "@/lib/time";
 import { deleteProduct, duplicateProduct, linkGroup, saveOptionPrices, saveProduct, unlinkGroup } from "../../actions";
+import { formatWeight, WEIGHT_STEPS } from "@/lib/catalog/weight";
 
 export const metadata: Metadata = { title: "Produto" };
 
@@ -39,6 +40,7 @@ type ProductRow = {
   id: string; section_id: string | null; name: string; description: string; price_cents: number; image_url: string | null;
   available: boolean; featured: boolean; min_lead_minutes: number; max_per_order: number | null; track_stock: boolean;
   stock_qty: number | null; requires_age_check: boolean;
+  weight_step_grams: number | null; price_per_kg_cents: number | null; weight_min_grams: number | null;
 };
 type LinkRow = { group_id: string; name: string; min_choices: number; max_choices: number; allow_repeat: boolean; price_mode: keyof typeof MODE_LABELS; free_quantity: number };
 type OptionRow = { id: string; group_id: string; name: string; default_price_cents: number; price_cents: number | null };
@@ -56,7 +58,7 @@ async function ProductEditor({ params }: { params: Params }) {
 
     const [product] = await tx<ProductRow[]>`
       select id, section_id, name, description, price_cents, image_url, available, featured, min_lead_minutes,
-             max_per_order, track_stock, stock_qty, requires_age_check
+             max_per_order, track_stock, stock_qty, requires_age_check, weight_step_grams, price_per_kg_cents, weight_min_grams
       from products where id = ${id} and store_id = ${store.id} and deleted_at is null`;
     if (!product) return null;
     return {
@@ -82,6 +84,8 @@ async function ProductEditor({ params }: { params: Params }) {
   const from = windows[0]?.starts_at.slice(0, 5) ?? "";
   const to = windows[0]?.ends_at.slice(0, 5) ?? "";
   const linked = new Set(links.map((link) => link.group_id));
+  // Vendido por peso: porção em gramas (null = por unidade).
+  const step = product?.weight_step_grams ?? null;
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
@@ -102,8 +106,34 @@ async function ProductEditor({ params }: { params: Params }) {
           Descrição
           <textarea name="description" maxLength={500} rows={3} defaultValue={product?.description} className={`${inputClass} py-3 font-normal`} />
         </label>
+        <fieldset className="flex flex-col gap-2 rounded-2xl bg-cream p-3">
+          <legend className="text-sm font-semibold">Como vende</legend>
+          <label className="flex min-h-11 items-center gap-3">
+            <input type="radio" name="saleUnit" value="unit" defaultChecked={!step} className={check} /> Por unidade
+          </label>
+          <label className="flex min-h-11 items-center gap-3">
+            <input type="radio" name="saleUnit" value="weight" defaultChecked={Boolean(step)} className={check} /> Por peso (o cliente escolhe os gramas)
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1.5 text-sm font-semibold">
+              Por peso: precisão
+              <select name="weightStep" defaultValue={String(step ?? 10)} className={inputClass}>
+                {WEIGHT_STEPS.map((grams) => <option key={grams} value={grams}>de {formatWeight(grams)} em {formatWeight(grams)}</option>)}
+              </select>
+            </label>
+            <Field label="Por peso: pedido mínimo (g)" name="weightMin" type="number" min={1}
+              defaultValue={product?.weight_min_grams ?? 100} />
+          </div>
+          <p className="text-sm text-coffee-soft">
+            Por peso, o <strong>preço é o do quilo</strong> e o <strong>estoque e o máximo por pedido são em gramas</strong>.
+            O cliente digita quantos gramas quer (por exemplo 110 g, com precisão de 10 g) e paga pelo preço do quilo.
+          </p>
+        </fieldset>
+
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Preço (R$)" name="price" required inputMode="decimal" defaultValue={product ? money(product.price_cents) : ""} hint="Use 0,00 quando o preço vem das opções (pizza)." />
+          <Field label={step ? "Preço do kg (R$)" : "Preço (R$)"} name="price" required inputMode="decimal"
+            defaultValue={product ? money(product.price_per_kg_cents ?? product.price_cents) : ""}
+            hint="Por peso: o preço do quilo. Use 0,00 quando o preço vem das opções (pizza)." />
           <label className="flex flex-col gap-1.5 text-sm font-semibold">
             Seção
             <select name="sectionId" defaultValue={product?.section_id ?? ""} className={inputClass}>
@@ -129,8 +159,10 @@ async function ProductEditor({ params }: { params: Params }) {
         </fieldset>
 
         <div className="grid grid-cols-3 gap-3">
-          <Field label="Estoque" name="stockQty" type="number" min={0} defaultValue={product?.stock_qty ?? ""} />
-          <Field label="Máx. por pedido" name="maxPerOrder" type="number" min={1} defaultValue={product?.max_per_order ?? ""} />
+          <Field label={step ? "Estoque (g)" : "Estoque"} name="stockQty" type="number" min={0}
+            defaultValue={product?.stock_qty == null ? "" : product.stock_qty * (step ?? 1)} />
+          <Field label={step ? "Máx. por pedido (g)" : "Máx. por pedido"} name="maxPerOrder" type="number" min={1}
+            defaultValue={product?.max_per_order == null ? "" : product.max_per_order * (step ?? 1)} />
           <Field label="Antecedência (horas)" name="minLeadHours" type="number" min={0} defaultValue={product ? product.min_lead_minutes / 60 : 0} />
         </div>
 

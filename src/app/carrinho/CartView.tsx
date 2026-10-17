@@ -7,6 +7,7 @@ import { Button, buttonClass } from "@/components/ui/Button";
 import { inputClass } from "@/components/ui/Field";
 import { clearCart, setCartNotes, updateCartItem, useCart, useCoupon, writeCoupon } from "@/lib/cart/local";
 import { formatCents } from "@/lib/format";
+import { formatWeight, weightPriceCents } from "@/lib/catalog/weight";
 
 export function CartView() {
   const cart = useCart();
@@ -38,6 +39,12 @@ export function CartView() {
         {cart.items.map((item) => {
           const line = lineOf(item.key);
           const unit = line && !line.error ? line.unitPriceCents : item.unitPriceCents;
+          // Por peso: o preço vem do quilo; os botões andam de 50 em 50 g (ou na precisão da loja, se maior).
+          const step = item.weightStepGrams ?? null;
+          const jump = step ? Math.max(1, Math.round(50 / step)) : 1;
+          const total = line && !line.error ? line.lineTotalCents
+            : step && item.pricePerKgCents ? weightPriceCents(item.pricePerKgCents, item.quantity * step) : unit * item.quantity;
+          const atMinimum = step ? (item.quantity - jump) * step < (item.weightMinGrams ?? step) : item.quantity <= 1;
           return (
             <li key={item.key} data-testid="cart-item" className="rounded-card bg-white p-4 shadow-sm ring-1 ring-peach">
               <div className="flex items-start justify-between gap-3">
@@ -49,15 +56,18 @@ export function CartView() {
                   {item.notes && <p className="text-sm text-coffee-soft">Obs: {item.notes}</p>}
                   {line?.error && <p className="text-sm font-bold text-danger" role="alert">{line.error}</p>}
                 </div>
-                <p className="shrink-0 font-bold">{formatCents(unit * item.quantity)}</p>
+                <p className="shrink-0 font-bold">{formatCents(total)}</p>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <div className="flex items-center gap-1 rounded-full bg-cream px-1">
-                  <button type="button" aria-label={`Diminuir ${item.name}`} className="size-11 text-2xl font-bold text-brand-dark"
-                    onClick={() => updateCartItem(item.key, { quantity: item.quantity - 1 })}>−</button>
-                  <span className="w-6 text-center font-bold" data-testid="cart-quantity">{item.quantity}</span>
+                  <button type="button" aria-label={`Diminuir ${item.name}`} className="size-11 text-2xl font-bold text-brand-dark disabled:opacity-40"
+                    disabled={step !== null && atMinimum}
+                    onClick={() => updateCartItem(item.key, { quantity: item.quantity - jump })}>−</button>
+                  <span className={`${item.weightStepGrams ? "min-w-16" : "w-6"} text-center font-bold`} data-testid="cart-quantity">
+                    {item.weightStepGrams ? formatWeight(item.quantity * item.weightStepGrams) : item.quantity}
+                  </span>
                   <button type="button" aria-label={`Aumentar ${item.name}`} className="size-11 text-2xl font-bold text-brand-dark"
-                    onClick={() => updateCartItem(item.key, { quantity: item.quantity + 1 })}>+</button>
+                    onClick={() => updateCartItem(item.key, { quantity: item.quantity + jump })}>+</button>
                 </div>
                 <button type="button" className="min-h-11 px-3 text-sm font-bold text-danger underline"
                   onClick={() => updateCartItem(item.key, { quantity: 0 })}>Remover</button>

@@ -15,7 +15,7 @@
 | **Entregador da rede do Chegô** (da plataforma ou parceiro autônomo) | Fica disponível, pega entregas, retira na loja, entrega com código |
 | **Admin da plataforma** | Aprova lojas e entregadores, acompanha pedidos ao vivo, suporte, moderação, financeiro, marketing (banners, cupons), configurações, auditoria |
 
-**Regra de ouro:** o pedido só chega à loja **depois do pagamento aprovado**. Antes disso a loja não vê o pedido nem os dados do cliente, e cliente e loja nunca trocam contato direto (o chat é moderado).
+**Regra de ouro (atual):** o cliente paga **direto à loja** (Pix da loja, dinheiro ou cartão na entrega); o pedido vai para a loja na hora e o Chegô cobra da loja **R$ 0,50 por pedido concluído**, fechado por expediente e pago por Pix (`src/lib/fees/`). A regra antiga — o pedido só chega à loja **depois do pagamento aprovado** pelo app — continua no código atrás de `PAYMENT_COLLECTION=app`. Cliente e loja nunca trocam contato fora do pedido (o chat é moderado).
 
 **Situação atual:** etapas 0 a 13 da especificação estão prontas e testadas. Roda **só localmente no Windows** do dono do projeto, com **pagamento simulado**. Não está em produção. Faltam: gateway de pagamento real (Etapa 14) e publicação (Etapa 15).
 

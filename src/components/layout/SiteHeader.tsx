@@ -1,24 +1,36 @@
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { signOut } from "@/app/entrar/actions";
 import { Logo } from "@/components/brand/Logo";
 import { CartSync } from "@/components/cart/CartSync";
 import { Button, buttonClass } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { sql } from "@/lib/db";
 
 const small = "min-h-11 px-3 text-sm sm:px-4";
 
-/** Barra do topo de todas as páginas: logo à esquerda, quem entrou à direita. */
-export function SiteHeader() {
+/**
+ * Barra do topo de todas as páginas: logo à esquerda, quem entrou à direita. A página
+ * inicial passa a busca e o endereço em `children`: no computador eles ficam no meio
+ * da barra; no celular, numa linha própria logo abaixo.
+ */
+export function SiteHeader({ children }: { children?: ReactNode }) {
   return (
-    <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3">
-      <Link href="/" aria-label="Chegô, página inicial">
-        <Logo size={36} />
-      </Link>
-      <Suspense fallback={<div className="h-11 w-24 animate-pulse rounded-full bg-peach" />}>
-        <UserArea />
-      </Suspense>
+    <header className={children ? "border-b border-peach/70 bg-white/70" : ""}>
+      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3">
+        <Link href="/" aria-label="Chegô, página inicial" className="shrink-0">
+          <Logo size={36} />
+        </Link>
+        {children && (
+          <div className="order-last flex w-full min-w-0 flex-col gap-3 md:order-none md:w-auto md:flex-1 md:flex-row md:items-center md:justify-center">
+            {children}
+          </div>
+        )}
+        <Suspense fallback={<div className="h-11 w-24 animate-pulse rounded-full bg-peach" />}>
+          <UserArea />
+        </Suspense>
+      </div>
     </header>
   );
 }
@@ -54,7 +66,7 @@ async function UserArea() {
       </span>
       <Link href="/notificacoes" data-testid="bell" aria-label={unread > 0 ? `Notificações: ${unread} não lida${unread > 1 ? "s" : ""}` : "Notificações"}
         className={buttonClass("secondary", "relative min-h-11 px-3 text-sm")}>
-        <span aria-hidden="true">🔔</span>
+        <Icon name="bell" size={20} />
         {unread > 0 && (
           <span aria-hidden="true" className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-danger px-1 text-xs font-bold text-white">
             {unread > 9 ? "9+" : unread}

@@ -6,7 +6,7 @@ import { z } from "zod";
 import { now } from "@/lib/clock";
 import { MAX_ACTIVE_DELIVERIES, OFFER_STATUSES, requireCourier } from "@/lib/couriers";
 import { sql } from "@/lib/db";
-import { notify, storeStaffIds } from "@/lib/notifications/notify";
+import { adminIds, notify, storeStaffIds } from "@/lib/notifications/notify";
 import { TransitionError, transitionOrder } from "@/lib/orders/transitions";
 
 type Tx = postgres.TransactionSql;
@@ -121,4 +121,44 @@ export async function completeDelivery(_previous: ActionState, formData: FormDat
     await transitionOrder(tx, { orderId: orderId.data, to: "delivered", actor: "courier", actorId: context.courierId, at: context.at });
     return "Entrega concluída. Valeu!";
   });
+}
+
+// ------------------------------------------------ pagamento feito pela loja
+
+/**
+ * O entregador confirma que recebeu da loja o valor da entrega. É a confirmação de quem
+ * recebeu: a loja dizer que pagou não basta para dar o ganho como recebido.
+ */
+export async function confirmEarning(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const { profile } = await requireCourier();
+  const id = uuid.safeParse(formData.get("id"));
+  if (!id.success) return { error: "Entrega inválida." };
+  const at = await now();
+  const updated = await sql`
+    update courier_earnings set status = 'confirmed', confirmed_at = ${at}, dispute_reason = null
+    where id = ${id.data} and courier_id = ${profile.id} and payer = 'store' and status in ('pending', 'paid_by_store', 'disputed')
+    returning id`;
+  if (updated.length === 0) return { error: "Este ganho não pode ser confirmado." };
+  revalidatePath("/entregador");
+  return { ok: true, message: "Obrigado! Ficou registrado que você recebeu." };
+}
+
+/** A loja marcou como pago, mas o entregador não recebeu: vai para o admin conferir. */
+export async function disputeEarning(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const { profile } = await requireCourier();
+  const id = uuid.safeParse(formData.get("id"));
+  if (!id.success) return { error: "Entrega inválida." };
+  const at = await now();
+  const [row] = await sql<{ store_id: string; code: string }[]>`
+    update courier_earnings e set status = 'disputed', dispute_reason = 'O entregador diz que não recebeu'
+    from orders o
+    where e.id = ${id.data} and e.courier_id = ${profile.id} and e.payer = 'store' and e.status = 'paid_by_store' and o.id = e.order_id
+    returning e.store_id, o.code`;
+  if (!row) return { error: "Este ganho não pode ser contestado." };
+  await notify({
+    profileIds: [...(await storeStaffIds(row.store_id, sql, ["owner"])), ...(await adminIds())], type: "courier_dispute", title: "Entregador diz que não recebeu",
+    body: `O entregador do pedido ${row.code} diz que ainda não recebeu o valor da entrega.`, link: "/lojista/taxas", at,
+  });
+  revalidatePath("/entregador");
+  return { ok: true, message: "Avisamos a loja e a equipe do Chegô." };
 }

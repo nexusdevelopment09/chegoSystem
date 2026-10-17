@@ -62,21 +62,23 @@ test("loja recebe o alerta, aceita, prepara e despacha; entregador conclui com o
   await expect(visible(page, "order-status")).toHaveText("Entregue");
 });
 
-test("loja recusa com motivo: cliente recebe o dinheiro e o aviso", async ({ page }) => {
+test("loja recusa com motivo: o cliente é avisado e, pagando direto à loja, não há o que devolver pelo app", async ({ page }) => {
   const orderId = await placePaidOrder(page, "Bruno Henrique Lima", "brasa-burger", ["Batata com cheddar e bacon"]);
   const [order] = await db`select code, total_cents from orders where id = ${orderId}`;
 
   await loginAs(page, "Thiago Bezerra");
   const card = page.locator('[data-testid="merchant-order"]:visible').filter({ hasText: order.code });
   await card.getByText("Recusar pedido").click();
-  await card.getByRole("button", { name: "Confirmar recusa e reembolsar" }).click();
+  await card.getByRole("button", { name: "Confirmar recusa" }).click();
   // O motivo é obrigatório.
   await card.getByLabel("Motivo").selectOption("Item esgotado");
-  await card.getByRole("button", { name: "Confirmar recusa e reembolsar" }).click();
+  await card.getByRole("button", { name: "Confirmar recusa" }).click();
   await expect(card).toHaveCount(0);
 
   const [after] = await db`select status, refunded_cents from orders where id = ${orderId}`;
-  expect(after).toEqual({ status: "rejected", refunded_cents: order.total_cents });
+  expect(after).toEqual({ status: "rejected", refunded_cents: 0 });
+  // Recusado não é concluído: não gera taxa do Chegô.
+  expect(await db`select count(*)::int as total from fee_entries where order_id = ${orderId}`).toEqual([{ total: 0 }]);
   const [history] = await db`select reason from order_status_history where order_id = ${orderId} and status = 'rejected'`;
   expect(history.reason).toBe("Item esgotado");
   const notices = await db`select title from notifications where order_id = ${orderId} and type = 'order_rejected'`;
@@ -87,45 +89,37 @@ test("loja recusa com motivo: cliente recebe o dinheiro e o aviso", async ({ pag
   await loginAs(page, "Bruno Henrique Lima");
   await page.goto(`/pedidos/${orderId}`);
   await expect(visible(page, "order-status")).toHaveText("Recusado pela loja");
-  await expect(visible(page, "refund-note")).toBeVisible();
+  await expect(page.locator('[data-testid="refund-note"]')).toHaveCount(0);
 });
 
-test("mercado remove item em falta: reembolso parcial com os lançamentos certos", async ({ page }) => {
+test("mercado remove item em falta: o item sai do total que o cliente paga à loja", async ({ page }) => {
   await setClock("2026-10-09T15:00");
   try {
     const orderId = await placePaidOrder(
       page, "Ana Clara Souza", "mercado-boa-compra",
       ["Arroz branco 1 kg", "Feijão carioca 1 kg", "Café torrado 250 g", "Leite em pó 400 g"],
-      () => page.getByRole("radio", { name: "Remover o item e devolver o valor" }).check(),
+      () => page.getByRole("radio", { name: "Remover o item (sai do total)" }).check(),
     );
     const [order] = await db`select code, total_cents, store_amount_cents from orders where id = ${orderId}`;
 
     await loginAs(page, "Cícero Vieira");
     await page.locator('[data-testid="merchant-order"]:visible').filter({ hasText: order.code }).getByRole("button", { name: "Aceitar" }).click();
     await page.goto(`/lojista/pedidos/${orderId}`);
-    await expect(page.getByText("Se faltar um item: Remover o item e devolver o valor")).toBeVisible();
+    await expect(page.getByText("Se faltar um item: Remover o item (sai do total)")).toBeVisible();
 
     const item = page.locator('[data-testid="merchant-item"]:visible').filter({ hasText: "Leite em pó 400 g" });
     await item.getByRole("button").click();
     await expect(item).toContainText("Removido: Item em falta");
-    await expect(visible(page, "merchant-refunded")).toHaveText("Reembolsado ao cliente: R$ 16,90");
-
-    // O pedido segue em frente; só o dinheiro daquele item voltou.
-    const [after] = await db`select status, refunded_cents from orders where id = ${orderId}`;
-    expect(after).toEqual({ status: "accepted", refunded_cents: 1690 });
-    const [refund] = await db`select amount_cents, store_share_cents, platform_share_cents from refunds where order_id = ${orderId}`;
-    expect(refund.store_share_cents + refund.platform_share_cents).toBe(1690);
-    expect(refund.store_share_cents).toBe(Math.round((1690 * order.store_amount_cents) / order.total_cents));
-    const ledger = await db`select account, direction, amount_cents from ledger_entries where order_id = ${orderId} and reason = 'refund' order by account`;
-    expect(ledger).toEqual([
-      { account: "store", direction: "debit", amount_cents: refund.store_share_cents },
-      { account: "platform", direction: "debit", amount_cents: refund.platform_share_cents },
-    ]);
-    expect((await db`select status from payments where order_id = ${orderId}`)[0].status).toBe("partially_refunded");
+    // O pedido segue em frente; o item sai do total (nada foi cobrado pelo app para devolver).
+    const [after] = await db`select status, refunded_cents, total_cents, store_amount_cents from orders where id = ${orderId}`;
+    expect(after).toEqual({ status: "accepted", refunded_cents: 0, total_cents: order.total_cents - 1690, store_amount_cents: order.store_amount_cents - 1690 });
+    expect(await db`select count(*)::int as total from refunds where order_id = ${orderId}`).toEqual([{ total: 0 }]);
+    const [notice] = await db`select body from notifications where order_id = ${orderId} and type = 'order_item_removed'`;
+    expect(notice.body).toContain("saiu do total que você vai pagar");
 
     await loginAs(page, "Ana Clara Souza");
     await page.goto(`/pedidos/${orderId}`);
-    await expect(visible(page, "refund-note")).toHaveText("Devolvemos R$ 16,90 para você.");
+    await expect(visible(page, "summary-total")).toHaveText(`R$ ${((order.total_cents - 1690) / 100).toFixed(2).replace(".", ",")}`);
   } finally {
     await setClock("2026-10-09T20:00");
   }
@@ -208,7 +202,7 @@ test("impressão térmica mostra os sabores, a borda e o aviso de documento", as
     select o.id from orders o join stores s on s.id = o.store_id
     join order_items i on i.order_id = o.id join order_item_options op on op.order_item_id = i.id
     where s.slug = 'pizzaria-forno-de-barro' and o.paid_at is not null and op.group_name = 'Sabores'
-    group by o.id having count(*) >= 2 limit 1`;
+    group by o.id, i.id having count(*) >= 2 limit 1`;
 
   await loginAs(page, "Marcos Antônio Tavares");
   await page.addInitScript(() => { window.print = () => {}; });

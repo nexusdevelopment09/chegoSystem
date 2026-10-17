@@ -12,6 +12,7 @@ import { loadOrders, type OrderView } from "@/lib/orders/queries";
 import type { OrderStatus } from "@/lib/orders/status";
 import { getSettings } from "@/lib/settings";
 import { fromLocal, MINUTE_MS, toLocal } from "@/lib/time";
+import { quantityLabel } from "@/lib/catalog/weight";
 
 export const metadata: Metadata = { title: "Pedidos da loja" };
 
@@ -83,7 +84,7 @@ async function OrdersBoard() {
                     <ul className="text-sm text-coffee-soft">
                       {order.items.filter((item) => !item.removed).map((item) => (
                         <li key={item.id}>
-                          {item.quantity}x {item.name}
+                          {quantityLabel(item.quantity, item.weightStepGrams)} {item.name}
                           {item.lines.map((line) => <span key={line} className="block pl-3">{line}</span>)}
                           {item.notes && <span className="block pl-3 font-semibold text-coffee">Obs: {item.notes}</span>}
                         </li>

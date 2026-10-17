@@ -85,7 +85,7 @@ export const RELEASES_STOCK: OrderStatus[] = ["expired", "rejected", "cancelled"
 
 export const STATUS_LABELS: Record<OrderStatus, string> = {
   awaiting_payment: "Aguardando pagamento",
-  paid: "Pago, esperando a loja aceitar",
+  paid: "Enviado, esperando a loja aceitar",
   accepted: "Aceito pela loja",
   preparing: "Em preparo",
   ready: "Pronto",
@@ -107,7 +107,7 @@ export const CUSTOMER_MESSAGES: Partial<Record<OrderStatus, { title: string; bod
   out_for_delivery: { title: "Seu pedido saiu!", body: "Já já chega aí." },
   delivered: { title: "Pedido entregue", body: "Bom proveito! Depois conta pra gente como foi." },
   picked_up: { title: "Pedido retirado", body: "Bom proveito! Depois conta pra gente como foi." },
-  rejected: { title: "Eita, a loja não pôde aceitar seu pedido", body: "O valor já foi devolvido para você." },
+  rejected: { title: "Eita, a loja não pôde aceitar seu pedido", body: "Se você pagou pelo app, o valor já foi devolvido. Tente outra loja." },
   cancelled: { title: "Pedido cancelado", body: "Se você já tinha pago, o valor foi devolvido." },
   expired: { title: "O prazo do pagamento acabou", body: "Seu pedido não foi enviado para a loja. É só pedir de novo." },
   refunded: { title: "Reembolso feito", body: "Devolvemos o valor do seu pedido." },

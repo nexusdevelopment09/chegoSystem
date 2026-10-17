@@ -15,7 +15,8 @@
 
 ## 2. Trabalho técnico
 
-1. **Gateway real em modo de teste (Etapa 14).** Escrever um novo provedor de pagamento ao lado do simulado (`src/lib/payments/`). O resto do sistema não muda, porque só conversa com a interface `PaymentProvider`. Rodar todos os testes de pagamento contra o ambiente de teste do gateway.
+0. **Provedor Pix das taxas do Chegô.** Escolher o provedor (Asaas, Mercado Pago, Efí...), abrir a conta da empresa e escrever o provedor em `src/lib/fees/pix.ts` seguindo a documentação oficial dele (criação da cobrança, webhook assinado e consulta para conciliação). Configurar `FEE_PIX_PROVIDER` e os segredos no `.env` da VPS e testar no ambiente de testes (sandbox) do provedor antes de valer de verdade.
+1. **Gateway real em modo de teste (Etapa 14), se um dia o cliente for pagar pelo app.** Escrever um novo provedor de pagamento ao lado do simulado (`src/lib/payments/`). O resto do sistema não muda, porque só conversa com a interface `PaymentProvider`. Rodar todos os testes de pagamento contra o ambiente de teste do gateway.
 2. **Envio real de mensagens.** Trocar o envio simulado (`src/lib/notifications/outbound.ts`) por um fornecedor de SMS, WhatsApp e e-mail.
 3. **Login.** Hoje é por telefone e senha, e quem esquece a senha pede uma provisória ao admin. Com SMS ou WhatsApp de verdade, dá para acrescentar "esqueci a senha" por código. No servidor, o admin é criado pelo `.env` (`ADMIN_EMAIL`, `ADMIN_PASSWORD`), e `LOGIN_USERNAME_DOMAIN` não deve existir.
 4. **Banco.** Criar o PostgreSQL na nuvem, aplicar as migrations e **não** rodar o seed (ele só cria dados fictícios).

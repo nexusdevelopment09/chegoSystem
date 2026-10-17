@@ -62,8 +62,14 @@ async function ProductContent({ params }: { params: Params }) {
         <h1 className="text-3xl">{product.name}</h1>
         {product.description && <p className="mt-1 text-coffee-soft">{product.description}</p>}
         <p className="mt-2 text-xl font-bold">
-          {hasChoices && from !== product.priceCents ? "A partir de " : ""}
-          {formatCents(from)}
+          {product.pricePerKgCents ? (
+            <>{formatCents(product.pricePerKgCents)}<span className="text-base font-normal text-coffee-soft"> o kg</span></>
+          ) : (
+            <>
+              {hasChoices && from !== product.priceCents ? "A partir de " : ""}
+              {formatCents(from)}
+            </>
+          )}
         </p>
         {status.note && (
           <p className="mt-2 inline-block rounded-full bg-peach px-3 py-1 text-sm font-bold text-brand-darker">{status.note}</p>
@@ -78,6 +84,7 @@ async function ProductContent({ params }: { params: Params }) {
           id: product.id, storeId: product.storeId, storeSlug: product.storeSlug, storeName: product.storeName,
           name: product.name, priceCents: product.priceCents, imageUrl: product.imageUrl,
           maxPerOrder: product.maxPerOrder, groups: product.groups,
+          weightStepGrams: product.weightStepGrams, pricePerKgCents: product.pricePerKgCents, weightMinGrams: product.weightMinGrams,
         }}
         blockedReason={status.orderable ? null : status.note}
       />

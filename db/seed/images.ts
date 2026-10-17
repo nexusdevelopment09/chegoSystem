@@ -323,10 +323,13 @@ function logoSvg(storeName: string, color: string, product: { name: string; art:
 function sceneSvg(width: number, height: number, color: string, items: { name: string; art: Drawing }[], text?: { title: string; subtitle: string }) {
   const dark = mix(color, -0.25);
   // Com texto, os desenhos ficam menores e do lado direito; sem texto, ocupam a faixa toda.
-  const size = Math.round(height * (text ? 0.5 : 0.62));
+  const size = Math.round(height * (text ? 0.46 : 0.58));
   const radius = size * 0.56;
-  const start = text ? width * 0.66 : radius + 16;
-  const end = width - radius - 16;
+  // Margem de 6% nas laterais: os banners e capas são mostrados com cantos arredondados,
+  // e um desenho encostado na borda parece cortado.
+  const margin = width * 0.06;
+  const start = text ? width * 0.62 : radius + margin;
+  const end = width - radius - margin;
   const step = (end - start) / Math.max(1, items.length - 1);
   const drawings = items.map((item, index) => {
     const { drawing, colors } = drawingFor(item.name, item.art);

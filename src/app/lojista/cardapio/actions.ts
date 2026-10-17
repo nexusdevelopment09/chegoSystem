@@ -9,6 +9,7 @@ import { withUser } from "@/lib/db";
 import { parseMoney } from "@/lib/format";
 import { adjustPrice, parseMenuCsv } from "@/lib/merchant/csv";
 import { pickedFile, PRODUCT_VARIANTS, saveImage, UploadError } from "@/lib/uploads";
+import { portionPriceCents, WEIGHT_STEPS } from "@/lib/catalog/weight";
 
 // Toda gravação aqui roda como o usuário que entrou (withUser), então, além da
 // checagem de papel, as regras de acesso por linha (RLS) garantem que a loja só edita o próprio cardápio.
@@ -95,9 +96,9 @@ export async function duplicateProduct(formData: FormData): Promise<void> {
   const copyId = await withUser(profile.id, async (tx) => {
     const [copy] = await tx<{ id: string }[]>`
       insert into products (store_id, section_id, name, description, price_cents, image_url, available, sort_order,
-                            min_lead_minutes, max_per_order, track_stock, stock_qty, requires_age_check)
+                            min_lead_minutes, max_per_order, track_stock, stock_qty, requires_age_check, weight_step_grams, price_per_kg_cents, weight_min_grams)
       select store_id, section_id, name || ' (cópia)', description, price_cents, image_url, false, sort_order + 1,
-             min_lead_minutes, max_per_order, track_stock, stock_qty, requires_age_check
+             min_lead_minutes, max_per_order, track_stock, stock_qty, requires_age_check, weight_step_grams, price_per_kg_cents, weight_min_grams
       from products where id = ${id} and deleted_at is null
       returning id`;
     if (!copy) return null;
@@ -137,12 +138,27 @@ export async function saveProduct(_previous: ActionState, formData: FormData): P
     stockQty: formData.get("stockQty") ?? "", windowFrom: formData.get("windowFrom") ?? "", windowTo: formData.get("windowTo") ?? "",
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const priceCents = parseMoney(String(formData.get("price") ?? ""));
-  if (priceCents === null) return { error: "Preço inválido. Use o formato 12,50." };
+  const typedPrice = parseMoney(String(formData.get("price") ?? ""));
+  if (typedPrice === null) return { error: "Preço inválido. Use o formato 12,50." };
 
   const data = parsed.data;
   const trackStock = formData.get("trackStock") === "on";
-  if (trackStock && data.stockQty === "") return { error: "Diga quantas unidades tem em estoque." };
+  if (trackStock && data.stockQty === "") return { error: "Diga quanto tem em estoque." };
+
+  // Por peso: o preço digitado é o do quilo, e estoque e máximo por pedido vêm em gramas.
+  // O banco guarda porções: o preço de uma porção e quantas porções cabem no estoque.
+  const byWeight = formData.get("saleUnit") === "weight";
+  const step = byWeight ? Number(formData.get("weightStep")) : null;
+  if (byWeight && !WEIGHT_STEPS.includes(step as (typeof WEIGHT_STEPS)[number])) return { error: "Escolha de quantos em quantos gramas vende." };
+  if (byWeight && typedPrice <= 0) return { error: "Diga o preço do quilo." };
+  const minGrams = byWeight ? Number(String(formData.get("weightMin") ?? "").trim() || step) : null;
+  if (byWeight && (!Number.isInteger(minGrams) || minGrams! < step! || minGrams! % step! !== 0)) {
+    return { error: `O mínimo em gramas precisa ser múltiplo de ${step} g (e pelo menos ${step} g).` };
+  }
+  const priceCents = byWeight ? portionPriceCents(typedPrice, step!) : typedPrice;
+  const toPortions = (grams: number) => Math.floor(grams / step!);
+  const stockQty = trackStock ? (byWeight ? toPortions(data.stockQty as number) : (data.stockQty as number)) : null;
+  const maxPerOrder = data.maxPerOrder === "" ? null : byWeight ? Math.max(1, toPortions(data.maxPerOrder)) : data.maxPerOrder;
   const weekdays = formData.getAll("weekdays").map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6);
 
   let imageUrl: string | null | undefined;
@@ -158,8 +174,9 @@ export async function saveProduct(_previous: ActionState, formData: FormData): P
   const fields = {
     section_id: data.sectionId || null, name: data.name, description: data.description, price_cents: priceCents,
     available: formData.get("available") === "on", featured: formData.get("featured") === "on",
-    min_lead_minutes: data.minLeadHours * 60, max_per_order: data.maxPerOrder === "" ? null : data.maxPerOrder,
-    track_stock: trackStock, stock_qty: trackStock ? (data.stockQty as number) : null,
+    min_lead_minutes: data.minLeadHours * 60, max_per_order: maxPerOrder,
+    track_stock: trackStock, stock_qty: stockQty,
+    weight_step_grams: step, price_per_kg_cents: byWeight ? typedPrice : null, weight_min_grams: minGrams,
     requires_age_check: formData.get("requiresAgeCheck") === "on",
   };
 
@@ -364,8 +381,19 @@ export async function importMenuCsv(_previous: ActionState, formData: FormData):
         section_id: sectionId, description: product.description, price_cents: product.priceCents,
         available: product.available, track_stock: product.stock !== null, stock_qty: product.stock,
       };
+      // Produto vendido por peso: na planilha o preço é o do quilo e o estoque é em gramas.
+      const [weighted] = await tx<{ weight_step_grams: number }[]>`
+        select weight_step_grams from products
+        where store_id = ${membership.storeId} and deleted_at is null and lower(name) = lower(${product.name}) and weight_step_grams is not null
+        limit 1`;
+      const update = weighted
+        ? {
+            ...fields, price_per_kg_cents: product.priceCents, price_cents: portionPriceCents(product.priceCents, weighted.weight_step_grams),
+            stock_qty: product.stock === null ? null : Math.floor(product.stock / weighted.weight_step_grams),
+          }
+        : fields;
       const changed = await tx`
-        update products set ${tx(fields)}
+        update products set ${tx(update)}
         where store_id = ${membership.storeId} and deleted_at is null and lower(name) = lower(${product.name})
         returning id`;
       if (changed.length > 0) updated += changed.length;
@@ -390,12 +418,18 @@ export async function adjustPrices(_previous: ActionState, formData: FormData): 
   const sectionId = uuid.safeParse(formData.get("sectionId"));
 
   const count = await withUser(profile.id, async (tx) => {
-    const products = await tx<{ id: string; price_cents: number }[]>`
-      select id, price_cents from products
+    const products = await tx<{ id: string; price_cents: number; price_per_kg_cents: number | null; weight_step_grams: number | null }[]>`
+      select id, price_cents, price_per_kg_cents, weight_step_grams from products
       where store_id = ${membership.storeId} and deleted_at is null
         ${sectionId.success ? tx`and section_id = ${sectionId.data}` : tx``}`;
     for (const product of products) {
-      await tx`update products set price_cents = ${adjustPrice(product.price_cents, percent.data)} where id = ${product.id}`;
+      if (product.price_per_kg_cents && product.weight_step_grams) {
+        // Por peso: reajusta o quilo e recalcula a porção a partir dele.
+        const perKg = adjustPrice(product.price_per_kg_cents, percent.data);
+        await tx`update products set price_per_kg_cents = ${perKg}, price_cents = ${portionPriceCents(perKg, product.weight_step_grams)} where id = ${product.id}`;
+      } else {
+        await tx`update products set price_cents = ${adjustPrice(product.price_cents, percent.data)} where id = ${product.id}`;
+      }
     }
     // Os preços definidos por produto (sabores de pizza por tamanho) seguem o mesmo reajuste.
     const optionPrices = await tx<{ product_id: string; option_id: string; price_cents: number }[]>`

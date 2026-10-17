@@ -1,40 +1,60 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
+import { BannerCarousel } from "@/components/home/BannerCarousel";
+import { CategoryNav } from "@/components/home/CategoryNav";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { FilterChips } from "@/components/store/FilterChips";
 import { SearchBox } from "@/components/store/SearchBox";
-import { WideImage } from "@/components/ui/WideImage";
-import { StoreList, StoreListSkeleton } from "@/components/store/StoreCard";
+import { StoreGrid, StoreGridSkeleton, StoreList } from "@/components/store/StoreCard";
+import { Icon } from "@/components/ui/Icon";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
-import { CATEGORY_EMOJI } from "@/lib/labels";
-import { STORAGE_DIR } from "@/lib/storage-dir";
 import { getShoppingContext } from "@/lib/shopping-context";
-import { listStores, type StoreSummary } from "@/lib/stores/queries";
+import { applyStoreFilters, hasActiveFilters } from "@/lib/stores/filters";
+import { listStores } from "@/lib/stores/queries";
+import { DAY_MS } from "@/lib/time";
 
-export default async function Home() {
+type SearchParams = Promise<Record<string, string | undefined>>;
+
+export default async function Home({ searchParams }: { searchParams: SearchParams }) {
   const context = await getShoppingContext();
   if (!context.city || context.firstVisit) redirect("/boas-vindas");
 
   return (
     <>
-      <SiteHeader />
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 pb-10">
-        <SearchBox />
-        <Suspense fallback={<StoreListSkeleton />}>
-          <HomeContent />
+      <SiteHeader>
+        {/* Onde a entrega vai chegar: o primeiro passo de qualquer app de delivery. */}
+        <Link
+          href="/boas-vindas?onde=1"
+          className="inline-flex min-h-11 max-w-full shrink-0 items-center gap-2 self-start rounded-full bg-white px-4 text-sm shadow-sm ring-1 ring-peach transition hover:ring-brand md:self-auto"
+        >
+          <Icon name="pin" size={18} className="shrink-0 text-brand-dark" />
+          <span className="shrink-0 text-coffee-soft">Entregar em</span>
+          <span className="truncate font-bold text-coffee" data-testid="current-location">
+            {context.neighborhood?.name ?? "escolher bairro"}, {context.city.name}
+          </span>
+          <Icon name="chevronDown" size={16} className="shrink-0 text-brand-dark" />
+        </Link>
+        <div className="min-w-0 md:max-w-xl md:flex-1">
+          <SearchBox />
+        </div>
+      </SiteHeader>
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-7 px-4 pb-12 pt-5 sm:gap-9 sm:pt-6">
+        <Suspense fallback={<StoreGridSkeleton />}>
+          <HomeContent searchParams={searchParams} />
         </Suspense>
       </main>
-      <footer className="flex flex-wrap justify-center gap-x-4 gap-y-1 px-4 py-6 text-center text-sm text-coffee-soft">
-        <span>Chegô · Pediu, Chegô.</span>
-        <Link href="/quero-vender" className="font-semibold text-brand-dark underline">Quero vender no Chegô</Link>
-        <Link href="/quero-entregar" className="font-semibold text-brand-dark underline">Quero entregar</Link>
-        <Link href="/termos/uso" className="underline">Termos</Link>
-        <Link href="/termos/privacidade" className="underline">Privacidade</Link>
-        <Link href="/ajuda" className="underline">Ajuda</Link>
+      <footer className="border-t border-peach/70 bg-white/60">
+        <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-x-5 gap-y-1 px-4 py-6 text-center text-sm text-coffee-soft">
+          <span>Chegô · Pediu, Chegô.</span>
+          <Link href="/quero-vender" className="font-semibold text-brand-dark underline">Quero vender no Chegô</Link>
+          <Link href="/quero-entregar" className="font-semibold text-brand-dark underline">Quero entregar</Link>
+          <Link href="/termos/uso" className="underline">Termos</Link>
+          <Link href="/termos/privacidade" className="underline">Privacidade</Link>
+          <Link href="/ajuda" className="underline">Ajuda</Link>
+        </div>
       </footer>
     </>
   );
@@ -43,7 +63,7 @@ export default async function Home() {
 function Shelf({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
   return (
     <section>
-      <h2 className="mb-2 flex flex-wrap items-baseline gap-2 text-2xl">
+      <h2 className="mb-3 flex flex-wrap items-baseline gap-x-2 text-xl sm:text-2xl">
         {title}
         {note && <span className="font-sans text-sm font-normal text-coffee-soft">{note}</span>}
       </h2>
@@ -52,8 +72,8 @@ function Shelf({ title, note, children }: { title: string; note?: string; childr
   );
 }
 
-async function HomeContent() {
-  const context = await getShoppingContext();
+async function HomeContent({ searchParams }: { searchParams: SearchParams }) {
+  const [context, filters] = await Promise.all([getShoppingContext(), searchParams]);
   if (!context.city || context.firstVisit) redirect("/boas-vindas");
 
   if (context.city.maintenance) {
@@ -71,8 +91,8 @@ async function HomeContent() {
 
   const [stores, categories, banners, recentStoreIds] = await Promise.all([
     listStores({ cityId: context.city.id, neighborhoodId: context.neighborhood?.id }, at),
-    sql<{ slug: string; name: string; icon: string }[]>`
-      select c.slug, c.name, c.icon from categories c
+    sql<{ slug: string; name: string }[]>`
+      select c.slug, c.name from categories c
       where c.active and exists (
         select 1 from stores s where s.category_id = c.id and s.city_id = ${context.city.id} and s.status in ('active', 'paused'))
       order by c.sort_order`,
@@ -89,75 +109,65 @@ async function HomeContent() {
       : Promise.resolve([]),
   ]);
 
+  const filtered = hasActiveFilters(filters) ? applyStoreFilters(stores, filters) : null;
   const open = stores.filter((store) => store.availability.state === "open");
+  const closed = stores.filter((store) => store.availability.state !== "open");
   const featured = stores.filter((store) => store.featured);
   const again = recentStoreIds.flatMap(({ store_id }) => stores.find((store) => store.id === store_id) ?? []);
-  const newest = [...stores].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 4);
-  const closed = stores.filter((store) => store.availability.state !== "open");
+  // Novidades: só lojas que entraram no Chegô nos últimos 30 dias.
+  const newest = stores
+    .filter((store) => at.getTime() - store.createdAt.getTime() <= 30 * DAY_MS)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 4);
 
   return (
     <>
-      <p className="-mt-3 text-sm text-coffee-soft">
-        Entregar em{" "}
-        <Link href="/boas-vindas?onde=1" className="font-bold text-brand-dark underline" data-testid="current-location">
-          {hoodName ?? "escolher bairro"}, {context.city.name}
-        </Link>
-      </p>
+      <BannerCarousel
+        banners={banners.map((banner) => ({ id: banner.id, title: banner.title, imageUrl: banner.image_url, linkUrl: banner.link_url }))}
+      />
 
-      <nav aria-label="Categorias" className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
-        {categories.map((category) => (
-          <Link key={category.slug} href={`/categoria/${category.slug}`} className="flex w-20 shrink-0 flex-col items-center gap-1 text-center text-xs font-semibold">
-            {existsSync(join(STORAGE_DIR, "categories", `${category.slug}.webp`)) ? (
-              // Imagem do segmento (240px, poucos KB). <img> comum: o arquivo já está no tamanho certo.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={`/files/categories/${category.slug}.webp`} alt="" width={64} height={64} decoding="async" className="size-16 rounded-3xl bg-peach" />
-            ) : (
-              <span className="flex size-16 items-center justify-center rounded-3xl bg-peach text-3xl" aria-hidden="true">
-                {CATEGORY_EMOJI[category.icon] ?? "🛍️"}
-              </span>
-            )}
-            {category.name}
-          </Link>
-        ))}
-      </nav>
-
-      {banners.length > 0 && (
-        <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4" aria-label="Promoções" role="region">
-          {banners.map((banner) => {
-            const image = <WideImage url={banner.image_url} alt={banner.title} width={1200} height={500} priority={banner.id === banners[0].id} className="aspect-[12/5] w-full rounded-card" />;
-            return (
-              <div key={banner.id} className="w-[85%] shrink-0 snap-center sm:w-[420px]">
-                {banner.link_url ? <Link href={banner.link_url}>{image}</Link> : image}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {featured.length > 0 && (
-        <Shelf title="Destaques" note="Lojas com destaque pago">
-          <StoreList stores={featured} neighborhoodName={hoodName} empty="" />
+      {categories.length > 0 && (
+        <Shelf title="O que você procura hoje?">
+          <CategoryNav categories={categories} />
         </Shelf>
       )}
 
-      {again.length > 0 && (
-        <Shelf title="Pedir de novo">
-          <StoreList stores={again as StoreSummary[]} neighborhoodName={hoodName} empty="" />
+      <FilterChips basePath="/" params={filters} />
+
+      {filtered ? (
+        <Shelf title="Lojas" note={filtered.length === 1 ? "1 encontrada" : `${filtered.length} encontradas`}>
+          <StoreGrid stores={filtered} neighborhoodName={hoodName} empty="Nenhuma loja com esses filtros. Tente tirar algum." />
         </Shelf>
-      )}
+      ) : (
+        <>
+          {featured.length > 0 && (
+            <Shelf title="Destaques" note="Lojas com destaque pago">
+              <StoreGrid stores={featured} neighborhoodName={hoodName} empty="" />
+            </Shelf>
+          )}
 
-      <Shelf title="Abertas agora">
-        <StoreList stores={open} neighborhoodName={hoodName} empty="Eita, está tudo fechado agora. Dá uma olhada nas lojas abaixo e agende seu pedido." />
-      </Shelf>
+          {again.length > 0 && (
+            <Shelf title="Pedir de novo">
+              <StoreList stores={again} neighborhoodName={hoodName} empty="" />
+            </Shelf>
+          )}
 
-      <Shelf title="Novidades na cidade">
-        <StoreList stores={newest} neighborhoodName={hoodName} empty="Nenhuma loja por aqui ainda." />
-      </Shelf>
+          <Shelf title="Abertas agora">
+            <StoreGrid stores={open} neighborhoodName={hoodName} empty="Eita, está tudo fechado agora. Dá uma olhada nas lojas abaixo e agende seu pedido." />
+          </Shelf>
 
-      {closed.length > 0 && (
-        <Shelf title="Fechadas no momento">
-          <StoreList stores={closed} neighborhoodName={hoodName} empty="" />
-        </Shelf>
+          {newest.length > 0 && (
+            <Shelf title="Novidades na cidade">
+              <StoreList stores={newest} neighborhoodName={hoodName} empty="" />
+            </Shelf>
+          )}
+
+          {closed.length > 0 && (
+            <Shelf title="Fechadas no momento">
+              <StoreList stores={closed} neighborhoodName={hoodName} empty="" />
+            </Shelf>
+          )}
+        </>
       )}
     </>
   );

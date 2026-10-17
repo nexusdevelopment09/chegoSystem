@@ -1,5 +1,6 @@
 import "server-only";
 import type postgres from "postgres";
+import { recordCompletedOrderFees, reverseOrderFees } from "@/lib/fees/ledger";
 import { adminIds, availableCourierIds, notify, storeStaffIds } from "@/lib/notifications/notify";
 import { refundOrder } from "@/lib/payments/refunds";
 import {
@@ -30,6 +31,7 @@ type OrderRow = {
   store_amount_cents: number; platform_amount_cents: number; total_cents: number; refunded_cents: number;
   coupon_id: string | null; paid_at: Date | null;
   city_id: string; delivery_provider: "store" | "platform"; courier_id: string | null; courier_fee_cents: number;
+  payment_collection: "app" | "store"; discount_cents: number; discount_paid_by: "platform" | "store" | null;
 };
 
 /**
@@ -41,7 +43,8 @@ type OrderRow = {
 export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<OrderRow> {
   const [order] = await tx<OrderRow[]>`
     select id, code, status, fulfillment, customer_id, store_id, store_amount_cents, platform_amount_cents,
-           total_cents, refunded_cents, coupon_id, paid_at, city_id, delivery_provider, courier_id, courier_fee_cents
+           total_cents, refunded_cents, coupon_id, paid_at, city_id, delivery_provider, courier_id, courier_fee_cents,
+           payment_collection, discount_cents, discount_paid_by
     from orders where id = ${input.orderId} for update`;
   if (!order) throw new TransitionError("Pedido não encontrado.");
 
@@ -66,8 +69,12 @@ export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<O
     insert into order_status_history (order_id, status, changed_by, reason, created_at)
     values (${order.id}, ${to}::order_status, ${input.actorId}, ${input.reason ?? null}, ${at})`;
 
+  // Pago pelo app: o dinheiro passou pelo gateway e é dividido nos lançamentos.
+  // Direto à loja, o app não recebe nada: não há lançamento de venda.
+  const viaApp = order.payment_collection === "app";
+
   if (to === "paid") {
-    for (const line of saleLedgerLines({ storeAmountCents: order.store_amount_cents, platformAmountCents: order.platform_amount_cents })) {
+    for (const line of viaApp ? saleLedgerLines({ storeAmountCents: order.store_amount_cents, platformAmountCents: order.platform_amount_cents }) : []) {
       await tx`
         insert into ledger_entries (account, store_id, direction, amount_cents, reason, order_id, created_at)
         values (${line.account}::ledger_account, ${line.account === "store" ? order.store_id : null},
@@ -91,14 +98,16 @@ export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<O
     }, tx);
   }
 
-  // Entrega concluída pela rede: o ganho do entregador é registrado, saindo da parte da plataforma.
+  // Entrega concluída pela rede: o ganho do entregador é registrado. Pago pelo app, sai da
+  // parte da plataforma; direto à loja, quem paga o entregador é a loja, por fora do app.
   const courierId = input.courierId ?? order.courier_id;
   if (to === "delivered" && byNetwork && courierId && order.courier_fee_cents > 0) {
     const earned = await tx`
-      insert into courier_earnings (order_id, courier_id, amount_cents, created_at)
-      values (${order.id}, ${courierId}, ${order.courier_fee_cents}, ${at})
+      insert into courier_earnings (order_id, courier_id, amount_cents, created_at, payer, store_id)
+      values (${order.id}, ${courierId}, ${order.courier_fee_cents}, ${at},
+              ${viaApp ? "platform" : "store"}::courier_payer, ${viaApp ? null : order.store_id})
       on conflict (order_id) do nothing returning id`;
-    if (earned.length > 0) {
+    if (earned.length > 0 && viaApp) {
       await tx`
         insert into ledger_entries (account, courier_id, direction, amount_cents, reason, order_id, created_at) values
           ('platform', null, 'debit', ${order.courier_fee_cents}, 'delivery', ${order.id}, ${at}),
@@ -106,8 +115,18 @@ export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<O
     }
   }
 
-  // O dinheiro volta por inteiro sempre que um pedido pago é recusado ou cancelado.
-  const paid = order.paid_at !== null || order.status !== "awaiting_payment";
+  // Taxa do Chegô: um pedido pago direto à loja e concluído gera a taxa (uma vez só).
+  if (!viaApp && (to === "delivered" || to === "picked_up")) {
+    await recordCompletedOrderFees(tx, order, at);
+  }
+  // Reembolsado depois de concluído (a loja devolveu o dinheiro ao cliente): a taxa é estornada.
+  if (!viaApp && to === "refunded") {
+    await reverseOrderFees(tx, order.id, at, input.reason ?? "Pedido reembolsado");
+  }
+
+  // O dinheiro volta por inteiro sempre que um pedido pago pelo app é recusado ou cancelado.
+  // Direto à loja não há o que devolver pelo app.
+  const paid = viaApp && (order.paid_at !== null || order.status !== "awaiting_payment");
   if ((to === "rejected" || to === "cancelled") && paid && order.refunded_cents < order.total_cents) {
     await refundOrder(tx, {
       orderId: order.id, amountCents: "all", at, requestedBy: input.actorId,

@@ -9,6 +9,8 @@ export type OrderItemView = {
   productId: string | null;
   name: string;
   quantity: number;
+  /** Vendido por peso: porção em gramas copiada no pedido. */
+  weightStepGrams: number | null;
   unitPriceCents: number;
   lineTotalCents: number;
   notes: string | null;
@@ -34,6 +36,10 @@ export type OrderView = {
   totals: Totals;
   refundedCents: number;
   paymentMethod: "pix" | "card" | "cash";
+  /** "store": o cliente paga direto à loja; "app": pagou pelo app. */
+  paymentCollection: "app" | "store";
+  /** Dinheiro: para quanto o cliente precisa de troco. */
+  cashChangeForCents: number | null;
   requiresAgeCheck: boolean;
   missingItemPolicy: "call" | "substitute" | "remove" | null;
   notes: string | null;
@@ -58,6 +64,7 @@ type OrderRow = {
   subtotal_cents: number; discount_cents: number; delivery_fee_cents: number; service_fee_cents: number;
   commission_cents: number; store_amount_cents: number; platform_amount_cents: number; total_cents: number;
   refunded_cents: number; payment_method: OrderView["paymentMethod"]; requires_age_check: boolean;
+  payment_collection: OrderView["paymentCollection"]; cash_change_for_cents: number | null;
   missing_item_policy: OrderView["missingItemPolicy"]; notes: string | null; delivery_code: string | null;
   courier_id: string | null; courier_name: string | null; delivery_provider: "store" | "platform";
   payment_expires_at: Date | null; paid_at: Date | null;
@@ -79,7 +86,7 @@ export async function loadOrders(
              o.customer_id, o.customer_name, o.customer_phone, o.address_snapshot, o.scheduled_for, o.estimated_at,
              o.subtotal_cents, o.discount_cents, o.delivery_fee_cents, o.service_fee_cents, o.commission_cents,
              o.store_amount_cents, o.platform_amount_cents, o.total_cents, o.refunded_cents, o.payment_method,
-             o.requires_age_check, o.missing_item_policy, o.notes, o.delivery_code, o.courier_id,
+             o.payment_collection, o.cash_change_for_cents, o.requires_age_check, o.missing_item_policy, o.notes, o.delivery_code, o.courier_id,
              courier_first_name(o.courier_id) as courier_name, o.delivery_provider,
              o.payment_expires_at, o.paid_at, o.completed_at, o.created_at
       from orders o
@@ -98,9 +105,9 @@ export async function loadOrders(
     const ids = orders.map((order) => order.id);
     const items = await tx<{
       id: string; order_id: string; product_id: string | null; name: string; quantity: number; unit_price_cents: number;
-      line_total_cents: number; notes: string | null; removed_at: Date | null; removed_reason: string | null;
+      line_total_cents: number; notes: string | null; removed_at: Date | null; removed_reason: string | null; weight_step_grams: number | null;
     }[]>`
-      select id, order_id, product_id, name, quantity, unit_price_cents, line_total_cents, notes, removed_at, removed_reason
+      select id, order_id, product_id, name, quantity, unit_price_cents, line_total_cents, notes, removed_at, removed_reason, weight_step_grams
       from order_items where order_id = any(${ids}::uuid[]) order by id`;
     const options = await tx<(SnapshotOption & { order_item_id: string })[]>`
       select order_item_id, group_name as "groupName", option_name as "optionName", price_mode as mode, quantity
@@ -121,11 +128,12 @@ export async function loadOrders(
         storeAmountCents: order.store_amount_cents, platformAmountCents: order.platform_amount_cents, totalCents: order.total_cents,
       },
       refundedCents: order.refunded_cents, paymentMethod: order.payment_method, requiresAgeCheck: order.requires_age_check,
+      paymentCollection: order.payment_collection, cashChangeForCents: order.cash_change_for_cents,
       missingItemPolicy: order.missing_item_policy, notes: order.notes, deliveryCode: order.delivery_code,
       courierId: order.courier_id, courierName: order.courier_name, deliveryProvider: order.delivery_provider,
       paymentExpiresAt: order.payment_expires_at, paidAt: order.paid_at, completedAt: order.completed_at, createdAt: order.created_at,
       items: items.filter((item) => item.order_id === order.id).map((item) => ({
-        id: item.id, productId: item.product_id, name: item.name, quantity: item.quantity,
+        id: item.id, productId: item.product_id, name: item.name, quantity: item.quantity, weightStepGrams: item.weight_step_grams,
         unitPriceCents: item.unit_price_cents, lineTotalCents: item.line_total_cents, notes: item.notes,
         lines: describeOptions(options.filter((option) => option.order_item_id === item.id)),
         removed: item.removed_at !== null, removedReason: item.removed_reason,

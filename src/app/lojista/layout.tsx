@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/lojista/cupons", label: "Cupons", roles: ["owner"] },
   { href: "/lojista/avaliacoes", label: "Avaliações", roles: ["owner", "attendant"] },
   { href: "/lojista/relatorios", label: "Relatórios", roles: ["owner"] },
+  { href: "/lojista/taxas", label: "Taxas do Chegô", roles: ["owner"] },
   { href: "/lojista/financeiro", label: "Financeiro", roles: ["owner"] },
   { href: "/lojista/divulgacao", label: "Divulgação", roles: ["owner"] },
   { href: "/perfil", label: "Minha conta", roles: ["owner", "attendant", "courier"] },

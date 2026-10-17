@@ -11,6 +11,7 @@ Abra **http://localhost:3000/dev** e clique em **Entrar como** ao lado de qualqu
 
 Também dá para entrar em http://localhost:3000/entrar:
 
+- com telefone **0000** e senha **0000**: entra na conta de demonstração da área escolhida (cliente: Ana Clara Souza; **Sou lojista**: dono da Pizzaria Forno de Barro; **Sou entregador**: Wesley Santana). Só existe no ambiente de testes;
 - com o **telefone** de qualquer usuário de teste e a senha **123456** (todos os usuários de teste usam essa senha);
 - como admin, em **Entrar com senha**, com usuário `admin` e senha `admin`.
 
@@ -186,4 +187,6 @@ public/
 - A ordem dos produtos e categorias do cardápio é mudada por setas (subir e descer), e não arrastando.
 - O botão "usar minha localização" não existe: o cliente escolhe o bairro na lista.
 - O login é por **telefone e senha**, e não por código SMS, enquanto o SMS for simulado (um código simulado deixaria qualquer um entrar sabendo só o telefone). A primeira tela tem três entradas: cliente (em destaque), lojista e entregador. Quem esquece a senha pede uma provisória ao admin.
-- Com o pagamento simulado, o próprio cliente confirma o pagamento na tela do pedido ("Simular pagamento aprovado"). Nenhum dinheiro é cobrado.
+- **O cliente paga direto à loja** (Pix da loja, dinheiro ou cartão na entrega) e o Chegô cobra da loja **R$ 0,50 por pedido concluído**, fechado por expediente e pago por Pix (veja [docs/REGRAS_DE_NEGOCIO.md](docs/REGRAS_DE_NEGOCIO.md)). Saíram a comissão, a mensalidade e a taxa de serviço. O pagamento pelo app continua no código, desligado (`PAYMENT_COLLECTION=app`).
+- O Pix das taxas ainda não tem provedor: neste computador há um simulado; no servidor aparece "cobrança indisponível".
+- O entregador da rede do Chegô é pago pela loja, por fora do app; a loja marca que pagou e o entregador confirma.

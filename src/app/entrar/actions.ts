@@ -22,8 +22,18 @@ export type PhoneSignInState = { error?: string; phone?: string };
  */
 export async function signInWithPhone(_previous: PhoneSignInState, formData: FormData): Promise<PhoneSignInState> {
   const typed = String(formData.get("phone") ?? "").slice(0, 30);
-  const phone = toE164(typed);
   const password = String(formData.get("password") ?? "");
+
+  // Atalho só do ambiente de testes: telefone 0000 e senha 0000 entram na conta de
+  // demonstração da área de onde veio o login (cliente, lojista ou entregador).
+  if (isLocalEnv && typed.replace(/\D/g, "") === "0000" && password === "0000") {
+    const demo = await demoAccountFor(formData.get("area"));
+    if (!demo) return { error: "Conta de demonstração não encontrada. Rode npm run db:reset.", phone: typed };
+    await createSession(demo.id);
+    redirect(homeFor(demo.role));
+  }
+
+  const phone = toE164(typed);
   if (!phone) return { error: "Oxe, esse telefone não parece certo. Use DDD + número.", phone: typed };
   if (!password || password.length > 72) return { error: "Digite a sua senha.", phone: typed };
 
@@ -48,6 +58,20 @@ export async function signInWithPhone(_previous: PhoneSignInState, formData: For
   // Cliente bloqueado continua entrando e navegando; só não fecha pedidos.
   await createSession(profile.id);
   redirect(profile.full_name ? homeFor(profile.role) : "/cadastro");
+}
+
+/** Contas do seed usadas pelo atalho 0000/0000, uma por área de entrada. */
+const DEMO_ACCOUNTS = {
+  customer: "Ana Clara Souza",
+  store: "Marcos Antônio Tavares", // dono da Pizzaria Forno de Barro
+  courier: "Wesley Santana", // entregador do Chegô
+} as const;
+
+async function demoAccountFor(area: FormDataEntryValue | null): Promise<{ id: string; role: UserRole } | null> {
+  const key = area === "store" || area === "courier" ? area : "customer";
+  const [row] = await sql<{ id: string; role: UserRole }[]>`
+    select id, role from profiles where full_name = ${DEMO_ACCOUNTS[key]} and deleted_at is null limit 1`;
+  return row ?? null;
 }
 
 export type CreateAccountState = { error?: string; fullName?: string; phone?: string };

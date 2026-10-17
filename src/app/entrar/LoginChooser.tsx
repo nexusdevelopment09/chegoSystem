@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LogoIcon } from "@/components/brand/LogoIcon";
 import { buttonClass } from "@/components/ui/Button";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { isLocalEnv } from "@/lib/env";
 import { PhonePasswordForm } from "./PhonePasswordForm";
 
@@ -40,14 +41,15 @@ export function LoginChooser() {
       <section aria-labelledby="partner-login" className="flex flex-col gap-3">
         <h2 id="partner-login" className="text-center text-base font-bold text-coffee-soft">É parceiro do Chegô?</h2>
         <div className="grid grid-cols-2 gap-3">
-          <PartnerLink href="/entrar/loja" emoji="🏪" title="Sou lojista" note="Painel da loja" />
-          <PartnerLink href="/entrar/entregador" emoji="🛵" title="Sou entregador" note="Minhas entregas" />
+          <PartnerLink href="/entrar/loja" icon="store" title="Sou lojista" note="Painel da loja" />
+          <PartnerLink href="/entrar/entregador" icon="bike" title="Sou entregador" note="Minhas entregas" />
         </div>
       </section>
 
       {isLocalEnv && (
         <p className="rounded-2xl bg-peach px-4 py-3 text-center text-sm text-coffee">
-          Neste computador, os usuários de teste entram com a senha <strong>123456</strong>, ou pelo{" "}
+          Neste computador: telefone <strong>0000</strong> e senha <strong>0000</strong> entram na conta de demonstração.
+          Os usuários de teste também entram com a senha <strong>123456</strong>, ou pelo{" "}
           <Link href="/dev" className="font-bold underline">login rápido</Link>.
         </p>
       )}
@@ -59,13 +61,15 @@ export function LoginChooser() {
   );
 }
 
-function PartnerLink({ href, emoji, title, note }: { href: string; emoji: string; title: string; note: string }) {
+function PartnerLink({ href, icon, title, note }: { href: string; icon: IconName; title: string; note: string }) {
   return (
     <Link
       href={href}
       className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-card bg-white p-3 text-center shadow-sm ring-1 ring-peach transition-colors hover:bg-peach/40"
     >
-      <span aria-hidden="true" className="text-2xl">{emoji}</span>
+      <span className="flex size-10 items-center justify-center rounded-full bg-peach text-brand-darker">
+        <Icon name={icon} size={22} />
+      </span>
       <span className="font-bold">{title}</span>
       <span className="text-xs text-coffee-soft">{note}</span>
     </Link>
@@ -73,8 +77,8 @@ function PartnerLink({ href, emoji, title, note }: { href: string; emoji: string
 }
 
 /** Entrada própria de lojistas e entregadores: o mesmo telefone e senha, com o caminho para se cadastrar. */
-export function PartnerLogin({ title, text, signupHref, signupQuestion, signupLabel }: {
-  title: string; text: string; signupHref: string; signupQuestion: string; signupLabel: string;
+export function PartnerLogin({ title, text, signupHref, signupQuestion, signupLabel, area }: {
+  title: string; text: string; signupHref: string; signupQuestion: string; signupLabel: string; area: "store" | "courier";
 }) {
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-4 py-10">
@@ -87,10 +91,15 @@ export function PartnerLogin({ title, text, signupHref, signupQuestion, signupLa
           <h1 className="text-2xl">{title}</h1>
           <p className="text-sm text-coffee-soft">{text}</p>
         </div>
-        <PhonePasswordForm autoFocus />
+        <PhonePasswordForm autoFocus area={area} />
         <p className="text-center text-sm text-coffee-soft">
           Esqueceu a senha? Peça uma nova ao suporte do Chegô.
         </p>
+        {isLocalEnv && (
+          <p className="rounded-2xl bg-peach px-4 py-3 text-center text-sm text-coffee">
+            Neste computador: telefone <strong>0000</strong> e senha <strong>0000</strong> entram na conta de demonstração.
+          </p>
+        )}
       </section>
 
       <div className="flex flex-col items-center gap-2 text-center text-sm">

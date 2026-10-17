@@ -20,6 +20,51 @@ test("primeira visita escolhe o bairro e vê só as lojas da cidade", async ({ p
   }
 });
 
+test("os banners passam sozinhos, têm setas e pausa, e param com 'reduzir movimento'", async ({ page }) => {
+  await chooseNeighborhood(page, "Centro");
+  const carousel = page.getByRole("region", { name: "Promoções" });
+  const dots = carousel.getByRole("button", { name: /^Ir para o banner/ });
+  // Tira o mouse de cima: com o mouse sobre a faixa ela fica parada de propósito.
+  const awayFromCarousel = () => page.mouse.move(1, 1);
+
+  await expect(dots.first()).toHaveAttribute("aria-current", "true");
+  await expect(dots.nth(1)).toHaveAttribute("aria-current", "true", { timeout: 9_000 });
+
+  await carousel.getByRole("button", { name: "Banner anterior" }).click();
+  await expect(dots.first()).toHaveAttribute("aria-current", "true");
+  await carousel.getByRole("button", { name: "Próximo banner" }).click();
+  await expect(dots.nth(1)).toHaveAttribute("aria-current", "true");
+
+  // Pausado, não anda; ao continuar, volta a andar.
+  await carousel.getByRole("button", { name: "Pausar os banners" }).click();
+  await awayFromCarousel();
+  await page.waitForTimeout(6_000);
+  await expect(dots.nth(1)).toHaveAttribute("aria-current", "true");
+  await carousel.getByRole("button", { name: "Continuar a passar os banners" }).click();
+  await awayFromCarousel();
+  await expect(dots.nth(1)).not.toHaveAttribute("aria-current", "true", { timeout: 9_000 });
+
+  // Os banners continuam clicáveis enquanto a faixa anda.
+  await expect(carousel.getByRole("img").first()).toBeVisible();
+
+  // Com "reduzir movimento" no aparelho nada anda sozinho, e não há botão de pausa.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await expect(dots.first()).toHaveAttribute("aria-current", "true");
+  await expect(carousel.getByRole("button", { name: "Pausar os banners" })).toHaveCount(0);
+  await page.waitForTimeout(6_000);
+  await expect(dots.first()).toHaveAttribute("aria-current", "true");
+});
+
+test("cada categoria leva à sua página", async ({ page }) => {
+  await chooseNeighborhood(page, "Centro");
+  const categories = page.getByRole("navigation", { name: "Categorias" });
+  await expect(categories.getByRole("link")).toHaveCount(8);
+  await categories.getByRole("link", { name: "Lanches" }).click();
+  await expect(page).toHaveURL(/\/categoria\/lanches$/);
+  await expect(page.getByRole("heading", { name: "Lanches" })).toBeVisible();
+});
+
 test("abertas primeiro, destaques em seção própria e fechadas dizem quando abrem", async ({ page }) => {
   await chooseNeighborhood(page, "Centro");
 

@@ -19,13 +19,14 @@ async function addSimple(page: Page, storeSlug: string, product: string) {
   await page.waitForURL(new RegExp(`/loja/${storeSlug}$`));
 }
 
+/** Fecha o pedido. Pagando direto à loja, o cliente cai direto no acompanhamento. */
 async function placeOrder(page: Page) {
   await page.getByRole("button", { name: /^Fazer pedido/ }).click();
-  await page.waitForURL(/\/pedidos\/[0-9a-f-]+\/pagamento$/);
-  return page.url().match(/pedidos\/([0-9a-f-]+)\//)![1];
+  await page.waitForURL(/\/pedidos\/[0-9a-f-]+$/);
+  return page.url().match(/pedidos\/([0-9a-f-]+)$/)![1];
 }
 
-test("cliente novo monta pizza de 2 sabores, usa PRIMEIRA, paga com Pix e acompanha", async ({ page }) => {
+test("cliente novo monta pizza de 2 sabores, usa PRIMEIRA e paga com Pix direto à loja", async ({ page, browser }) => {
   await createAccount(page, "Cliente Novo de Teste", "(82) 97777-0001");
   await expect(page).toHaveURL(/\/boas-vindas$/);
   await chooseNeighborhood(page, "Centro");
@@ -51,34 +52,27 @@ test("cliente novo monta pizza de 2 sabores, usa PRIMEIRA, paga com Pix e acompa
   await page.getByLabel("Bairro ou comunidade").selectOption({ label: "Centro" });
   await page.getByRole("button", { name: "Salvar endereço" }).click();
   await expect(page.getByText("Rua das Acácias, 77")).toBeVisible();
-  // 64,00 - 10,00 + 3,00 de entrega + 0,99 de taxa de serviço.
-  await expect(page.locator('[data-testid="summary-total"]:visible')).toHaveText("R$ 57,99");
+  // 64,00 - 10,00 + 3,00 de entrega. Pagando direto à loja não há taxa de serviço.
+  await expect(page.locator('[data-testid="summary-total"]:visible')).toHaveText("R$ 57,00");
+  await expect(page.getByRole("radio", { name: "Pix para a loja" })).toBeChecked();
 
+  // O pedido vai direto para a loja: não há tela de pagamento no app.
   const orderId = await placeOrder(page);
-  await expect(page.locator('[data-testid="pix-qr"]:visible')).toBeVisible();
-  await expect(page.locator('[data-testid="pix-code"]:visible')).toHaveValue(/^000201/);
-  await expect(page.locator('[data-testid="pix-countdown"]:visible')).toHaveText(/^1[45]:\d\d$/);
-
-  // A loja não pode ver o pedido antes de o pagamento ser confirmado.
-  const [before] = await db`select status, paid_at from orders where id = ${orderId}`;
-  expect(before).toMatchObject({ status: "awaiting_payment", paid_at: null });
-
-  await page.getByRole("button", { name: "Simular pagamento aprovado" }).click();
-  await expect(page).toHaveURL(new RegExp(`/pedidos/${orderId}$`));
-  await expect(page.locator('[data-testid="order-status"]:visible')).toHaveText("Pago, esperando a loja aceitar");
+  await expect(page.locator('[data-testid="order-status"]:visible')).toHaveText("Enviado, esperando a loja aceitar");
+  await expect(page.locator('[data-testid="payment-line"]:visible')).toContainText("Pix para a loja");
   await expect(page.locator('[data-testid="delivery-code"]:visible')).toHaveText(/^\d{4}$/);
+  // A chave Pix da loja só aparece depois que ela aceita.
+  await expect(page.locator('[data-testid="store-pix-key"]')).toHaveCount(0);
 
   const [order] = await db`select * from orders where id = ${orderId}`;
   expect(order).toMatchObject({
-    code: expect.stringMatching(/^JG-\d{4}$/), status: "paid", subtotal_cents: 6400, discount_cents: 1000,
-    discount_paid_by: "platform", delivery_fee_cents: 300, service_fee_cents: 99, total_cents: 5799,
-    commission_rate: "0.1200", commission_cents: 768, platform_amount_cents: -133, store_amount_cents: 5932,
+    code: expect.stringMatching(/^JG-\d{4}$/), status: "paid", payment_collection: "store", payment_method: "pix",
+    subtotal_cents: 6400, discount_cents: 1000, discount_paid_by: "platform", delivery_fee_cents: 300, service_fee_cents: 0,
+    total_cents: 5700, commission_cents: 0, platform_amount_cents: -1000, store_amount_cents: 6700,
   });
-  const ledger = await db`select account, direction, amount_cents from ledger_entries where order_id = ${orderId} order by account`;
-  expect(ledger).toEqual([
-    { account: "store", direction: "credit", amount_cents: 5932 },
-    { account: "platform", direction: "debit", amount_cents: 133 },
-  ]);
+  // Nenhum dinheiro passou pelo app.
+  expect(await db`select count(*)::int as total from payments where order_id = ${orderId}`).toEqual([{ total: 0 }]);
+  expect(await db`select count(*)::int as total from ledger_entries where order_id = ${orderId}`).toEqual([{ total: 0 }]);
   const options = await db`
     select o.option_name, o.price_cents from order_item_options o join order_items i on i.id = o.order_item_id
     where i.order_id = ${orderId} order by o.sort_order`;
@@ -87,6 +81,16 @@ test("cliente novo monta pizza de 2 sabores, usa PRIMEIRA, paga com Pix e acompa
     { option_name: "Carne de Sol com Queijo Coalho", price_cents: 5600 },
     { option_name: "Catupiry", price_cents: 800 },
   ]);
+
+  // A pizzaria aceita; o cliente passa a ver a chave Pix dela.
+  const store = await (await browser.newContext()).newPage();
+  await loginAs(store, "Marcos Antônio Tavares");
+  await store.goto(`/lojista/pedidos/${orderId}`);
+  await store.getByRole("button", { name: "Aceitar" }).click();
+  await expect(store.locator('[data-testid="merchant-order-status"]:visible')).toHaveText("Aceito pela loja");
+  await store.context().close();
+  await page.reload();
+  await expect(page.locator('[data-testid="store-pix-key"]:visible')).toHaveText("pizzaria@pix.chego.local");
 });
 
 test("preço adulterado no navegador é ignorado: vale o do banco", async ({ page }) => {
@@ -105,17 +109,17 @@ test("preço adulterado no navegador é ignorado: vale o do banco", async ({ pag
   await page.getByRole("link", { name: "Continuar" }).click();
   const orderId = await placeOrder(page);
   const [order] = await db`select subtotal_cents, total_cents from orders where id = ${orderId}`;
-  expect(order).toEqual({ subtotal_cents: 2400, total_cents: 2799 });
+  expect(order).toEqual({ subtotal_cents: 2400, total_cents: 2700 });
 });
 
-test("webhook: assinatura errada é recusada e evento repetido não duplica nada", async ({ page, request }) => {
-  await loginAs(page, "Bruno Henrique Lima");
-  await addSimple(page, "brasa-burger", "Batata com cheddar e bacon");
-  await page.goto("/checkout");
-  const orderId = await placeOrder(page);
-  const [payment] = await db`select provider_payment_id from payments where order_id = ${orderId}`;
+test("webhook do gateway: assinatura errada é recusada e evento repetido não duplica nada", async ({ request }) => {
+  // Pagamento pelo app (o caminho do gateway): um Pix pendente que veio do seed.
+  const [pending] = await db`
+    select p.provider_payment_id, o.id as order_id from payments p join orders o on o.id = p.order_id
+    where p.status = 'pending' and o.status = 'awaiting_payment' order by o.created_at desc limit 1`;
+  const orderId = pending.order_id;
 
-  const body = JSON.stringify({ id: randomUUID(), type: "payment.approved", data: { payment_id: payment.provider_payment_id } });
+  const body = JSON.stringify({ id: randomUUID(), type: "payment.approved", data: { payment_id: pending.provider_payment_id } });
   const signature = createHmac("sha256", "segredo-local-de-teste").update(body).digest("hex");
   const send = (headers: Record<string, string>) =>
     request.post("/api/webhooks/pagamentos", { data: body, headers: { "content-type": "application/json", ...headers } });
@@ -130,39 +134,38 @@ test("webhook: assinatura errada é recusada e evento repetido não duplica nada
   expect(await second.json()).toEqual({ received: true, outcome: "duplicate" });
 
   expect((await db`select status from orders where id = ${orderId}`)[0].status).toBe("paid");
-  expect(await db`select count(*)::int as total from ledger_entries where order_id = ${orderId}`).toEqual([{ total: 2 }]);
   expect(await db`select count(*)::int as total from order_status_history where order_id = ${orderId} and status = 'paid'`).toEqual([{ total: 1 }]);
   expect(await db`select count(*)::int as total from notifications where order_id = ${orderId} and type = 'order_new'`).toEqual([{ total: 1 }]);
 });
 
-test("cartão recusado (final 1111) e depois aprovado com outro cartão (final 0000)", async ({ page }) => {
+test("dinheiro na entrega: troco precisa ser maior que o total e aparece para a loja", async ({ page }) => {
   await loginAs(page, "Ana Clara Souza");
   await addSimple(page, "brasa-burger", "Batata frita");
   await addSimple(page, "brasa-burger", "Anéis de cebola");
   await page.goto("/checkout");
 
-  await page.getByRole("radio", { name: "Cartão de crédito" }).check();
-  await page.getByLabel("Número do cartão").fill("4111 1111 1111 1111");
-  await page.getByLabel("Nome no cartão").fill("ANA C SOUZA");
-  await page.getByLabel("Validade (MM/AA)").fill("12/30");
-  await page.getByLabel("Código de segurança").fill("123");
+  await page.getByRole("radio", { name: "Dinheiro na entrega" }).check();
+  await page.getByLabel("Troco para quanto? (opcional)").fill("1,00");
+  await page.getByRole("button", { name: /^Fazer pedido/ }).click();
+  await expect(page.locator('[data-testid="checkout-errors"]:visible')).toContainText("O troco precisa ser para um valor maior que o total do pedido.");
+
+  await page.getByLabel("Troco para quanto? (opcional)").fill("100,00");
   const orderId = await placeOrder(page);
-  await expect(page.locator('[data-testid="payment-declined"]:visible')).toBeVisible();
-
-  await page.getByText("Pagar com cartão de crédito").click();
-  await page.getByLabel("Número do cartão").fill("4000 0000 0000 0000");
-  await page.getByLabel("Nome no cartão").fill("ANA C SOUZA");
-  await page.getByLabel("Validade (MM/AA)").fill("12/30");
-  await page.getByLabel("Código de segurança").fill("123");
-  await page.getByRole("button", { name: "Pagar com cartão", exact: true }).click();
-
-  await expect(page).toHaveURL(new RegExp(`/pedidos/${orderId}$`));
-  await expect(page.locator('[data-testid="order-status"]:visible')).toHaveText("Pago, esperando a loja aceitar");
-  const payments = await db`select method, status from payments where order_id = ${orderId} order by created_at`;
-  expect(payments).toEqual([{ method: "card", status: "declined" }, { method: "card", status: "approved" }]);
+  await expect(page.locator('[data-testid="payment-line"]:visible')).toContainText("Dinheiro na entrega · troco para R$ 100,00");
+  const [order] = await db`select payment_method, cash_change_for_cents, total_cents from orders where id = ${orderId}`;
+  expect(order).toMatchObject({ payment_method: "cash", cash_change_for_cents: 10000 });
+  await expect(page.locator('[data-testid="payment-line"]:visible')).toContainText(`levar R$ ${((10000 - order.total_cents) / 100).toFixed(2).replace(".", ",")}`);
 });
 
-test("Pix expirado cancela o pedido e devolve o estoque", async ({ page }) => {
+test("entrega pela rede do Chegô não oferece dinheiro: o entregador não leva o valor da loja", async ({ page }) => {
+  await loginAs(page, "Ana Clara Souza");
+  await addSimple(page, "sushi-mare", "Guioza — 6 unidades");
+  await page.goto("/checkout");
+  await expect(page.getByRole("radio", { name: "Pix para a loja" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Dinheiro na entrega" })).toHaveCount(0);
+});
+
+test("cliente cancela antes do aceite: o estoque volta e não há reembolso pelo app", async ({ page }) => {
   const stock = async () => (await db`select stock_qty from products where name = 'Termômetro digital'`)[0].stock_qty;
   const before = await stock();
 
@@ -172,29 +175,14 @@ test("Pix expirado cancela o pedido e devolve o estoque", async ({ page }) => {
   const orderId = await placeOrder(page);
   expect(await stock()).toBe(before - 1);
 
-  await page.getByRole("button", { name: "Simular expiração" }).click();
-  await expect(page.locator('[data-testid="order-status"]:visible')).toHaveText("Pagamento expirado");
-  expect(await stock()).toBe(before);
-  expect((await db`select status from payments where order_id = ${orderId}`)[0].status).toBe("expired");
-});
-
-test("cliente cancela pedido pago antes do aceite e recebe tudo de volta", async ({ page }) => {
-  await loginAs(page, "Ana Clara Souza");
-  await addSimple(page, "brasa-burger", "Batata com cheddar e bacon");
-  await page.goto("/checkout");
-  const orderId = await placeOrder(page);
-  await page.getByRole("button", { name: "Simular pagamento aprovado" }).click();
-
   await page.getByRole("button", { name: "Cancelar pedido" }).click();
   await expect(page.locator('[data-testid="order-status"]:visible')).toHaveText("Cancelado");
-  await expect(page.locator('[data-testid="refund-note"]:visible')).toHaveText("Devolvemos R$ 27,99 para você.");
-
-  const [order] = await db`select refunded_cents, total_cents from orders where id = ${orderId}`;
-  expect(order.refunded_cents).toBe(order.total_cents);
-  const [balance] = await db`
-    select sum(case when direction = 'credit' then amount_cents else -amount_cents end)::int as net
-    from ledger_entries where order_id = ${orderId}`;
-  expect(balance.net).toBe(0);
+  expect(await stock()).toBe(before);
+  // Pagando direto à loja, nada foi cobrado pelo app: não há o que devolver por ele.
+  await expect(page.locator('[data-testid="refund-note"]')).toHaveCount(0);
+  const [order] = await db`select refunded_cents from orders where id = ${orderId}`;
+  expect(order.refunded_cents).toBe(0);
+  expect(await db`select count(*)::int as total from fee_entries where order_id = ${orderId}`).toEqual([{ total: 0 }]);
 });
 
 test("pedido mínimo: avisa quanto falta e não deixa continuar", async ({ page }) => {
@@ -312,7 +300,7 @@ test("mercado pergunta o que fazer se faltar um item", async ({ page }) => {
     await page.getByRole("button", { name: /^Fazer pedido/ }).click();
     await expect(page.locator('[data-testid="checkout-errors"]:visible')).toContainText("Diga o que fazer se faltar um item.");
 
-    await page.getByRole("radio", { name: "Remover o item e devolver o valor" }).check();
+    await page.getByRole("radio", { name: "Remover o item (sai do total)" }).check();
     const orderId = await placeOrder(page);
     expect((await db`select missing_item_policy from orders where id = ${orderId}`)[0].missing_item_policy).toBe("remove");
   } finally {

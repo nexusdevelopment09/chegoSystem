@@ -7,7 +7,7 @@ import { audit } from "@/lib/audit";
 import { requireStoreMember, type StoreRole } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
-import { notify } from "@/lib/notifications/notify";
+import { availableCourierIds, notify } from "@/lib/notifications/notify";
 import { REJECT_REASONS, type OrderStatus } from "@/lib/orders/status";
 import { TransitionError, transitionOrder } from "@/lib/orders/transitions";
 import { RefundError, refundOrder } from "@/lib/payments/refunds";
@@ -149,8 +149,8 @@ export async function removeMissingItem(_previous: ActionState, formData: FormDa
   if (!itemId.success) return { error: "Item inválido." };
 
   return onStoreOrder(formData.get("orderId"), ["owner", "attendant"], async (tx, context) => {
-    const [order] = await tx<{ status: OrderStatus; customer_id: string; code: string; total_cents: number; refunded_cents: number }[]>`
-      select status, customer_id, code, total_cents, refunded_cents from orders where id = ${context.orderId}`;
+    const [order] = await tx<{ status: OrderStatus; customer_id: string; code: string; total_cents: number; refunded_cents: number; payment_collection: "app" | "store" }[]>`
+      select status, customer_id, code, total_cents, refunded_cents, payment_collection from orders where id = ${context.orderId}`;
     if (!["accepted", "preparing"].includes(order.status)) {
       throw new TransitionError("Só dá para remover item enquanto o pedido está aceito ou em preparo.");
     }
@@ -161,16 +161,28 @@ export async function removeMissingItem(_previous: ActionState, formData: FormDa
     if (active.length === 1) throw new TransitionError("É o único item do pedido. Nesse caso, fale com o suporte para cancelar.");
 
     await tx`update order_items set removed_at = ${context.at}, removed_reason = 'Item em falta' where id = ${item.id}`;
-    // Nunca devolve mais do que ainda falta reembolsar.
-    const amount = Math.min(item.line_total_cents, order.total_cents - order.refunded_cents - 1);
-    if (amount > 0) {
-      await refundOrder(tx, {
-        orderId: context.orderId, amountCents: amount, reason: `Item em falta: ${item.name}`, requestedBy: context.profileId, at: context.at,
-      });
+    let amount = 0;
+    if (order.payment_collection === "store") {
+      // Pagando direto à loja, nada foi cobrado ainda: o item simplesmente sai do total que o cliente vai pagar.
+      amount = item.line_total_cents;
+      await tx`
+        update orders set subtotal_cents = subtotal_cents - ${amount}, total_cents = greatest(total_cents - ${amount}, 0),
+          store_amount_cents = store_amount_cents - ${amount}
+        where id = ${context.orderId}`;
+    } else {
+      // Pago pelo app: devolve o valor do item. Nunca devolve mais do que ainda falta reembolsar.
+      amount = Math.min(item.line_total_cents, order.total_cents - order.refunded_cents - 1);
+      if (amount > 0) {
+        await refundOrder(tx, {
+          orderId: context.orderId, amountCents: amount, reason: `Item em falta: ${item.name}`, requestedBy: context.profileId, at: context.at,
+        });
+      }
     }
     await notify({
       profileIds: [order.customer_id], type: "order_item_removed", title: "Um item do seu pedido estava em falta",
-      body: `“${item.name}” foi removido e o valor já foi devolvido para você.`,
+      body: order.payment_collection === "store"
+        ? `“${item.name}” foi removido e saiu do total que você vai pagar.`
+        : `“${item.name}” foi removido e o valor já foi devolvido para você.`,
       link: `/pedidos/${context.orderId}`, orderId: context.orderId, channels: ["push"], at: context.at,
     }, tx);
     await audit({
@@ -209,4 +221,37 @@ export async function updateStoreState(formData: FormData): Promise<void> {
   }
   await audit({ actorId: profile.id, action: `store.${change.kind}`, entityType: "store", entityId: membership.storeId, storeId: membership.storeId, details: { value: change.value } });
   revalidatePath("/lojista", "layout");
+}
+
+// ------------------------------------------- entrega da rede sem entregador
+
+/** Ninguém pegou a entrega da rede ainda: avisa de novo os entregadores disponíveis da cidade. */
+export async function recallCouriers(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  return onStoreOrder(formData.get("orderId"), ["owner", "attendant"], async (tx, context) => {
+    const [order] = await tx<{ code: string; city_id: string }[]>`
+      select code, city_id from orders
+      where id = ${context.orderId} and delivery_provider = 'platform' and courier_id is null
+        and status in ('accepted', 'preparing', 'ready')`;
+    if (!order) throw new TransitionError("Esta entrega já tem entregador ou não é da rede do Chegô.");
+    await notify({
+      profileIds: await availableCourierIds(order.city_id, tx), type: "delivery_offer", title: "Entrega esperando entregador",
+      body: `Pedido ${order.code} ainda sem entregador. Toque para ver.`, link: "/entregador", orderId: context.orderId, channels: ["push"], at: context.at,
+    }, tx);
+  });
+}
+
+/**
+ * A loja desiste da rede para este pedido e entrega com a própria equipe. Só enquanto
+ * nenhum entregador da rede pegou a entrega; a loja não deve nada a ninguém por ela.
+ */
+export async function deliverWithOwnCourier(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  return onStoreOrder(formData.get("orderId"), ["owner", "attendant"], async (tx, context) => {
+    const changed = await tx`
+      update orders set delivery_provider = 'store', courier_fee_cents = 0
+      where id = ${context.orderId} and delivery_provider = 'platform' and courier_id is null
+        and status in ('accepted', 'preparing', 'ready')
+      returning id`;
+    if (changed.length === 0) throw new TransitionError("Um entregador da rede já pegou esta entrega.");
+    await audit({ actorId: context.profileId, action: "order.delivery_to_store", entityType: "order", entityId: context.orderId, storeId: context.storeId }, tx);
+  });
 }

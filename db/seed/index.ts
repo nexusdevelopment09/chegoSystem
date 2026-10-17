@@ -332,6 +332,8 @@ export async function seed(sql: Sql) {
       document_type: storeIndex % 3 === 0 ? "cpf" : "cnpj",
       document_number: storeIndex % 3 === 0 ? completeCpf(String(111222300 + storeIndex * 4337)) : completeCnpj(`${String(11222300 + storeIndex * 911)}0001`),
       commission_rate: def.commission, payment_recipient_id: status === "pending" ? null : `mock_recipient_${def.key}`,
+      // Chave Pix fictícia (domínio de teste): o cliente vê no pedido depois do aceite.
+      pix_key: `${def.key}@pix.chego.local`,
       status_reason: status === "suspended" ? "Fatura da mensalidade vencida há mais de 10 dias" : null,
       approved_at: status === "pending" ? null : plus(START, -105 * DAY),
       approved_by: status === "pending" ? null : adminId,
@@ -394,6 +396,8 @@ export async function seed(sql: Sql) {
         min_lead_minutes: product.leadMinutes ?? 0, max_per_order: product.maxPerOrder ?? null,
         track_stock: product.stock !== undefined, stock_qty: product.stock ?? null,
         requires_age_check: product.ageCheck ?? false,
+        weight_step_grams: product.weight?.step ?? null, price_per_kg_cents: product.weight?.perKg ?? null,
+        weight_min_grams: product.weight?.min ?? null,
       });
 
       if (product.availability) {
@@ -485,6 +489,8 @@ export async function seed(sql: Sql) {
   function orderable(store: SeedStore, customer: SeedCustomer, weekday: number, minutes: number, scheduled: boolean) {
     return store.products.filter(({ def }) => {
       if (def.available === false || def.stock === 0) return false;
+      // Os pedidos do histórico não usam os granéis: as quantidades sorteadas não respeitariam o mínimo em gramas.
+      if (def.weight) return false;
       if (def.ageCheck && customer.def.minor) return false;
       if (Boolean(def.leadMinutes) !== scheduled) return false;
       if (!def.availability) return true;
@@ -677,6 +683,7 @@ export async function seed(sql: Sql) {
         id: item.itemId, order_id: orderId, product_id: item.product.id, name: item.product.def.name,
         unit_price_cents: item.unitPrice, quantity: item.quantity, line_total_cents: item.unitPrice * item.quantity,
         notes: null, requires_age_check: item.product.def.ageCheck ?? false,
+        weight_step_grams: item.product.def.weight?.step ?? null,
         removed_at: item.itemId === removedItemId ? clock : null,
         removed_reason: item.itemId === removedItemId ? "Item em falta" : null,
       });

@@ -95,6 +95,24 @@ export async function saveStore(_previous: ActionState, formData: FormData): Pro
 }
 
 /** Horários de funcionamento: até dois turnos por dia da semana. Substitui a grade inteira. */
+/** Como a loja recebe o dinheiro dos pedidos (direto do cliente) e a chave Pix que o cliente vê. */
+export async function savePayments(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const { profile, membership } = await owner();
+  const accepts = { pix: formData.get("acceptsPix") === "on", card: formData.get("acceptsCard") === "on", cash: formData.get("acceptsCash") === "on" };
+  if (!accepts.pix && !accepts.card && !accepts.cash) return { error: "Escolha pelo menos uma forma de receber." };
+  const pixKey = String(formData.get("pixKey") ?? "").trim();
+  if (pixKey && (pixKey.length < 3 || pixKey.length > 140)) return { error: "Chave Pix inválida." };
+  if (accepts.pix && !pixKey) return { error: "Para receber por Pix, informe a chave Pix da loja." };
+
+  await sql.begin(async (tx) => {
+    await tx`update stores set accepts_pix = ${accepts.pix}, accepts_card = ${accepts.card}, accepts_cash = ${accepts.cash} where id = ${membership.storeId}`;
+    await tx`update store_private set pix_key = ${pixKey || null} where store_id = ${membership.storeId}`;
+    await audit({ actorId: profile.id, action: "store.payments", entityType: "store", entityId: membership.storeId, storeId: membership.storeId, details: accepts }, tx);
+  });
+  done();
+  return { ok: true, message: "Formas de pagamento salvas." };
+}
+
 export async function saveHours(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const { profile, membership } = await owner();
   const rows: { weekday: number; opensAt: string; closesAt: string; pickupOnly: boolean }[] = [];

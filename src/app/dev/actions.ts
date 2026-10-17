@@ -141,10 +141,13 @@ export async function generateRandomOrder(): Promise<DevState> {
         lastReason = result.errors[0] ?? lastReason;
         continue;
       }
-      const { rawBody, signature } = buildMockWebhook(result.providerPaymentId, "payment.approved");
-      await handlePaymentWebhook(rawBody, signature);
+      // Pagando pelo app, o gateway de mentira aprova; direto à loja o pedido já chegou nela.
+      if (result.providerPaymentId) {
+        const { rawBody, signature } = buildMockWebhook(result.providerPaymentId, "payment.approved");
+        await handlePaymentWebhook(rawBody, signature);
+      }
       revalidatePath("/dev");
-      return { ok: true, message: `Pedido pago criado: ${customer.full_name} na ${product.store_name}. Veja no painel da loja.` };
+      return { ok: true, message: `Pedido criado: ${customer.full_name} na ${product.store_name}. Veja no painel da loja.` };
     }
   }
   return { error: `Não deu para criar o pedido. ${lastReason} Ajuste o relógio simulado para um horário com lojas abertas.` };

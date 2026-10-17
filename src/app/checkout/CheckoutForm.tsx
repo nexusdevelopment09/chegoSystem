@@ -10,7 +10,9 @@ import { Button, buttonClass } from "@/components/ui/Button";
 import { Field, inputClass } from "@/components/ui/Field";
 import { clearCart, useCart, useCoupon, writeCoupon } from "@/lib/cart/local";
 import { toCartPayload, type CheckoutChoices } from "@/lib/cart/payload";
-import { formatCents } from "@/lib/format";
+import { quantityLabel } from "@/lib/catalog/weight";
+import { formatCents, parseMoney } from "@/lib/format";
+import { STORE_PAYMENT_LABELS } from "@/lib/payments/collection";
 
 export type SavedAddress = { id: string; street: string; number: string; reference: string | null; neighborhood: string; isDefault: boolean };
 type Neighborhood = { id: string; name: string; isRural: boolean };
@@ -47,6 +49,7 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
   const [addingAddress, setAddingAddress] = useState(initialAddresses.length === 0);
   const [addressError, setAddressError] = useState<string | null>(null);
   const [card, setCard] = useState({ number: "", holder: "", expiry: "", cvv: "" });
+  const [changeText, setChangeText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -58,7 +61,13 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
   // Quando a loja não pode receber o pedido para agora, agendar é o único jeito.
   const mustSchedule = quote ? !quote.orderNow.allowed && quote.slots.length > 0 : false;
   const timing = mustSchedule ? "schedule" : chosenTiming;
-  const effective = { ...choices, couponCode: couponCode || null, scheduledFor: timing === "schedule" ? choices.scheduledFor : null };
+  // A forma escolhida precisa ser uma das que a loja aceita; senão vale a primeira delas.
+  const methods = quote?.payment.methods ?? [];
+  const effectiveMethod = methods.length > 0 && !methods.includes(choices.paymentMethod ?? "pix") ? methods[0] : choices.paymentMethod ?? "pix";
+  const effective = {
+    ...choices, paymentMethod: effectiveMethod, cashChangeForCents: effectiveMethod === "cash" ? choices.cashChangeForCents ?? null : null,
+    couponCode: couponCode || null, scheduledFor: timing === "schedule" ? choices.scheduledFor : null,
+  };
 
   if (!cart) {
     return (
@@ -102,7 +111,7 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
       }
       clearCart();
       writeCoupon("");
-      router.push(`/pedidos/${response.orderId}/pagamento`);
+      router.push(response.next);
     } catch {
       setErrors(["Você está sem internet. Assim que voltar, a gente continua."]);
     } finally {
@@ -214,7 +223,7 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
       {quote?.store.isMarket && (
         <Step title="E se faltar um item?">
           <div className="flex flex-col gap-2" role="radiogroup" aria-label="O que fazer se faltar um item">
-            {([["call", "Me ligar"], ["substitute", "Substituir por similar"], ["remove", "Remover o item e devolver o valor"]] as const).map(([value, label]) => (
+            {([["call", "Me ligar"], ["substitute", "Substituir por similar"], ["remove", "Remover o item (sai do total)"]] as const).map(([value, label]) => (
               <label key={value} className={choiceClass(choices.missingItemPolicy === value)}>
                 <input type="radio" name="missing" checked={choices.missingItemPolicy === value} onChange={() => set({ missingItemPolicy: value })} className="size-5 accent-brand-dark" />
                 {label}
@@ -233,6 +242,37 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
         </Step>
       )}
 
+      {quote?.payment.collection === "store" ? (
+        <Step title="Pagamento">
+          <p className="mb-2 text-sm text-coffee-soft">
+            Você paga direto para a {quote.store.name}. O Chegô não cobra nada a mais de você.
+          </p>
+          <div className="flex flex-col gap-2" role="radiogroup" aria-label="Forma de pagamento">
+            {quote.payment.methods.map((method) => (
+              <label key={method} className={choiceClass(effectiveMethod === method)}>
+                <input type="radio" name="payment" checked={effectiveMethod === method} onChange={() => set({ paymentMethod: method })} className="size-5 accent-brand-dark" />
+                {STORE_PAYMENT_LABELS[method]}
+              </label>
+            ))}
+            {effectiveMethod === "pix" && (
+              <p className="text-sm text-coffee-soft">A chave Pix da loja aparece no seu pedido assim que ela aceitar.</p>
+            )}
+            {effectiveMethod === "cash" && (
+              <Field
+                label="Troco para quanto? (opcional)"
+                inputMode="decimal"
+                placeholder="Ex.: 50,00"
+                value={changeText}
+                onChange={(event) => {
+                  setChangeText(event.target.value);
+                  set({ cashChangeForCents: event.target.value.trim() ? parseMoney(event.target.value) : null });
+                }}
+                hint="Deixe em branco se não precisar de troco."
+              />
+            )}
+          </div>
+        </Step>
+      ) : (
       <Step title="Pagamento">
         <div className="flex flex-col gap-2" role="radiogroup" aria-label="Forma de pagamento">
           <label className={choiceClass(choices.paymentMethod === "pix")}>
@@ -258,6 +298,7 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
           )}
         </div>
       </Step>
+      )}
 
       <Step title="Resumo">
         {state.status === "error" ? (
@@ -271,7 +312,7 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
               {quote.lines.map((line) => (
                 <li key={line.key} className="flex justify-between gap-3 border-b border-cream py-1">
                   <span>
-                    {line.quantity}x {line.name}
+                    {quantityLabel(line.quantity, line.weightStepGrams)} {line.name}
                     {line.lines.map((text) => <span key={text} className="block pl-4 text-coffee-soft">{text}</span>)}
                     {line.notes && <span className="block pl-4 text-coffee-soft">Obs: {line.notes}</span>}
                     {line.error && <span className="block font-bold text-danger">{line.error}</span>}

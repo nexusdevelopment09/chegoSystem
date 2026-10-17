@@ -9,7 +9,7 @@ import { formatDateTime, formatPhone } from "@/lib/format";
 import { STORE_ROLE_LABELS } from "@/lib/labels";
 import { getMerchantContext, getTeam } from "@/lib/merchant/context";
 import { WEEKDAY_NAMES } from "@/lib/time";
-import { addClosure, deleteClosure, inviteMember, removeMember, saveAreas, saveHours, saveStore } from "../owner-actions";
+import { addClosure, deleteClosure, inviteMember, removeMember, saveAreas, saveHours, savePayments, saveStore } from "../owner-actions";
 
 export const metadata: Metadata = { title: "Minha loja" };
 
@@ -33,12 +33,12 @@ async function StoreSettings() {
       description: string; min_order_cents: number; offers_delivery: boolean; offers_pickup: boolean; accepts_scheduled: boolean;
       schedule_min_lead_minutes: number; schedule_max_days: number; same_day_cutoff: string | null;
       delivery_window_start: string | null; delivery_window_end: string | null; pizza_pricing: string;
-      delivery_provider: "store" | "platform";
+      delivery_provider: "store" | "platform"; accepts_pix: boolean; accepts_card: boolean; accepts_cash: boolean; pix_key: string | null;
     }[]>`
-      select description, min_order_cents, offers_delivery, offers_pickup, accepts_scheduled, schedule_min_lead_minutes,
-             schedule_max_days, same_day_cutoff::text, delivery_window_start::text, delivery_window_end::text, pizza_pricing,
-             delivery_provider
-      from stores where id = ${store.id}`,
+      select s.description, s.min_order_cents, s.offers_delivery, s.offers_pickup, s.accepts_scheduled, s.schedule_min_lead_minutes,
+             s.schedule_max_days, s.same_day_cutoff::text, s.delivery_window_start::text, s.delivery_window_end::text, s.pizza_pricing,
+             s.delivery_provider, s.accepts_pix, s.accepts_card, s.accepts_cash, sp.pix_key
+      from stores s join store_private sp on sp.store_id = s.id where s.id = ${store.id}`,
     sql<{ weekday: number; opens_at: string; closes_at: string; pickup_only: boolean }[]>`
       select weekday, opens_at::text, closes_at::text, pickup_only from store_hours where store_id = ${store.id} order by weekday, opens_at`,
     sql<{ id: string; starts_at: Date; ends_at: Date; reason: string | null }[]>`
@@ -114,6 +114,20 @@ async function StoreSettings() {
         </div>
         <label className="flex min-h-11 items-center gap-3"><input type="checkbox" name="autoPrint" defaultChecked={store.autoPrint} className={check} /> Imprimir sozinho ao aceitar o pedido</label>
         <SubmitButton className="self-start">Salvar dados da loja</SubmitButton>
+      </ActionForm>
+
+      <ActionForm action={savePayments} className={card}>
+        <h2 className="text-xl">Como você recebe</h2>
+        <p className="-mt-2 text-sm text-coffee-soft">
+          O cliente paga direto para a loja: o dinheiro não passa pelo Chegô. O Chegô cobra só uma taxa por pedido concluído,
+          paga depois, em <strong>Taxas do Chegô</strong>.
+        </p>
+        <label className="flex min-h-11 items-center gap-3"><input type="checkbox" name="acceptsPix" defaultChecked={details.accepts_pix} className={check} /> Pix para a loja</label>
+        <Field label="Chave Pix da loja" name="pixKey" maxLength={140} defaultValue={details.pix_key ?? ""} hint="O cliente vê esta chave no pedido depois que a loja aceita." />
+        <label className="flex min-h-11 items-center gap-3"><input type="checkbox" name="acceptsCard" defaultChecked={details.accepts_card} className={check} /> Cartão na entrega (maquininha da loja)</label>
+        <label className="flex min-h-11 items-center gap-3"><input type="checkbox" name="acceptsCash" defaultChecked={details.accepts_cash} className={check} /> Dinheiro na entrega</label>
+        <p className="text-sm text-coffee-soft">Nas entregas feitas pela rede do Chegô, o dinheiro não é oferecido: o entregador não leva o valor da loja.</p>
+        <SubmitButton className="self-start">Salvar formas de pagamento</SubmitButton>
       </ActionForm>
 
       <ActionForm action={saveHours} className={card}>

@@ -119,7 +119,7 @@ export async function payCourier(_previous: ActionState, formData: FormData): Pr
   const total = await sql.begin(async (tx) => {
     const paid = await tx<{ amount_cents: number }[]>`
       update courier_earnings set paid_at = ${at}, paid_by = ${profile.id}
-      where courier_id = ${id.data} and paid_at is null returning amount_cents`;
+      where courier_id = ${id.data} and paid_at is null and payer = 'platform' returning amount_cents`;
     const cents = paid.reduce((sum, row) => sum + row.amount_cents, 0);
     if (cents === 0) return 0;
     await tx`

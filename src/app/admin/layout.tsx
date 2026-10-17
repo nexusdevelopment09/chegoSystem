@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/admin/entregadores", label: "Entregadores" },
   { href: "/admin/suporte", label: "Suporte" },
   { href: "/admin/moderacao", label: "Moderação" },
+  { href: "/admin/taxas", label: "Taxas" },
   { href: "/admin/financeiro", label: "Financeiro" },
   { href: "/admin/marketing", label: "Marketing" },
   { href: "/admin/cadastros", label: "Cadastros" },

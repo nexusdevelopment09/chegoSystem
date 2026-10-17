@@ -47,8 +47,8 @@ async function Couriers({ searchParams }: { searchParams: SearchParams }) {
              c.available, c.blocked_reason,
              (select count(*)::int from courier_earnings e where e.courier_id = p.id) as deliveries,
              (select count(*)::int from orders o where o.courier_id = p.id and o.status in ('accepted', 'preparing', 'ready', 'out_for_delivery')) as carrying,
-             (select coalesce(sum(e.amount_cents), 0)::int from courier_earnings e where e.courier_id = p.id and e.paid_at is null) as to_receive,
-             (select coalesce(sum(e.amount_cents), 0)::int from courier_earnings e where e.courier_id = p.id and e.paid_at is not null) as received
+             (select coalesce(sum(e.amount_cents), 0)::int from courier_earnings e where e.courier_id = p.id and e.paid_at is null and e.payer = 'platform') as to_receive,
+             (select coalesce(sum(e.amount_cents), 0)::int from courier_earnings e where e.courier_id = p.id and e.paid_at is not null and e.payer = 'platform') as received
       from couriers c join profiles p on p.id = c.profile_id join cities ci on ci.id = c.city_id
       where p.deleted_at is null
         ${status ? sql`and c.status = ${status}::courier_status` : sql``}

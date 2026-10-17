@@ -507,7 +507,7 @@ export async function savePlan(_previous: ActionState, formData: FormData): Prom
 
 // ------------------------------------------------------------ configurações
 
-const MONEY_SETTINGS = ["service_fee_cents", "referral_referred_cents", "referral_referrer_cents"];
+const MONEY_SETTINGS = ["service_fee_cents", "referral_referred_cents", "referral_referrer_cents", "order_fee_cents"];
 
 export async function saveSettings(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const profile = await admin();
@@ -521,6 +521,8 @@ export async function saveSettings(_previous: ActionState, formData: FormData): 
     if (value === null || !Number.isFinite(value) || value < 0) return { error: `Valor inválido em ${key}.` };
     if (key === "default_commission_rate" && value > 0.5) return { error: "A comissão padrão vai de 0 a 50%." };
     if (key === "courier_fee_percent" && value > 100) return { error: "A parte do entregador vai de 0 a 100%." };
+    if (key === "business_day_cutoff_hour" && (value > 12 || !Number.isInteger(value))) return { error: "A hora de corte do expediente vai de 0 a 12." };
+    if ((key === "fee_due_days" || key === "fee_pix_expiration_hours") && (value < 1 || !Number.isInteger(value))) return { error: "Prazos precisam ser números inteiros a partir de 1." };
     values[key] = value;
   }
 

@@ -15,6 +15,7 @@ import { loadOrder } from "@/lib/orders/queries";
 import { ALL_STATUSES, STATUS_LABELS } from "@/lib/orders/status";
 import { adminRefund, adminSetStatus } from "../../actions";
 import { assignCourier } from "../../entregadores/actions";
+import { quantityLabel } from "@/lib/catalog/weight";
 
 export const metadata: Metadata = { title: "Pedido" };
 
@@ -117,7 +118,7 @@ async function OrderDetail({ params }: { params: Params }) {
         <ul>
           {order.items.map((item) => (
             <li key={item.id} className={`flex justify-between gap-3 border-b border-cream py-1 ${item.removed ? "text-coffee-soft line-through" : ""}`}>
-              <span>{item.quantity}x {item.name}{item.lines.map((line) => <span key={line} className="block pl-4 text-sm">{line}</span>)}</span>
+              <span>{quantityLabel(item.quantity, item.weightStepGrams)} {item.name}{item.lines.map((line) => <span key={line} className="block pl-4 text-sm">{line}</span>)}</span>
               <span>{formatCents(item.lineTotalCents)}</span>
             </li>
           ))}
@@ -169,7 +170,17 @@ async function OrderDetail({ params }: { params: Params }) {
         </ul>
       </section>
 
-      {order.paidAt && remaining > 0 && (
+      {order.paymentCollection === "store" && (
+        <section className={card}>
+          <h2 className="text-xl">Pagamento direto à loja</h2>
+          <p className="text-sm text-coffee-soft">
+            O cliente pagou à loja, então não há reembolso pelo app: quem devolve o dinheiro é a loja. Se a loja devolveu tudo
+            depois da entrega, mude a situação para “Reembolsado” abaixo, com o motivo: a taxa do Chegô deste pedido é estornada.
+          </p>
+        </section>
+      )}
+
+      {order.paymentCollection === "app" && order.paidAt && remaining > 0 && (
         <ActionForm action={adminRefund} className={card}>
           <h2 className="text-xl">Reembolsar</h2>
           <input type="hidden" name="orderId" value={order.id} />

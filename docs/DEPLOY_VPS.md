@@ -4,7 +4,8 @@ Este guia coloca o Chegô numa VPS (Ubuntu ou Debian), no seu domínio, com HTTP
 
 - **Sem nenhum dado fictício.** O banco começa só com a cidade (Joaquim Gomes, bairro Centro), as categorias, os planos, os termos provisórios e o seu usuário de admin.
 - **Login por telefone e senha.** Cliente cria a conta em "Criar minha conta"; lojista em "Quero vender no Chegô"; entregador em "Quero entregar". Não existe página `/dev` nem código fixo.
-- **Pagamento ainda simulado.** Nenhum dinheiro é cobrado pelo app: na tela de pagamento o cliente toca em **Simular pagamento aprovado** e o pedido segue para a loja.
+- **Cliente paga direto à loja.** Pix da loja, dinheiro ou cartão na entrega: o dinheiro não passa pelo app, e o pedido vai para a loja na hora.
+- **Taxa do Chegô por pedido.** A loja fecha o expediente em **Taxas do Chegô** e paga por Pix. Enquanto nenhum provedor Pix for configurado, a tela mostra "cobrança indisponível" e os valores ficam pendentes no painel **Admin → Taxas**.
 
 O que falta para cobrar de verdade está em [PRODUCAO.md](PRODUCAO.md).
 

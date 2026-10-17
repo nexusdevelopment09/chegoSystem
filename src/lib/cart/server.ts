@@ -60,7 +60,8 @@ export async function loadCartFromServer(): Promise<Cart | null> {
     return [{
       key: row.id, productId: product.id, name: product.name, imageUrl: product.imageUrl,
       unitPriceCents: selection.unitPriceCents, quantity: row.quantity, notes: row.notes ?? "",
-      picks: row.selections, lines: describeOptions(toSnapshot(selection.groups)),
+      picks: row.selections, lines: describeOptions(toSnapshot(selection.groups)), weightStepGrams: product.weightStepGrams,
+      pricePerKgCents: product.pricePerKgCents, weightMinGrams: product.weightMinGrams,
     }];
   });
   if (items.length === 0) return null;

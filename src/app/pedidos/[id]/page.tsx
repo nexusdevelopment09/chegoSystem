@@ -7,13 +7,14 @@ import { OrderSummary } from "@/components/cart/OrderSummary";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { AutoRefresh } from "@/components/orders/AutoRefresh";
 import { OrderChat } from "@/components/orders/OrderChat";
+import { PaymentLine } from "@/components/orders/PaymentLine";
 import { OrderTimeline } from "@/components/orders/OrderTimeline";
 import { ReorderButton } from "@/components/orders/ReorderButton";
 import { ReviewForm } from "@/components/orders/ReviewForm";
 import { Button, buttonClass } from "@/components/ui/Button";
 import { requireUser } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
-import { withUser } from "@/lib/db";
+import { sql, withUser } from "@/lib/db";
 import { formatCents, formatDateTime } from "@/lib/format";
 import { chatOpen } from "@/lib/orders/moderation";
 import { loadOrder } from "@/lib/orders/queries";
@@ -21,6 +22,7 @@ import { canTransition, IN_PROGRESS, STATUS_LABELS } from "@/lib/orders/status";
 import { getSettings } from "@/lib/settings";
 import { DAY_MS } from "@/lib/time";
 import { cancelOrder } from "../actions";
+import { quantityLabel } from "@/lib/catalog/weight";
 
 export const metadata: Metadata = { title: "Acompanhar pedido" };
 
@@ -55,6 +57,14 @@ async function OrderContent({ params }: { params: Params }) {
     select rating, comment, reply from reviews where order_id = ${order.id}`);
   const canReview = order.completedAt !== null && !review
     && at.getTime() <= order.completedAt.getTime() + settings.review_window_days * DAY_MS;
+
+  // Pix direto para a loja: a chave aparece só depois que a loja aceitou o pedido.
+  const showPixKey = order.paymentCollection === "store" && order.paymentMethod === "pix"
+    && ["accepted", "preparing", "ready", "out_for_delivery", "delivered", "picked_up"].includes(order.status);
+  const [store] = showPixKey
+    ? await sql<{ pix_key: string | null }[]>`select pix_key from store_private where store_id = ${order.storeId}`
+    : [];
+  const pixKey = store?.pix_key ?? null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -107,7 +117,7 @@ async function OrderContent({ params }: { params: Params }) {
           {order.items.map((item) => (
             <li key={item.id} className={`flex justify-between gap-3 border-b border-cream py-2 ${item.removed ? "text-coffee-soft line-through" : ""}`}>
               <span>
-                {item.quantity}x {item.name}
+                {quantityLabel(item.quantity, item.weightStepGrams)} {item.name}
                 {item.lines.map((line) => <span key={line} className="block pl-4 text-sm text-coffee-soft">{line}</span>)}
                 {item.notes && <span className="block pl-4 text-sm text-coffee-soft">Obs: {item.notes}</span>}
                 {item.removed && <span className="block text-sm font-semibold no-underline">Removido: {item.removedReason}</span>}
@@ -117,9 +127,9 @@ async function OrderContent({ params }: { params: Params }) {
           ))}
         </ul>
         <OrderSummary totals={order.totals} fulfillment={order.fulfillment} />
-        <p className="mt-2 text-sm text-coffee-soft">
-          Pagamento: {order.paymentMethod === "pix" ? "Pix" : "Cartão de crédito"}
-        </p>
+        <div className="mt-3">
+          <PaymentLine order={order} pixKey={pixKey} />
+        </div>
       </section>
 
       {order.address && (

@@ -1,10 +1,15 @@
 // GENERATED FILE. Do not edit: run `npm run db:types` after changing migrations.
 
+export type ClosingStatus = "awaiting_payment" | "paid" | "overdue" | "in_review";
 export type CouponType = "fixed" | "percent" | "free_delivery";
+export type CourierEarningStatus = "pending" | "paid_by_store" | "confirmed" | "disputed";
 export type CourierKind = "platform" | "partner";
+export type CourierPayer = "platform" | "store";
 export type CourierStatus = "pending" | "active" | "blocked";
 export type DeliveryProvider = "store" | "platform";
 export type DiscountPayer = "platform" | "store";
+export type FeeChargeStatus = "pending" | "paid" | "expired" | "cancelled" | "in_review";
+export type FeeEntryKind = "order_fee" | "order_fee_reversal" | "coupon_credit" | "coupon_credit_reversal" | "adjustment" | "carryover";
 export type FulfillmentType = "delivery" | "pickup";
 export type InvoiceStatus = "open" | "paid" | "overdue" | "cancelled";
 export type LedgerAccount = "store" | "platform" | "courier";
@@ -15,6 +20,7 @@ export type MessageSide = "customer" | "store" | "admin";
 export type MissingItemPolicy = "call" | "substitute" | "remove";
 export type OptionPriceMode = "sum" | "highest" | "average" | "free_up_to";
 export type OrderStatus = "awaiting_payment" | "paid" | "accepted" | "preparing" | "ready" | "out_for_delivery" | "delivered" | "picked_up" | "expired" | "rejected" | "cancelled" | "refunded" | "partially_refunded";
+export type PaymentCollection = "app" | "store";
 export type PaymentMethod = "pix" | "card" | "cash";
 export type PaymentStatus = "pending" | "approved" | "declined" | "expired" | "refunded" | "partially_refunded";
 export type PizzaPricingRule = "highest" | "average";
@@ -156,6 +162,12 @@ export interface CourierEarningsRow {
   paid_at: Date | null;
   paid_by: string | null;
   created_at: Date;
+  payer: CourierPayer;
+  store_id: string | null;
+  status: CourierEarningStatus;
+  store_marked_paid_at: Date | null;
+  confirmed_at: Date | null;
+  dispute_reason: string | null;
 }
 
 export interface CouriersRow {
@@ -185,6 +197,46 @@ export interface FeatureFlagsRow {
   enabled: boolean;
   description: string;
   updated_at: Date;
+}
+
+export interface FeeChargesRow {
+  id: string;
+  closing_id: string;
+  store_id: string;
+  provider: string;
+  provider_charge_id: string;
+  amount_cents: number;
+  status: FeeChargeStatus;
+  pix_copy_paste: string | null;
+  expires_at: Date;
+  created_at: Date;
+  paid_at: Date | null;
+}
+
+export interface FeeEntriesRow {
+  id: string;
+  store_id: string;
+  order_id: string | null;
+  kind: FeeEntryKind;
+  amount_cents: number;
+  business_date: Date;
+  closing_id: string | null;
+  reverses_id: string | null;
+  carried_from_closing_id: string | null;
+  reason: string | null;
+  created_by: string | null;
+  created_at: Date;
+}
+
+export interface FeePaymentsRow {
+  id: string;
+  charge_id: string;
+  provider: string;
+  provider_transaction_id: string;
+  amount_cents: number;
+  applied: boolean;
+  received_at: Date;
+  raw_payload: unknown | null;
 }
 
 export interface InvoicesRow {
@@ -304,6 +356,7 @@ export interface OrderItemsRow {
   requires_age_check: boolean;
   removed_at: Date | null;
   removed_reason: string | null;
+  weight_step_grams: number | null;
 }
 
 export interface OrderMessagesRow {
@@ -369,6 +422,8 @@ export interface OrdersRow {
   delivery_provider: DeliveryProvider;
   courier_fee_cents: number;
   courier_assigned_at: Date | null;
+  payment_collection: PaymentCollection;
+  cash_change_for_cents: number | null;
 }
 
 export interface OutboundMessagesRow {
@@ -459,6 +514,9 @@ export interface ProductsRow {
   deleted_at: Date | null;
   created_at: Date;
   updated_at: Date;
+  weight_step_grams: number | null;
+  price_per_kg_cents: number | null;
+  weight_min_grams: number | null;
 }
 
 export interface ProfilesRow {
@@ -545,6 +603,24 @@ export interface SessionsRow {
   expires_at: Date;
 }
 
+export interface StoreClosingsRow {
+  id: string;
+  store_id: string;
+  business_date: Date;
+  status: ClosingStatus;
+  order_count: number;
+  fees_cents: number;
+  credits_cents: number;
+  adjustments_cents: number;
+  total_due_cents: number;
+  fee_unit_cents: number;
+  due_date: Date;
+  closed_at: Date;
+  closed_by: string | null;
+  paid_at: Date | null;
+  review_reason: string | null;
+}
+
 export interface StoreClosuresRow {
   id: string;
   store_id: string;
@@ -589,6 +665,7 @@ export interface StorePrivateRow {
   approved_at: Date | null;
   approved_by: string | null;
   updated_at: Date;
+  pix_key: string | null;
 }
 
 export interface StoreSubscriptionsRow {
@@ -641,6 +718,9 @@ export interface StoresRow {
   created_at: Date;
   updated_at: Date;
   delivery_provider: DeliveryProvider;
+  accepts_pix: boolean;
+  accepts_card: boolean;
+  accepts_cash: boolean;
 }
 
 export interface SubscriptionPlansRow {

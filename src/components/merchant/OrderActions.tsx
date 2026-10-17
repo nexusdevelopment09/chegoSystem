@@ -66,7 +66,7 @@ export function OrderActions(props: Props) {
               Detalhe (obrigatório em “Outro”)
               <input name="detail" maxLength={200} className={inputClass} />
             </label>
-            <SubmitButton variant="secondary" className={small}>Confirmar recusa e reembolsar</SubmitButton>
+            <SubmitButton variant="secondary" className={small}>Confirmar recusa</SubmitButton>
           </ActionForm>
         </details>
       </div>

@@ -39,6 +39,8 @@ export type ProductDef = {
   noImage?: boolean;
   featured?: boolean;
   maxPerOrder?: number;
+  /** Vendido por peso: preço do quilo (centavos), precisão e mínimo em gramas. "price" é o de um passo de precisão. */
+  weight?: { perKg: number; step: number; min: number };
 };
 
 export type Shift = { days: number[]; open: string; close: string; pickupOnly?: boolean };
@@ -424,11 +426,20 @@ export const STORES: StoreDef[] = [
     description: "Grãos, castanhas e produtos naturais em porções.", color: "#4D7C0F",
     hours: [{ days: MON_SAT, open: "08:00", close: "18:00" }],
     commission: 0.10, prepMinutes: 15, minOrder: c(15), areas: "urban", weight: 3,
-    products: ([
-      ["Granola 250 g", 12.9], ["Castanha de caju 200 g", 24.9], ["Amendoim torrado 250 g", 8.9], ["Mix de castanhas 200 g", 27.9],
-      ["Chá de camomila 30 g", 7.5], ["Chá de erva-doce 30 g", 7.5], ["Mel 300 g", 22], ["Farinha de linhaça 250 g", 9.9],
-      ["Aveia em flocos 500 g", 8.5], ["Pasta de amendoim 500 g", 26.9],
-    ] as const).map(([name, price]): ProductDef => ({ name, price: c(price), section: name.startsWith("Chá") ? "Chás" : "Grãos e castanhas", art: "jar" })),
+    products: [
+      // A granel, primeiro no cardápio: o cliente digita os gramas (de 10 em 10 g, a partir de 100 g).
+      ...([
+        ["Granola a granel", 39.9], ["Castanha-do-pará a granel", 89.9], ["Uva-passa a granel", 34.9], ["Chia a granel", 49.9],
+      ] as const).map(([name, perKg]): ProductDef => ({
+        name, price: Math.round((c(perKg) * 10) / 1000), section: "A granel (por peso)", art: "jar",
+        desc: "Pesado na hora. Escolha quantos gramas quer.", weight: { perKg: c(perKg), step: 10, min: 100 },
+      })),
+      ...([
+        ["Granola 250 g", 12.9], ["Castanha de caju 200 g", 24.9], ["Amendoim torrado 250 g", 8.9], ["Mix de castanhas 200 g", 27.9],
+        ["Chá de camomila 30 g", 7.5], ["Chá de erva-doce 30 g", 7.5], ["Mel 300 g", 22], ["Farinha de linhaça 250 g", 9.9],
+        ["Aveia em flocos 500 g", 8.5], ["Pasta de amendoim 500 g", 26.9],
+      ] as const).map(([name, price]): ProductDef => ({ name, price: c(price), section: name.startsWith("Chá") ? "Chás" : "Grãos e castanhas", art: "jar" })),
+    ],
   },
   {
     key: "suplementos", deliveryBy: "platform", name: "Força Total Suplementos", slug: "forca-total-suplementos", category: "saudavel",

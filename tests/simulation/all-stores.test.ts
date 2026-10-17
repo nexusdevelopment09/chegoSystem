@@ -15,8 +15,6 @@ import { sql as appSql } from "@/lib/db";
 import { formatCents } from "@/lib/format";
 import type { OrderStatus } from "@/lib/orders/status";
 import { transitionOrder } from "@/lib/orders/transitions";
-import { buildMockWebhook } from "@/lib/payments/mock";
-import { handlePaymentWebhook } from "@/lib/payments/webhook";
 import { storeAvailability, type Shift } from "@/lib/stores/hours";
 import { MINUTE_MS } from "@/lib/time";
 
@@ -151,11 +149,10 @@ async function simulateAt(store: Store, index: number, customers: Customer[], ne
   const later = (minutes: number) => { clock.value = new Date(clock.value.getTime() + minutes * MINUTE_MS); return clock.value; };
 
   try {
-    // O gateway de mentira confirma o Pix: só agora a loja vê o pedido.
+    // O cliente paga direto à loja: o pedido já chegou nela, sem passar por gateway.
+    const [sent] = await sql<{ status: string; payment_collection: string }[]>`select status, payment_collection from orders where id = ${placed.orderId}`;
+    if (sent.status !== "paid" || sent.payment_collection !== "store") problems.push(`o pedido não foi direto para a loja (${sent.status})`);
     later(2);
-    const webhook = buildMockWebhook(placed.providerPaymentId, "payment.approved");
-    const outcome = await handlePaymentWebhook(webhook.rawBody, webhook.signature);
-    if (outcome !== "processed") problems.push(`o aviso de pagamento voltou "${outcome}"`);
 
     const move = (to: OrderStatus, actor: "staff" | "courier", actorId: string, minutes: number, courierId?: string | null) =>
       appSql.begin((tx) => transitionOrder(tx, { orderId: placed.orderId, to, actor, actorId, at: later(minutes), courierId }));
@@ -189,15 +186,25 @@ async function simulateAt(store: Store, index: number, customers: Customer[], ne
     if (done.status !== (pickup ? "picked_up" : "delivered")) problems.push(`terminou como "${done.status}"`);
     if (!done.paid || !done.completed) problems.push("faltou a data de pagamento ou de conclusão");
 
-    const expectedCourier = byNetwork && courier ? order.courier_fee_cents : 0;
+    // O dinheiro do pedido fica todo com a loja, fora do app: nenhum lançamento de venda, nenhum pagamento.
+    if (order.store_amount_cents !== order.total_cents) problems.push(`a loja deveria ficar com o total, ficou com ${formatCents(order.store_amount_cents)}`);
     const money = await balances(placed.orderId);
-    if (money.store !== order.store_amount_cents) problems.push(`lançamentos da loja: ${formatCents(money.store)}, esperado ${formatCents(order.store_amount_cents)}`);
-    if (money.platform !== order.platform_amount_cents - expectedCourier) problems.push(`lançamentos da plataforma: ${formatCents(money.platform)}, esperado ${formatCents(order.platform_amount_cents - expectedCourier)}`);
-    if (money.courier !== expectedCourier) problems.push(`ganho do entregador: ${formatCents(money.courier)}, esperado ${formatCents(expectedCourier)}`);
-    if (money.store + money.platform + money.courier !== order.total_cents) problems.push("a soma dos lançamentos não fecha com o total pago");
+    if (money.store !== 0 || money.platform !== 0 || money.courier !== 0) problems.push("apareceram lançamentos de venda num pedido pago direto à loja");
+    const [{ payments }] = await sql<{ payments: number }[]>`select count(*)::int as payments from payments where order_id = ${placed.orderId}`;
+    if (payments !== 0) problems.push("apareceu um pagamento pelo app");
 
-    const [payment] = await sql<{ status: string; amount_cents: number }[]>`select status, amount_cents from payments where order_id = ${placed.orderId}`;
-    if (payment.status !== "approved" || payment.amount_cents !== order.total_cents) problems.push("o pagamento não ficou aprovado pelo valor total");
+    // A taxa do Chegô nasce uma vez, na conclusão.
+    const fees = await sql<{ amount_cents: number }[]>`select amount_cents from fee_entries where order_id = ${placed.orderId} and kind = 'order_fee'`;
+    if (fees.length !== 1 || fees[0].amount_cents !== 50) problems.push(`taxa do Chegô: ${fees.map((fee) => fee.amount_cents).join(", ") || "nenhuma"}, esperado uma de 50 centavos`);
+
+    // O entregador da rede fica para a loja pagar, pelo valor da oferta.
+    const earnings = await sql<{ amount_cents: number; payer: string; status: string }[]>`select amount_cents, payer, status from courier_earnings where order_id = ${placed.orderId}`;
+    if (byNetwork && courier && order.courier_fee_cents > 0) {
+      const [earning] = earnings;
+      if (!earning || earning.payer !== "store" || earning.status !== "pending" || earning.amount_cents !== order.courier_fee_cents) {
+        problems.push("o ganho do entregador não ficou para a loja pagar pelo valor da oferta");
+      }
+    } else if (earnings.length > 0) problems.push("apareceu ganho de entregador da rede numa entrega da loja");
     const [{ items }] = await sql<{ items: number }[]>`select count(*)::int as items from order_items where order_id = ${placed.orderId}`;
     if (items !== cart.items.length) problems.push("os itens gravados não batem com a sacola");
     const [{ notices }] = await sql<{ notices: number }[]>`select count(*)::int as notices from notifications where order_id = ${placed.orderId} and profile_id = ${customer.id}`;

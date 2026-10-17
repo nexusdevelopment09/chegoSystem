@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
 import { PrintOnLoad } from "@/components/merchant/PrintOnLoad";
+import { paymentText } from "@/components/orders/PaymentLine";
 import { formatCents, formatDateTime, formatPhone } from "@/lib/format";
 import { getMerchantContext } from "@/lib/merchant/context";
 import { loadOrder } from "@/lib/orders/queries";
+import { quantityLabel } from "@/lib/catalog/weight";
 
 export const metadata: Metadata = { title: "Imprimir pedido" };
 
@@ -66,7 +68,7 @@ async function Ticket({ params, searchParams }: Props) {
       {order.items.filter((item) => !item.removed).map((item) => (
         <div key={item.id} className="mb-1">
           <p className={`${row} font-bold`}>
-            <span>{item.quantity}x {item.name}</span>
+            <span>{quantityLabel(item.quantity, item.weightStepGrams)} {item.name}</span>
             <span>{formatCents(item.lineTotalCents)}</span>
           </p>
           {item.lines.map((line) => <p key={line} className="pl-3">{line}</p>)}
@@ -79,9 +81,9 @@ async function Ticket({ params, searchParams }: Props) {
       <p className={row}><span>Subtotal</span><span>{formatCents(order.totals.subtotalCents)}</span></p>
       {order.totals.discountCents > 0 && <p className={row}><span>Desconto</span><span>-{formatCents(order.totals.discountCents)}</span></p>}
       <p className={row}><span>Entrega</span><span>{formatCents(order.totals.deliveryFeeCents)}</span></p>
-      <p className={row}><span>Taxa de serviço</span><span>{formatCents(order.totals.serviceFeeCents)}</span></p>
+      {order.totals.serviceFeeCents > 0 && <p className={row}><span>Taxa de serviço</span><span>{formatCents(order.totals.serviceFeeCents)}</span></p>}
       <p className={`${row} text-base font-bold`}><span>TOTAL</span><span>{formatCents(order.totals.totalCents)}</span></p>
-      <p>Pago pelo app ({order.paymentMethod === "pix" ? "Pix" : "cartão"})</p>
+      <p className="font-bold">{paymentText(order)}</p>
       <Line />
       <p className="text-center">Chegô · Pediu, Chegô.</p>
     </div>

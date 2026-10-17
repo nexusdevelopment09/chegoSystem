@@ -8,6 +8,8 @@ import { validateCoupon, type CouponRules } from "@/lib/coupons/validate";
 import { sql } from "@/lib/db";
 import { formatCents } from "@/lib/format";
 import { computeTotals, courierFee, type DiscountPayer, type Totals } from "@/lib/orders/totals";
+import { paymentCollection, type PaymentCollection } from "@/lib/payments/collection";
+import { formatWeight, weightPriceCents } from "@/lib/catalog/weight";
 import { getSettings } from "@/lib/settings";
 import { storeAvailability, type Shift, type StoreSchedule } from "@/lib/stores/hours";
 import { canOrderNow, isValidSlot, scheduleSlots, type ScheduleRules, type Slot } from "./schedule";
@@ -34,7 +36,10 @@ export const cartInputSchema = z.object({
   ageConfirmed: z.boolean().default(false),
   missingItemPolicy: z.enum(["call", "substitute", "remove"]).nullish(),
   notes: z.string().trim().max(300).default(""),
-  paymentMethod: z.enum(["pix", "card"]).default("pix"),
+  // Pagando direto à loja: Pix da loja, cartão na entrega ou dinheiro. Pelo app: Pix ou cartão.
+  paymentMethod: z.enum(["pix", "card", "cash"]).default("pix"),
+  /** Dinheiro: para quanto o cliente precisa de troco, em centavos. */
+  cashChangeForCents: z.number().int().positive().max(1_000_000).nullish(),
 });
 
 export type CartInput = z.infer<typeof cartInputSchema>;
@@ -43,6 +48,8 @@ export type QuoteLine = {
   key: string;
   productId: string;
   name: string;
+  /** Vendido por peso: porção em gramas (a quantidade conta porções). */
+  weightStepGrams: number | null;
   quantity: number;
   unitPriceCents: number;
   lineTotalCents: number;
@@ -74,6 +81,8 @@ export type Quote = {
   slots: Slot[];
   estimateMinutes: number;
   coupon: { code: string; ok: boolean; message: string; discountCents: number } | null;
+  /** Como o cliente pode pagar este pedido. */
+  payment: { collection: PaymentCollection; methods: ("pix" | "card" | "cash")[] };
 };
 
 /** O que fechar o pedido exige além da cotação mostrada ao cliente. */
@@ -102,7 +111,8 @@ type StoreRow = {
   offers_delivery: boolean; offers_pickup: boolean; accepts_scheduled: boolean;
   schedule_min_lead_minutes: number; schedule_max_days: number;
   same_day_cutoff: string | null; delivery_window_start: string | null; delivery_window_end: string | null;
-  commission_rate: string; delivery_provider: "store" | "platform"; maintenance_mode: boolean; shifts: Shift[]; closures: { startsAt: string; endsAt: string }[];
+  commission_rate: string; delivery_provider: "store" | "platform"; maintenance_mode: boolean;
+  accepts_pix: boolean; accepts_card: boolean; accepts_cash: boolean; shifts: Shift[]; closures: { startsAt: string; endsAt: string }[];
 };
 
 const UNAVAILABLE = "Essa loja não está mais disponível.";
@@ -134,7 +144,7 @@ export async function buildQuote(
            s.paused_until, s.prep_time_minutes, s.busy_extra_minutes, s.min_order_cents, s.offers_delivery,
            s.offers_pickup, s.accepts_scheduled, s.schedule_min_lead_minutes, s.schedule_max_days,
            s.same_day_cutoff::text, s.delivery_window_start::text, s.delivery_window_end::text,
-           sp.commission_rate, s.delivery_provider, ci.maintenance_mode,
+           sp.commission_rate, s.delivery_provider, ci.maintenance_mode, s.accepts_pix, s.accepts_card, s.accepts_cash,
            coalesce((select json_agg(json_build_object('weekday', h.weekday, 'opensAt', h.opens_at::text,
              'closesAt', h.closes_at::text, 'pickupOnly', h.pickup_only)) from store_hours h where h.store_id = s.id), '[]') as shifts,
            coalesce((select json_agg(json_build_object('startsAt', cl.starts_at, 'endsAt', cl.ends_at))
@@ -174,6 +184,7 @@ export async function buildQuote(
     const product = products.get(item.productId);
     const base = {
       key: item.key, productId: item.productId, name: product?.name ?? "Item indisponível", quantity: item.quantity,
+      weightStepGrams: product?.weightStepGrams ?? null,
       unitPriceCents: 0, lineTotalCents: 0, lines: [] as string[], notes: item.notes,
       requiresAgeCheck: product?.requiresAgeCheck ?? false, priceChanged: false,
     };
@@ -182,16 +193,22 @@ export async function buildQuote(
     const selection = resolveSelection(product.priceCents, product.groups, item.picks);
     if (!selection.ok) return { ...base, error: selection.error };
 
+    // Por peso (sem opções): a linha custa o preço do quilo × gramas, arredondado só no fim.
+    const grams = product.weightStepGrams ? item.quantity * product.weightStepGrams : null;
+    const byWeight = grams !== null && product.pricePerKgCents !== null && product.groups.length === 0;
     const priced = {
       ...base,
       unitPriceCents: selection.unitPriceCents,
-      lineTotalCents: selection.unitPriceCents * item.quantity,
+      lineTotalCents: byWeight ? weightPriceCents(product.pricePerKgCents!, grams!) : selection.unitPriceCents * item.quantity,
       lines: describeOptions(toSnapshot(selection.groups)),
       priceChanged: item.expectedUnitPriceCents !== undefined && item.expectedUnitPriceCents !== selection.unitPriceCents,
     };
 
     const status = productStatus(product.rules, when);
     if (!status.orderable) return { ...priced, error: status.reason === "sold_out" ? "Esgotou" : status.note };
+    if (grams !== null && product.weightMinGrams && grams < product.weightMinGrams) {
+      return { ...priced, error: `O mínimo deste produto é ${formatWeight(product.weightMinGrams)}.` };
+    }
     if (product.maxPerOrder && quantityByProduct.get(product.id)! > product.maxPerOrder) {
       return { ...priced, error: `Máximo de ${product.maxPerOrder} por pedido.` };
     }
@@ -309,13 +326,37 @@ export async function buildQuote(
   const settings = await getSettings();
   // Retirada no balcão não tem entregador; só a entrega pode ser da rede do Chegô.
   const deliveryProvider = fulfillment === "delivery" ? store.delivery_provider : "store";
+
+  // Pagando direto à loja, todo o dinheiro do pedido (inclusive a entrega) fica com a loja:
+  // o Chegô não cobra taxa de serviço nem comissão do pedido. A loja paga ao Chegô uma
+  // taxa fixa por pedido concluído, à parte (src/lib/fees/), e paga o entregador da rede.
+  const collection = paymentCollection();
+  const direct = collection === "store";
+  const commissionRate = direct ? 0 : Number(store.commission_rate);
   const totals = computeTotals({
-    deliveryBy: deliveryProvider,
-    subtotalCents, deliveryFeeCents, serviceFeeCents: settings.service_fee_cents,
-    commissionRate: Number(store.commission_rate),
+    deliveryBy: direct ? "store" : deliveryProvider,
+    subtotalCents, deliveryFeeCents, serviceFeeCents: direct ? 0 : settings.service_fee_cents,
+    commissionRate,
     productDiscountCents: discount.productCents, deliveryDiscountCents: discount.deliveryCents,
     discountPaidBy: discount.paidBy,
   });
+
+  // Formas de pagamento: as que a loja aceita. Dinheiro não vale quando quem entrega é a
+  // rede do Chegô, porque o entregador ficaria com o dinheiro da loja sem prestação de contas.
+  const methods: ("pix" | "card" | "cash")[] = direct
+    ? [
+        ...(store.accepts_pix ? ["pix" as const] : []),
+        ...(store.accepts_card ? ["card" as const] : []),
+        ...(store.accepts_cash && deliveryProvider !== "platform" ? ["cash" as const] : []),
+      ]
+    : ["pix", "card"];
+  if (options.mode === "place") {
+    if (!methods.includes(input.paymentMethod)) errors.push("Essa forma de pagamento não está disponível para este pedido.");
+    if (direct && input.paymentMethod === "cash" && input.cashChangeForCents && input.cashChangeForCents < totals.totalCents) {
+      errors.push("O troco precisa ser para um valor maior que o total do pedido.");
+    }
+  }
+  if (methods.length === 0) errors.push("Esta loja ainda não informou como recebe os pagamentos.");
 
   return {
     quote: {
@@ -329,9 +370,10 @@ export async function buildQuote(
       slots,
       estimateMinutes: store.prep_time_minutes + store.busy_extra_minutes + (fulfillment === "delivery" ? area?.max_minutes ?? 0 : 0),
       coupon: couponView,
+      payment: { collection, methods },
     },
     internals: {
-      resolved, cityId: store.city_id, commissionRate: Number(store.commission_rate), deliveryProvider,
+      resolved, cityId: store.city_id, commissionRate, deliveryProvider,
       courierFeeCents: deliveryProvider === "platform" ? courierFee(deliveryFeeCents, settings.courier_fee_percent) : 0,
       neighborhoodId: fulfillment === "delivery" ? neighborhoodId : null, address, coupon: couponInternal, when,
     },

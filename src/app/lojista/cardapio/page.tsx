@@ -6,6 +6,7 @@ import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
 import { Button, buttonClass } from "@/components/ui/Button";
 import { inputClass } from "@/components/ui/Field";
 import { withUser } from "@/lib/db";
+import { formatWeight } from "@/lib/catalog/weight";
 import { formatCents } from "@/lib/format";
 import { getMerchantContext } from "@/lib/merchant/context";
 import { deleteSection, moveSection, saveSection, toggleProduct } from "./actions";
@@ -25,6 +26,7 @@ export default function MenuPage() {
 type ProductRow = {
   id: string; section_id: string | null; name: string; price_cents: number; image_url: string | null;
   available: boolean; track_stock: boolean; stock_qty: number | null; groups: number;
+  weight_step_grams: number | null; price_per_kg_cents: number | null;
 };
 
 async function Menu() {
@@ -35,6 +37,7 @@ async function Menu() {
       select id, name from product_sections where store_id = ${store.id} order by sort_order, name`,
     products: await tx<ProductRow[]>`
       select p.id, p.section_id, p.name, p.price_cents, p.image_url, p.available, p.track_stock, p.stock_qty,
+             p.weight_step_grams, p.price_per_kg_cents,
              (select count(*)::int from product_option_groups g where g.product_id = p.id) as groups
       from products p
       where p.store_id = ${store.id} and p.deleted_at is null
@@ -96,9 +99,9 @@ async function Menu() {
                   <div className="min-w-0 flex-1">
                     <Link href={`/lojista/cardapio/produto/${product.id}`} className="font-semibold text-brand-dark underline">{product.name}</Link>
                     <p className="text-sm text-coffee-soft">
-                      {formatCents(product.price_cents)}
+                      {product.price_per_kg_cents ? `${formatCents(product.price_per_kg_cents)}/kg` : formatCents(product.price_cents)}
                       {product.groups > 0 && ` · ${product.groups} grupo${product.groups > 1 ? "s" : ""} de opções`}
-                      {product.track_stock && ` · estoque ${product.stock_qty ?? 0}`}
+                      {product.track_stock && ` · estoque ${product.weight_step_grams ? formatWeight((product.stock_qty ?? 0) * product.weight_step_grams) : product.stock_qty ?? 0}`}
                     </p>
                   </div>
                   <form action={toggleProduct}>

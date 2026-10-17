@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { Icon } from "@/components/ui/Icon";
 
 const RECENT_KEY = "chego_recent_searches";
 
@@ -63,6 +64,7 @@ export function SearchBox({ initial = "" }: { initial?: string }) {
         search(value);
       }}
     >
+      <Icon name="search" size={20} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-coffee-soft" />
       <input
         type="search"
         name="q"
@@ -73,11 +75,11 @@ export function SearchBox({ initial = "" }: { initial?: string }) {
           setFocused(true);
         }}
         onBlur={() => setTimeout(() => setFocused(false), 150)}
-        placeholder="Buscar loja ou produto"
-        aria-label="Buscar loja ou produto"
+        placeholder="Busque lojas ou produtos"
+        aria-label="Busque restaurantes, lojas ou produtos"
         autoComplete="off"
         maxLength={60}
-        className="min-h-12 w-full rounded-full border-2 border-peach bg-white px-5 text-base focus:border-brand-dark focus:outline-none"
+        className="min-h-12 w-full rounded-full border-2 border-peach bg-white pl-12 pr-5 text-base shadow-sm transition-colors placeholder:text-coffee-soft/80 focus:border-brand-dark focus:outline-none"
       />
       {focused && list.length > 0 && (
         <ul className="absolute inset-x-0 top-14 z-10 overflow-hidden rounded-card bg-white shadow-lg ring-1 ring-peach">

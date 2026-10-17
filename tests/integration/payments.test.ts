@@ -17,6 +17,10 @@ import { handlePaymentWebhook } from "@/lib/payments/webhook";
 
 // Estes testes chamam o mesmo código que o app usa para criar pedido, receber o aviso
 // do gateway, reembolsar e mudar o status, gravando de verdade no banco de teste.
+//
+// Eles cobrem o pagamento PELO APP (PAYMENT_COLLECTION=app), o caminho preparado para
+// quando houver um gateway de verdade. O pagamento direto à loja, que é o padrão hoje,
+// e as taxas do Chegô estão em fees.test.ts.
 
 // Uma sexta às 15h (horário de Maceió): o Mercado Boa Compra está aberto.
 const AT = new Date("2026-10-09T15:00:00-03:00");
@@ -58,13 +62,14 @@ async function order(options: { paid: boolean }) {
   const placed = await placeOrder(cart(), customer, AT);
   if (!placed.ok) throw new Error(`O pedido não foi criado: ${placed.errors.join(" | ")}`);
   if (options.paid) {
-    const { rawBody, signature } = buildMockWebhook(placed.providerPaymentId, "payment.approved");
+    const { rawBody, signature } = buildMockWebhook(placed.providerPaymentId!, "payment.approved");
     expect(await handlePaymentWebhook(rawBody, signature)).toBe("processed");
   }
   return placed;
 }
 
 beforeAll(async () => {
+  process.env.PAYMENT_COLLECTION = "app";
   const [profile] = await sql<{ id: string; full_name: string; phone: string; birth_date: string | null; city_id: string | null }[]>`
     select id, full_name, phone, birth_date::text, city_id from profiles where full_name = 'Diego Alves'`;
   customer = { id: profile.id, fullName: profile.full_name, phone: profile.phone, role: "customer", blocked: false, birthDate: profile.birth_date, cityId: profile.city_id };
@@ -84,6 +89,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  delete process.env.PAYMENT_COLLECTION;
   await Promise.all([appSql.end(), sql.end()]);
   // Devolve o banco de teste ao estado do seed, para os outros arquivos não verem estes pedidos.
   execFileSync(process.execPath, ["scripts/db.ts", "reset"], { env: { ...process.env, CHEGO_DB: TEST_DATABASE, STORAGE_DIR: TEST_STORAGE }, stdio: "ignore" });
@@ -94,7 +100,7 @@ describe("webhook de pagamento", () => {
     const placed = await order({ paid: false });
     expect((await sql`select status from orders where id = ${placed.orderId}`)[0].status).toBe("awaiting_payment");
 
-    const { rawBody, signature } = buildMockWebhook(placed.providerPaymentId, "payment.approved");
+    const { rawBody, signature } = buildMockWebhook(placed.providerPaymentId!, "payment.approved");
     expect(await handlePaymentWebhook(rawBody, signature)).toBe("processed");
 
     const snapshot = async () => ({
@@ -122,7 +128,7 @@ describe("webhook de pagamento", () => {
 
   it("com assinatura errada não muda nada", async () => {
     const placed = await order({ paid: false });
-    const { rawBody } = buildMockWebhook(placed.providerPaymentId, "payment.approved");
+    const { rawBody } = buildMockWebhook(placed.providerPaymentId!, "payment.approved");
 
     expect(await handlePaymentWebhook(rawBody, "assinatura-falsa")).toBe("invalid_signature");
     expect(await handlePaymentWebhook(rawBody, null)).toBe("invalid_signature");
@@ -196,7 +202,7 @@ describe("estoque", () => {
 
     const placed = await order({ paid: false });
     expect(await stockOf(product.id)).toBe(before - quantity);
-    const { rawBody, signature } = buildMockWebhook(placed.providerPaymentId, "payment.expired");
+    const { rawBody, signature } = buildMockWebhook(placed.providerPaymentId!, "payment.expired");
     expect(await handlePaymentWebhook(rawBody, signature)).toBe("processed");
     expect((await sql`select status from orders where id = ${placed.orderId}`)[0].status).toBe("expired");
     expect(await stockOf(product.id)).toBe(before);

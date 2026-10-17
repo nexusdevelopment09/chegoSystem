@@ -8,6 +8,7 @@ import {
   describeOptions, groupProblem, partialPriceCents, resolveSelection, toSnapshot, unitsIn,
   type GroupView, type OptionView, type Pick,
 } from "@/lib/catalog/selection";
+import { formatWeight, gramsToQuantity, weightPriceCents } from "@/lib/catalog/weight";
 import { formatCents } from "@/lib/format";
 import { PizzaPreview } from "./PizzaPreview";
 
@@ -21,6 +22,10 @@ export type ConfigurableProduct = {
   imageUrl: string | null;
   maxPerOrder: number | null;
   groups: GroupView[];
+  /** Vendido por peso: precisão em gramas, preço do quilo e o mínimo de gramas. */
+  weightStepGrams: number | null;
+  pricePerKgCents: number | null;
+  weightMinGrams: number | null;
 };
 
 type Props = {
@@ -41,7 +46,12 @@ function priceLabel(group: GroupView, option: OptionView, unitsPicked: number): 
 export function ProductConfigurator({ product, blockedReason }: Props) {
   const router = useRouter();
   const [picks, setPicks] = useState<Pick[]>([]);
-  const [quantity, setQuantity] = useState(1);
+  const [units, setUnits] = useState(1);
+  // Por peso: o cliente digita os gramas (ou usa os botões); começa no mínimo da loja.
+  const weight = product.weightStepGrams && product.pricePerKgCents
+    ? { step: product.weightStepGrams, min: product.weightMinGrams ?? product.weightStepGrams, perKg: product.pricePerKgCents }
+    : null;
+  const [gramsText, setGramsText] = useState(weight ? String(weight.min) : "");
   const [notes, setNotes] = useState("");
   const [conflict, setConflict] = useState<string | null>(null);
 
@@ -75,11 +85,26 @@ export function ProductConfigurator({ product, blockedReason }: Props) {
 
   const result = resolveSelection(product.priceCents, product.groups, picks);
   const unitPrice = result.ok ? result.unitPriceCents : partialPriceCents(product.priceCents, product.groups, picks);
-  const disabledReason = blockedReason ?? (result.ok ? null : result.error);
-  const maxQuantity = product.maxPerOrder ?? 99;
+  const maxQuantity = product.maxPerOrder ?? (weight ? 100_000 : 99);
+  const grams = weight ? Number.parseInt(gramsText || "0", 10) : 0;
+  const gramsCheck = weight ? gramsToQuantity(grams, { stepGrams: weight.step, minGrams: weight.min }) : null;
+  const quantity = gramsCheck ? (gramsCheck.ok ? gramsCheck.quantity : 0) : units;
+  const weightError = gramsCheck && !gramsCheck.ok
+    ? gramsCheck.error
+    : weight && quantity > maxQuantity ? `O máximo por pedido é ${formatWeight(maxQuantity * weight.step)}.` : null;
+  const disabledReason = blockedReason ?? (result.ok ? weightError : result.error);
+  const total = weight ? (gramsCheck?.ok ? weightPriceCents(weight.perKg, grams) : 0) : unitPrice * units;
+  // Os botões de peso andam de 50 em 50 g (ou na precisão da loja, se ela for maior).
+  const jump = weight ? Math.max(weight.step, Math.ceil(50 / weight.step) * weight.step) : 1;
+  const nudge = (delta: number) => {
+    if (!weight) return;
+    const current = Number.isFinite(grams) && grams > 0 ? grams : weight.min;
+    const next = Math.max(weight.min, Math.round((current + delta) / weight.step) * weight.step);
+    setGramsText(String(next));
+  };
 
   function add(replace: boolean) {
-    if (!result.ok || blockedReason) return;
+    if (!result.ok || disabledReason) return;
     const store = { storeId: product.storeId, storeSlug: product.storeSlug, storeName: product.storeName };
     if (!replace) {
       const other = cartConflict(store);
@@ -90,7 +115,8 @@ export function ProductConfigurator({ product, blockedReason }: Props) {
       {
         productId: product.id, name: product.name, imageUrl: product.imageUrl,
         unitPriceCents: result.unitPriceCents, quantity, notes: notes.trim(), picks,
-        lines: describeOptions(toSnapshot(result.groups)),
+        lines: describeOptions(toSnapshot(result.groups)), weightStepGrams: product.weightStepGrams,
+        pricePerKgCents: product.pricePerKgCents, weightMinGrams: product.weightMinGrams,
       },
       replace,
     );
@@ -207,14 +233,42 @@ export function ProductConfigurator({ product, blockedReason }: Props) {
             {disabledReason}
           </p>
         )}
+        {weight && (
+          <p className="text-center text-sm text-coffee-soft" data-testid="weight-price">
+            {formatCents(weight.perKg)} o kg · mínimo {formatWeight(weight.min)}, de {weight.step} em {weight.step} g.
+            {" "}A loja pesa na hora: o valor final pode variar um pouco.
+          </p>
+        )}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-full bg-white px-2 ring-1 ring-peach">
-            <StepButton label="Diminuir quantidade" disabled={quantity <= 1} onClick={() => setQuantity(quantity - 1)}>−</StepButton>
-            <span className="w-6 text-center font-bold" data-testid="quantity">{quantity}</span>
-            <StepButton label="Aumentar quantidade" disabled={quantity >= maxQuantity} onClick={() => setQuantity(quantity + 1)}>+</StepButton>
-          </div>
-          <Button type="button" className="flex-1" disabled={disabledReason !== null} onClick={() => add(false)}>
-            Adicionar • {formatCents(unitPrice * quantity)}
+          {weight ? (
+            <div className="flex items-center gap-1 rounded-full bg-white px-1 ring-1 ring-peach">
+              <StepButton label={`Menos ${jump} g`} disabled={!Number.isFinite(grams) || grams <= weight.min} onClick={() => nudge(-jump)}>−</StepButton>
+              <label className="flex items-baseline gap-1 font-bold">
+                <span className="sr-only">Quantos gramas</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={weight.min}
+                  step={weight.step}
+                  value={gramsText}
+                  onChange={(event) => setGramsText(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                  data-testid="grams"
+                  aria-label="Quantos gramas"
+                  className="w-16 rounded-lg bg-cream px-1 py-1 text-center text-base font-bold focus:outline-none focus:ring-2 focus:ring-brand-dark"
+                />
+                <span aria-hidden="true">g</span>
+              </label>
+              <StepButton label={`Mais ${jump} g`} disabled={quantity >= maxQuantity} onClick={() => nudge(jump)}>+</StepButton>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-full bg-white px-2 ring-1 ring-peach">
+              <StepButton label="Diminuir quantidade" disabled={units <= 1} onClick={() => setUnits(units - 1)}>−</StepButton>
+              <span className="w-6 text-center font-bold" data-testid="quantity">{units}</span>
+              <StepButton label="Aumentar quantidade" disabled={units >= maxQuantity} onClick={() => setUnits(units + 1)}>+</StepButton>
+            </div>
+          )}
+          <Button type="button" className="flex-1 whitespace-nowrap px-4" disabled={disabledReason !== null} onClick={() => add(false)}>
+            Adicionar • {formatCents(total)}
           </Button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import "server-only";
 import { randomInt } from "node:crypto";
 import { sql } from "@/lib/db";
+import { runDailyFeeTasks } from "@/lib/fees/closing";
 import { adminIds, notify, storeStaffIds } from "@/lib/notifications/notify";
 import { transitionOrder } from "@/lib/orders/transitions";
 import { getSettings } from "@/lib/settings";
@@ -140,27 +141,12 @@ async function rewardReferrals(at: Date): Promise<number> {
   return done;
 }
 
-/** Faturas mensais: uma por loja e por mês, nunca para lojas fundadoras ainda no período grátis. */
+/**
+ * Faturas mensais antigas. A mensalidade foi substituída pela taxa por pedido (src/lib/fees/):
+ * nenhuma fatura nova é gerada; só as que já existem ainda podem vencer.
+ */
 async function runInvoices(at: Date): Promise<{ created: number; overdue: number }> {
   const today = toLocal(at).date;
-  const month = `${today.slice(0, 7)}-01`;
-  const created = await sql<{ id: string; store_id: string }[]>`
-    insert into invoices (store_id, subscription_id, period_start, period_end, amount_cents, status, due_date, created_at)
-    select sub.store_id, sub.id, ${month}::date, (${month}::date + interval '1 month' - interval '1 day')::date,
-           p.monthly_price_cents, 'open', (${month}::date + interval '9 days')::date, ${at}
-    from store_subscriptions sub
-    join subscription_plans p on p.id = sub.plan_id
-    join stores s on s.id = sub.store_id
-    where sub.active and s.status in ('active', 'paused') and p.monthly_price_cents > 0
-      and (sub.free_until is null or sub.free_until < ${month}::date)
-    on conflict (store_id, period_start) do nothing
-    returning id, store_id`;
-  for (const invoice of created) {
-    await notify({
-      profileIds: await storeStaffIds(invoice.store_id, sql, ["owner"]), type: "invoice_created", title: "Sua fatura do Chegô chegou",
-      body: "A mensalidade deste mês já está disponível no painel.", link: "/lojista/financeiro", channels: ["email"], at,
-    });
-  }
 
   // Um dia depois do vencimento a fatura passa a vencida e o dono é avisado.
   const overdue = await sql<{ id: string; store_id: string }[]>`
@@ -171,7 +157,7 @@ async function runInvoices(at: Date): Promise<{ created: number; overdue: number
       body: "Pague pelo painel para manter a loja no ar.", link: "/lojista/financeiro", channels: ["email"], at,
     });
   }
-  return { created: created.length, overdue: overdue.length };
+  return { created: 0, overdue: overdue.length };
 }
 
 /** Banners e destaques pagos que chegaram à data de fim. */
@@ -198,6 +184,7 @@ export async function runScheduledTasks(at: Date): Promise<TaskReport> {
   const invoices = await runInvoices(at);
   const promotionsEnded = await endExpiredPromotions(at);
   const ratings = await refreshRatings(at);
+  const fees = await runDailyFeeTasks(at);
   // As mensagens do pedido fecham duas horas depois da entrega por uma regra conferida a cada
   // leitura e escrita (chatOpen), então não há nada para desligar aqui.
 
@@ -212,5 +199,7 @@ export async function runScheduledTasks(at: Date): Promise<TaskReport> {
     faturas_vencidas: invoices.overdue,
     promocoes_encerradas: promotionsEnded,
     notas_recalculadas: ratings,
+    expedientes_fechados: fees.closed,
+    taxas_vencidas: fees.overdue,
   };
 }

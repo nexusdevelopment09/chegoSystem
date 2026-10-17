@@ -58,7 +58,7 @@ test("aprovar loja pendente exige o checklist e coloca a loja no ar", async ({ p
   expect((await db`select count(*)::int as total from outbound_messages where body like '%já aparece para os clientes%'`)[0].total).toBeGreaterThan(0);
 });
 
-test("mudar a comissão vale para pedidos novos; os antigos não mudam", async ({ page }) => {
+test("comissão só vale para pedidos pagos pelo app: os novos, pagos direto à loja, não têm comissão", async ({ page }) => {
   const id = await storeId("brasa-burger");
   const [old] = await db`select id, commission_rate, commission_cents from orders where store_id = ${id} and status = 'delivered' order by created_at limit 1`;
   expect(old.commission_rate).toBe("0.1200");
@@ -70,8 +70,9 @@ test("mudar a comissão vale para pedidos novos; os antigos não mudam", async (
   await expect(page.getByText("Condições da loja salvas.")).toBeVisible();
 
   const orderId = await placePaidOrder(page, "Ana Clara Souza", "brasa-burger", ["Batata com cheddar e bacon"]);
-  const [fresh] = await db`select commission_rate, commission_cents, subtotal_cents from orders where id = ${orderId}`;
-  expect(fresh).toEqual({ commission_rate: "0.1500", commission_cents: 360, subtotal_cents: 2400 });
+  const [fresh] = await db`select commission_rate, commission_cents, subtotal_cents, payment_collection::text from orders where id = ${orderId}`;
+  // Pagando direto à loja, o Chegô cobra a taxa por pedido, não comissão.
+  expect(fresh).toEqual({ commission_rate: "0.0000", commission_cents: 0, subtotal_cents: 2400, payment_collection: "store" });
   expect((await db`select commission_rate, commission_cents from orders where id = ${old.id}`)[0]).toEqual({
     commission_rate: "0.1200", commission_cents: old.commission_cents,
   });
@@ -312,14 +313,18 @@ test("cadastros: bairro novo aparece para o cliente e manutenção fecha a cidad
   }
 });
 
-test("configurações: taxa de serviço nova vale no carrinho; recursos ligam e desligam", async ({ page, browser }) => {
+test("configurações: taxa do Chegô por pedido muda só para a loja; o cliente não paga taxa; recursos ligam e desligam", async ({ page, browser }) => {
   await loginAs(page, ADMIN);
   await page.goto("/admin/configuracoes");
-  await page.getByLabel("Taxa de serviço por pedido (R$)").fill("1,50");
+  await page.getByLabel("Taxa do Chegô por pedido concluído (R$)").fill("0,75");
+  await page.getByLabel("O expediente vira às (hora)").fill("4");
   await page.getByRole("button", { name: "Salvar configurações" }).click();
   await expect(page.getByText("Configurações salvas.")).toBeVisible();
 
   try {
+    const settings = await db`select key, value from platform_settings where key in ('order_fee_cents', 'business_day_cutoff_hour') order by key`;
+    expect(settings).toEqual([{ key: "business_day_cutoff_hour", value: 4 }, { key: "order_fee_cents", value: 75 }]);
+
     const customer = await (await browser.newContext()).newPage();
     await chooseNeighborhood(customer, "Centro");
     const [product] = await db`select p.id from products p join stores s on s.id = p.store_id where s.slug = 'brasa-burger' and p.name = 'Batata com cheddar e bacon'`;
@@ -327,11 +332,12 @@ test("configurações: taxa de serviço nova vale no carrinho; recursos ligam e 
     await customer.getByRole("button", { name: /^Adicionar/ }).click();
     await customer.waitForURL(/\/loja\/brasa-burger$/);
     await customer.goto("/carrinho");
-    // 24,00 + 3,00 de entrega + 1,50 de taxa de serviço.
-    await expect(customer.locator('[data-testid="summary-total"]:visible')).toHaveText("R$ 28,50");
+    // 24,00 + 3,00 de entrega. A taxa do Chegô é cobrada da loja, nunca do cliente.
+    await expect(customer.locator('[data-testid="summary-total"]:visible')).toHaveText("R$ 27,00");
     await customer.context().close();
   } finally {
-    await db`update platform_settings set value = '99' where key = 'service_fee_cents'`;
+    await db`update platform_settings set value = '50' where key = 'order_fee_cents'`;
+    await db`update platform_settings set value = '5' where key = 'business_day_cutoff_hour'`;
   }
 
   const flag = page.locator('[data-testid="admin-flag"]:visible').filter({ hasText: "Pagamento com cartão de crédito" });

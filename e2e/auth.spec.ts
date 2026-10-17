@@ -31,6 +31,37 @@ test("a entrada mostra o cliente em destaque e leva lojista e entregador às sua
   await expect(page.getByRole("button", { name: "Ver as lojas" })).toBeVisible();
 });
 
+test("no ambiente de testes, 0000 e senha 0000 entram na conta de demonstração de cada área", async ({ page }) => {
+  const enter = async (path: string) => {
+    await page.context().clearCookies();
+    await page.goto(path);
+    await page.getByLabel("Seu telefone com DDD").fill("0000");
+    await page.getByLabel("Senha", { exact: true }).fill("0000");
+    await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  };
+
+  await enter("/entrar");
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto("/perfil");
+  await expect(page.getByLabel("Nome completo")).toHaveValue("Ana Clara Souza");
+
+  await enter("/entrar/loja");
+  await expect(page).toHaveURL(/\/lojista/);
+  await expect(page.getByText("Pizzaria Forno de Barro").first()).toBeVisible();
+
+  await enter("/entrar/entregador");
+  await expect(page).toHaveURL(/\/entregador$/);
+  await expect(page.getByRole("heading", { name: /Oi, Wesley/ })).toBeVisible();
+
+  // Senha errada continua recusada.
+  await page.context().clearCookies();
+  await page.goto("/entrar");
+  await page.getByLabel("Seu telefone com DDD").fill("0000");
+  await page.getByLabel("Senha", { exact: true }).fill("1234");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page.getByText("Oxe, esse telefone não parece certo.")).toBeVisible();
+});
+
 test("cliente novo cria a conta com nome, telefone, senha e aceite dos termos", async ({ page }) => {
   await createAccount(page, "Maria Teste da Silva", "(82) 98888-1234", "minha-senha-boa");
 

@@ -10,7 +10,9 @@ O admin também entra em http://localhost:3000/entrar com usuário `admin` e sen
 
 Todos também entram pelo telefone: em http://localhost:3000/entrar, digite o número da tabela e a senha **`123456`** (a mesma para todos os usuários de teste; o admin usa `admin`).
 
-Estes usuários só existem no seu computador e nos testes automáticos. O servidor (VPS) começa sem nenhum deles.
+Atalho: telefone **`0000`** e senha **`0000`** entram na conta de demonstração da área escolhida (cliente: Ana Clara Souza; Sou lojista: Marcos Antônio Tavares, da Pizzaria; Sou entregador: Wesley Santana).
+
+Estes usuários e o atalho só existem no seu computador e nos testes automáticos. O servidor (VPS) começa sem nenhum deles.
 
 Para testar passo a passo, siga o [roteiro de testes](ROTEIRO_DE_TESTES.md).
 

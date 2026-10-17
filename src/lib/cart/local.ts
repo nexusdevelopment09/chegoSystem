@@ -18,6 +18,10 @@ export type CartItem = {
   picks: OptionPick[];
   /** "1/2 Calabresa", "Borda: Catupiry"... */
   lines: string[];
+  /** Vendido por peso: cada unidade de "quantity" é uma porção de tantos gramas. */
+  weightStepGrams?: number | null;
+  pricePerKgCents?: number | null;
+  weightMinGrams?: number | null;
 };
 
 export type Cart = {

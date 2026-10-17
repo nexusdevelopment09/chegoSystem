@@ -11,6 +11,7 @@ export default function StoreLoginPage() {
       signupQuestion="Ainda não vende no Chegô?"
       signupHref="/quero-vender"
       signupLabel="Cadastrar minha loja"
+      area="store"
     />
   );
 }

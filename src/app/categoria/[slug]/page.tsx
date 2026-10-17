@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { FilterChips } from "@/components/store/FilterChips";
-import { StoreList, StoreListSkeleton } from "@/components/store/StoreCard";
+import { StoreGrid, StoreGridSkeleton } from "@/components/store/StoreCard";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
 import { getShoppingContext } from "@/lib/shopping-context";
@@ -19,7 +19,7 @@ export default function CategoryPage(props: Props) {
     <>
       <SiteHeader />
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 pb-10">
-        <Suspense fallback={<StoreListSkeleton />}>
+        <Suspense fallback={<StoreGridSkeleton />}>
           <CategoryContent {...props} />
         </Suspense>
       </main>
@@ -43,7 +43,7 @@ async function CategoryContent({ params, searchParams }: Props) {
     <>
       <h1 className="text-3xl">{category.name}</h1>
       <FilterChips basePath={`/categoria/${slug}`} params={filters} />
-      <StoreList
+      <StoreGrid
         stores={applyStoreFilters(stores, filters)}
         neighborhoodName={context.neighborhood?.name ?? null}
         empty="Nenhuma loja por aqui com esses filtros."

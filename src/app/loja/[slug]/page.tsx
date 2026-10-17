@@ -164,8 +164,14 @@ async function StoreContent({ params }: { params: Params }) {
                     <p className="font-semibold leading-tight">{product.name}</p>
                     {product.description && <p className="line-clamp-2 text-sm text-coffee-soft">{product.description}</p>}
                     <p className="mt-1 font-bold">
-                      {product.priceVaries && <span className="text-sm font-normal text-coffee-soft">a partir de </span>}
-                      {formatCents(product.fromCents)}
+                      {product.pricePerKgCents ? (
+                        <>{formatCents(product.pricePerKgCents)}<span className="text-sm font-normal text-coffee-soft">/kg</span></>
+                      ) : (
+                        <>
+                          {product.priceVaries && <span className="text-sm font-normal text-coffee-soft">a partir de </span>}
+                          {formatCents(product.fromCents)}
+                        </>
+                      )}
                     </p>
                     {product.status.note && <p className="text-sm font-semibold text-brand-darker">{product.status.note}</p>}
                   </div>

@@ -68,11 +68,26 @@ As regras usam funções do banco como `current_user_id()`, `is_admin()`, `is_st
 
 ## Caminho de um pedido
 
+**Quem recebe o dinheiro** é decidido por `PAYMENT_COLLECTION` (`src/lib/payments/collection.ts`): `store` (padrão) = o cliente paga direto à loja; `app` = paga pelo gateway (preparado, desligado). O pedido guarda `payment_collection`, então os dois tipos convivem.
+
 1. **Sacola** (`src/lib/cart/`): fica no aparelho e, para quem entrou, também no servidor. Os preços da sacola servem só para mostrar.
-2. **Cotação** (`src/lib/checkout/quote.ts`): o servidor recalcula tudo a partir do banco: preços, opções, taxa de entrega, cupom, taxa de serviço e total.
-3. **Criação do pedido** (`src/lib/checkout/place-order.ts`): grava o pedido como `awaiting_payment`, com cópias dos nomes e preços, reserva o estoque e pede o pagamento ao gateway.
-4. **Pagamento** (`src/lib/payments/`): o gateway avisa pelo webhook `/api/webhooks/pagamentos`. Só esse aviso, com assinatura válida, transforma o pedido em `paid`. O mesmo aviso recebido duas vezes não duplica nada.
-5. **Mudanças de status** (`src/lib/orders/transitions.ts`): a função `transitionOrder` é o único lugar que muda o status. Ela consulta a máquina de estados (`status.ts`), grava o histórico, faz os lançamentos financeiros, os reembolsos, a devolução de estoque e cupom, e dispara os avisos.
+2. **Cotação** (`src/lib/checkout/quote.ts`): o servidor recalcula tudo a partir do banco: preços, opções, taxa de entrega, cupom e total, e diz quais formas de pagamento valem (as que a loja aceita; sem dinheiro quando a entrega é da rede). Direto à loja não há taxa de serviço nem comissão.
+3. **Criação do pedido** (`src/lib/checkout/place-order.ts`): grava o pedido com cópias dos nomes e preços e reserva o estoque. Direto à loja, na mesma transação o pedido passa a `paid` ("enviado à loja") e a loja é avisada. Pelo app, nasce `awaiting_payment` e pede o pagamento ao gateway.
+4. **Pagamento pelo app** (`src/lib/payments/`): o gateway avisa pelo webhook `/api/webhooks/pagamentos`. Só esse aviso, com assinatura válida, transforma o pedido em `paid`. O mesmo aviso recebido duas vezes não duplica nada.
+5. **Mudanças de status** (`src/lib/orders/transitions.ts`): a função `transitionOrder` é o único lugar que muda o status. Ela consulta a máquina de estados (`status.ts`), grava o histórico, faz a devolução de estoque e cupom e dispara os avisos. Pelo app, também faz os lançamentos e os reembolsos. Direto à loja, na conclusão lança a **taxa do Chegô** (`src/lib/fees/ledger.ts`) e, num reembolso posterior, o estorno dela.
+
+## Taxas do Chegô
+
+`src/lib/fees/`: `rules.ts` (funções puras: dia de expediente com hora de corte, totais do fechamento), `ledger.ts` (lançamentos por pedido, protegidos pelo índice único `(order_id, kind)`), `closing.ts` (fechamento idempotente com trava por loja, crédito levado adiante, resumo e tarefa diária) e `charges.ts` + `pix.ts` (cobrança Pix e webhook `/api/webhooks/taxas`).
+
+| Tabela | O que guarda |
+|---|---|
+| `fee_entries` | Cada lançamento da conta da loja com o Chegô: taxa, estorno, crédito de cupom, ajuste, saldo levado |
+| `store_closings` | Um fechamento por loja e dia de expediente, com os totais congelados |
+| `fee_charges` | Cobranças Pix de um fechamento (só uma pendente por vez) |
+| `fee_payments` | Pagamentos confirmados pelo provedor, uma vez por transação; `applied = false` quando não bateu |
+
+O provedor Pix é uma interface (`FeePixProvider`). Hoje só existe o simulado, que funciona apenas com `APP_ENV=local`; sem provedor, a cobrança aparece como indisponível. O entregador da rede, nos pedidos pagos direto à loja, é pago pela loja: `courier_earnings.payer = 'store'`, com a situação "a receber", "a loja disse que pagou", "recebido" (confirmado pelo entregador) ou "contestado".
 
 ### Gateway de pagamento
 
@@ -91,6 +106,7 @@ As contas que mais importam não dependem do banco nem do Next.js, e por isso t�
 | `src/lib/catalog/pricing.ts` | Preço do item pelos grupos de opções (soma, maior valor, média, grátis até N) |
 | `src/lib/catalog/selection.ts` | Validação das escolhas e as linhas "1/2 Calabresa" |
 | `src/lib/catalog/availability.ts` | Se o produto pode ser pedido naquele dia e hora |
+| `src/lib/catalog/weight.ts` | Venda por peso: preço da porção a partir do quilo e como a quantidade aparece ("400 g") |
 | `src/lib/stores/hours.ts` | Loja aberta ou fechada, dois turnos, meia-noite, feriados |
 | `src/lib/checkout/schedule.ts` | Horários que o cliente pode agendar |
 | `src/lib/orders/totals.ts` | Divisão do dinheiro entre loja e plataforma |

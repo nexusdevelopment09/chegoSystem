@@ -39,9 +39,13 @@ async function Settings() {
       <ActionForm action={saveSettings} className={card}>
         <h2 className="text-xl">Taxas e prazos</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Taxa de serviço por pedido (R$)" name="service_fee_cents" inputMode="decimal" defaultValue={money(settings.service_fee_cents)} hint="Vai inteira para a plataforma. Pode ser 0,00." />
-          <Field label="Comissão padrão de lojas novas (%)" name="default_commission_rate" inputMode="decimal" defaultValue={(settings.default_commission_rate * 100).toFixed(1).replace(".", ",")} />
-          <Field label="Pix expira em (minutos)" name="pix_expiration_minutes" type="number" min={1} defaultValue={settings.pix_expiration_minutes} />
+          <Field label="Taxa do Chegô por pedido concluído (R$)" name="order_fee_cents" inputMode="decimal" defaultValue={money(settings.order_fee_cents)} hint="Cobrada da loja. Mudar vale só para os pedidos concluídos depois." />
+          <Field label="O expediente vira às (hora)" name="business_day_cutoff_hour" type="number" min={0} max={12} defaultValue={settings.business_day_cutoff_hour} hint="Pedidos concluídos antes desta hora contam para o dia anterior." />
+          <Field label="Prazo para a loja pagar as taxas (dias)" name="fee_due_days" type="number" min={1} max={30} defaultValue={settings.fee_due_days} />
+          <Field label="Pix das taxas vale por (horas)" name="fee_pix_expiration_hours" type="number" min={1} max={168} defaultValue={settings.fee_pix_expiration_hours} />
+          <Field label="Taxa de serviço por pedido (R$)" name="service_fee_cents" inputMode="decimal" defaultValue={money(settings.service_fee_cents)} hint="Só para pedidos pagos pelo app (hoje desligado)." />
+          <Field label="Comissão padrão de lojas novas (%)" name="default_commission_rate" inputMode="decimal" defaultValue={(settings.default_commission_rate * 100).toFixed(1).replace(".", ",")} hint="Só para pedidos pagos pelo app (hoje desligado)." />
+          <Field label="Pix do pedido expira em (minutos)" name="pix_expiration_minutes" type="number" min={1} defaultValue={settings.pix_expiration_minutes} hint="Só para pedidos pagos pelo app." />
           <Field label="Avaliar até (dias depois da entrega)" name="review_window_days" type="number" min={1} defaultValue={settings.review_window_days} />
           <Field label="Alerta forte sem aceite (minutos)" name="acceptance_alert_minutes" type="number" min={1} defaultValue={settings.acceptance_alert_minutes} />
           <Field label="Recusa automática sem aceite (minutos)" name="auto_reject_minutes" type="number" min={1} defaultValue={settings.auto_reject_minutes} />

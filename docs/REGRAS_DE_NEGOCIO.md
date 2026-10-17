@@ -4,7 +4,11 @@ As regras que o sistema aplica hoje, em linguagem simples. Cada seção aponta o
 
 ## 1. Regra de ouro
 
-O pedido só chega à loja **depois do pagamento aprovado**. Antes disso, a loja não vê o pedido nem os dados do cliente, e cliente e loja não trocam contato.
+**O cliente paga direto à loja**: Pix para a chave da loja, dinheiro ou cartão na maquininha, na entrega. O dinheiro do pedido não passa pelo Chegô. O pedido vai para a loja assim que o cliente fecha a sacola, e cliente e loja não trocam contato fora do pedido (o chat é moderado).
+
+O Chegô cobra da loja uma **taxa fixa por pedido concluído** (R$ 0,50, configurável), somada por expediente e paga depois por Pix (seção 6). O cliente não paga nada a mais ao Chegô.
+
+> O pagamento **pelo app** (gateway com divisão automática) continua no código, desligado, para quando houver um gateway de verdade: `PAYMENT_COLLECTION=app`. Nesse modo valem a comissão, a taxa de serviço e a regra antiga "o pedido só chega à loja depois do pagamento aprovado". Os pedidos antigos, feitos assim, continuam como estavam.
 
 ## 2. Sacola e checkout
 
@@ -19,20 +23,23 @@ Onde: `src/lib/checkout/quote.ts` e `src/lib/checkout/place-order.ts`.
 
 ## 3. Pagamento
 
-| Regra | Valor |
-|---|---|
-| Prazo do Pix | 15 minutos (configurável) |
-| Aviso de Pix perto de expirar | 3 minutos antes |
-| Cartão de teste que aprova | número terminado em 0000 |
-| Cartão de teste que recusa | número terminado em 1111 |
-| Dinheiro na entrega | desligado (existe no banco, para o futuro) |
+**Direto à loja (padrão):**
 
-- O pedido nasce `awaiting_payment` e só vira `paid` pelo aviso do gateway (webhook), com assinatura conferida.
-- O mesmo aviso recebido duas vezes não duplica nada.
-- Pagamento aprovado depois que o pedido expirou ou foi cancelado é devolvido na hora.
+| Forma | Como funciona |
+|---|---|
+| Pix para a loja | O cliente vê a chave Pix da loja no pedido **depois que a loja aceita** |
+| Cartão na entrega | Na maquininha da loja |
+| Dinheiro na entrega | O cliente pode pedir troco ("troco para quanto?"); o valor precisa ser maior que o total |
+
+- Cada loja escolhe, em **Minha loja → Como você recebe**, as formas que aceita e informa a chave Pix.
+- **Dinheiro não é oferecido quando a entrega é da rede do Chegô**: o entregador não leva o dinheiro da loja (não há prestação de contas de numerário).
+- Não há taxa de serviço nem comissão no pedido: o total é subtotal − desconto + entrega, e tudo fica com a loja.
+- O app não confirma pagamento nenhum: quem confere o Pix, o dinheiro ou o cartão é a loja.
 - Código do pedido curto, por cidade: `JG-0001`, `JG-0002`...
 
-Onde: `src/lib/payments/`.
+**Pelo app (desligado):** Pix com prazo de 15 minutos, cartão de teste (final 0000 aprova, 1111 recusa), e o pedido só vira `paid` pelo aviso assinado do gateway.
+
+Onde: `src/lib/payments/collection.ts`, `src/lib/checkout/` e `src/lib/payments/`.
 
 ## 4. Status do pedido
 
@@ -77,7 +84,9 @@ Onde: `src/lib/orders/status.ts` (a tabela) e `src/lib/orders/transitions.ts` (o
 
 ## 5. Divisão do dinheiro
 
-Para cada pedido pago o sistema guarda, em centavos:
+**Pagando direto à loja, não há divisão:** o pedido guarda comissão 0, taxa de serviço 0 e a parte da loja igual ao total. Se o cupom for pago pelo Chegô, a parte da plataforma fica negativa (o valor do desconto) e vira **crédito da loja** nas taxas (seção 6).
+
+O resto desta seção vale para pedidos **pagos pelo app** (os antigos e o modo desligado). Para cada um o sistema guarda, em centavos:
 
 | Campo | O que é | Para quem vai |
 |---|---|---|
@@ -124,15 +133,17 @@ A loja escolhe, em **Minha loja**, quem faz as entregas dela:
 | Opção | Quem entrega | Para quem vai a taxa de entrega |
 |---|---|---|
 | Meu entregador (padrão) | A equipe da própria loja | Inteira para a loja |
-| Entregadores do Chegô | Um entregador da rede: do próprio Chegô ou parceiro autônomo | Fica do lado da plataforma, que paga o entregador |
+| Entregadores do Chegô | Um entregador da rede: do próprio Chegô ou parceiro autônomo | Com a loja, que paga o entregador por fora do app |
 
 - A escolha é copiada para o pedido na hora da compra. Mudar depois não altera os pedidos já feitos.
 - O cliente paga o mesmo valor nos dois casos.
 - O entregador ganha uma parte da taxa de entrega do bairro: **100% por padrão** (configurável pelo admin; o resto fica com a plataforma).
-- O ganho é registrado quando a entrega é concluída: sai da conta da plataforma e entra na conta do entregador nos lançamentos. O admin marca o repasse em **Entregadores**; o pagamento em si é feito fora do sistema.
+- **Quem paga o entregador é a loja**, direto a ele (Pix ou dinheiro), no valor mostrado na oferta, que fica gravado no pedido e não muda depois. O app só registra: a loja marca "Paguei o entregador" em **Taxas do Chegô** e o entregador confirma "Recebi da loja". Se ele disser que não recebeu, a contestação aparece para a loja e para o admin.
+- Se ninguém pegar a entrega, a loja pode **chamar os entregadores de novo** ou **entregar com a própria equipe** (enquanto nenhum entregador da rede tiver pegado).
+- Nos pedidos antigos, pagos pelo app, o ganho saía da conta da plataforma e o admin marcava o repasse em **Entregadores**.
 - Se o pedido for reembolsado depois de entregue, o entregador mantém o ganho: ele fez a entrega.
 
-**Exemplo** (mesmo pedido de R$ 64,00 com entrega de R$ 3,00, comissão de 12%, sem cupom):
+**Exemplo, pedidos pagos pelo app** (mesmo pedido de R$ 64,00 com entrega de R$ 3,00, comissão de 12%, sem cupom):
 
 | Linha | Loja entrega | Rede do Chegô entrega |
 |---|---|---|
@@ -157,13 +168,43 @@ Onde: `src/lib/orders/totals.ts` (divisão) e `src/lib/orders/transitions.ts` (g
 
 Onde: `src/lib/couriers.ts`, `src/app/entregador/` e `src/app/admin/entregadores/`.
 
-## 6. Mensalidade das lojas
+## 6. Taxas do Chegô (cobradas da loja)
 
-- Cada loja tem um plano com valor mensal e uma fatura por mês, paga pelo app.
-- A fatura vence no dia 10. Um dia depois do vencimento passa a "vencida" e o dono é avisado.
-- **Suspender a loja é sempre decisão do admin**, nunca automático.
-- Lojas fundadoras não geram fatura enquanto durar o período grátis.
-- A loja vê o extrato por pedido (bruto, comissão, taxas, reembolsos, líquido). O admin vê a conciliação com o gateway e baixa o relatório mensal de comissões em CSV para o contador.
+A comissão percentual, a mensalidade e a taxa de serviço foram substituídas por uma **taxa fixa por pedido concluído**.
+
+| Regra | Valor |
+|---|---|
+| Taxa por pedido | R$ 0,50 (configurável; mudar vale só para os pedidos concluídos depois) |
+| Quando nasce | Quando o pedido é **entregue** ou **retirado**. Em andamento, cancelado, recusado ou expirado não gera taxa |
+| Dia do expediente | O dia vira às **5h** (configurável): um pedido concluído à 1h ainda é do dia anterior |
+| Prazo para pagar | 3 dias depois do fechamento (configurável) |
+| Pix das taxas | Vale 24 horas (configurável); vencido, a loja gera outro do mesmo valor |
+
+- **Uma taxa por pedido, sempre.** Repetir a conclusão, avisos duplicados ou duas operações ao mesmo tempo não duplicam: o banco tem um índice único por pedido e tipo de lançamento.
+- **Reembolso depois de concluído** (a loja devolveu o dinheiro ao cliente; o admin muda o pedido para "Reembolsado", com motivo): a taxa é estornada por um lançamento novo, ligado ao original. Nada é apagado.
+- **Cupom pago pelo Chegô** vira crédito da loja (o cliente pagou menos a ela). Se os créditos passarem das taxas, o fechamento fica zerado e o crédito passa para o próximo.
+- **Ajustes** só pelo admin, sempre com motivo e no log de auditoria; entram no próximo fechamento.
+
+**Fechamento do expediente** (em **Taxas do Chegô**, só o dono da loja):
+
+1. A loja confere o resumo (pedidos, taxas, créditos, ajustes, total) e marca "Conferi os valores".
+2. Fechar junta todos os lançamentos em aberto até aquele dia. Fechar de novo o mesmo dia devolve o mesmo fechamento (clique duplo e página recarregada não duplicam).
+3. Expedientes que ficaram abertos são fechados sozinhos no dia seguinte.
+4. Situações: aguardando pagamento, pago, vencido (passou do prazo) e em análise (divergência).
+
+**Pagamento por Pix:**
+
+- O valor é sempre o do fechamento, calculado no servidor. Gerar de novo reaproveita o Pix ainda válido.
+- **Só a confirmação do provedor dá baixa** (webhook com assinatura conferida). A loja dizer que pagou, mandar comprovante ou voltar à página não muda nada.
+- O mesmo aviso, ou a mesma transação Pix, nunca é aplicado duas vezes.
+- Valor diferente do cobrado não quita: o fechamento vai para análise do admin e o pagamento fica registrado como "não aplicado". Pagamento a mais de um fechamento já pago também fica para o admin conferir.
+- Pagamento parcial não é aceito.
+- **Hoje não há provedor Pix escolhido.** No computador de testes existe um provedor simulado (com aviso de que o Pix não vale). No servidor, sem provedor configurado, a loja vê "cobrança indisponível" e o valor continua pendente.
+- Nada é bloqueado automaticamente por falta de pagamento: suspender uma loja continua sendo decisão do admin. Não há multa nem juros.
+
+Faturas mensais antigas continuam visíveis; nenhuma nova é gerada.
+
+Onde: `src/lib/fees/`, `src/app/lojista/taxas/` e `src/app/admin/taxas/`.
 
 ## 7. Justiça entre lojas
 
@@ -201,6 +242,7 @@ Um produto pode ter grupos de opções. Cada grupo tem mínimo e máximo de esco
 - Um grupo pode ser ligado a vários produtos, com **preço diferente em cada um** (o sabor custa um valor na Média e outro na Grande).
 - O mesmo motor serve pizza, açaí, hambúrguer e quentinha, sem código especial por loja.
 - Produto pode ter dias e horários de disponibilidade (café da manhã só até 10h), antecedência mínima (encomenda com 24 horas), quantidade máxima por pedido e estoque controlado, que esgota sozinho ao zerar.
+- **Venda por peso (gramas):** a loja marca o produto como "por peso" e informa o preço do quilo, a precisão (de 10, 50, 100, 250, 500 g ou 1 kg) e o pedido mínimo em gramas. O cliente digita quantos gramas quer (ex.: 110 g com precisão de 10 g) ou usa os botões, que andam de 50 em 50 g. O valor é o preço do quilo × gramas, arredondado ao centavo só no fim (110 g a R$ 39,90/kg = R$ 4,39). Abaixo do mínimo ou fora da precisão, não deixa adicionar. Estoque e máximo por pedido são informados em gramas. A loja pesa na hora e cobra direto do cliente, então o valor final pode variar um pouco.
 - O pedido guarda **cópias** de nomes, opções e preços. Mudar o cardápio depois não altera pedidos antigos.
 
 Onde: `src/lib/catalog/`.
@@ -212,7 +254,7 @@ Onde: `src/lib/catalog/`.
 | Bebida alcoólica | O cliente confirma ter 18 anos ou mais. Com data de nascimento de menor de idade no perfil, o checkout é bloqueado. Loja e entregador veem "Conferir documento na entrega". |
 | Farmácia | Só itens sem receita. Há aviso fixo no cadastro de produto e na página da loja. |
 | Quentinha | Pedidos para o almoço até 11h, com entrega entre 11h30 e 13h30. Depois das 11h, só agendando para outro dia. |
-| Mercado | No checkout o cliente escolhe o que fazer se faltar um item: ligar, substituir ou remover e devolver o valor. |
+| Mercado | No checkout o cliente escolhe o que fazer se faltar um item: ligar, substituir ou remover. Removido, o item sai do total que o cliente paga à loja (nos pedidos pagos pelo app, o valor é devolvido). |
 | Peixaria e mercado | Produtos por peso são porções fixas (bandeja de 500 g, 1 kg). |
 | Encomendas | Produto com antecedência mínima obriga a agendar. |
 | Suplementos e naturais | Aviso no cadastro: não prometer cura nem resultado de saúde. |
@@ -295,7 +337,8 @@ Rodam a cada minuto e podem ser repetidas sem efeito dobrado:
 - alertar e recusar pedidos sem aceite;
 - lembrar da avaliação;
 - liberar o cupom de indicação;
-- gerar faturas mensais e marcar as vencidas;
+- marcar como vencidas as faturas mensais antigas (nenhuma nova é gerada);
+- fechar os expedientes que ficaram abertos e marcar como vencidos os fechamentos não pagos;
 - encerrar destaques e banners vencidos;
 - recalcular as notas das lojas.
 

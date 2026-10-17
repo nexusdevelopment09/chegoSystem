@@ -7,7 +7,9 @@ export type CheckoutChoices = {
   couponCode?: string | null;
   ageConfirmed?: boolean;
   missingItemPolicy?: "call" | "substitute" | "remove" | null;
-  paymentMethod?: "pix" | "card";
+  paymentMethod?: "pix" | "card" | "cash";
+  /** Dinheiro: para quanto precisa de troco, em centavos. */
+  cashChangeForCents?: number | null;
 };
 
 /** O que é enviado ao servidor sobre uma sacola. O preço mostrado só vai como "o que eu vi". */

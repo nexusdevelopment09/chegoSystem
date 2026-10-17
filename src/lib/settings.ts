@@ -14,6 +14,15 @@ const DEFAULTS = {
   referral_referrer_cents: 500,
   // Parte da taxa de entrega que fica com o entregador da rede do Chegô (0 a 100).
   courier_fee_percent: 100,
+  // Taxa do Chegô cobrada da loja por pedido concluído, em centavos. Mudar vale só
+  // para os pedidos concluídos depois: cada lançamento guarda o valor da época.
+  order_fee_cents: 50,
+  // Hora (0 a 12) em que o dia de expediente vira: pedidos antes disso contam para o dia anterior.
+  business_day_cutoff_hour: 5,
+  // Dias depois do fechamento para a loja pagar as taxas.
+  fee_due_days: 3,
+  // Horas até o Pix das taxas expirar.
+  fee_pix_expiration_hours: 24,
 };
 
 export type Settings = typeof DEFAULTS;

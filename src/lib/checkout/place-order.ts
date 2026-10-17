@@ -6,20 +6,26 @@ import { toSnapshot } from "@/lib/catalog/selection";
 import { sql } from "@/lib/db";
 import { MINUTE_MS } from "@/lib/time";
 import { getPaymentProvider } from "@/lib/payments";
+import { paymentCollection } from "@/lib/payments/collection";
+import { transitionOrder } from "@/lib/orders/transitions";
 import type { CardData } from "@/lib/payments/types";
 import { getSettings } from "@/lib/settings";
 import { buildQuote, type CartInput } from "./quote";
 
 export type PlaceOrderResult =
-  | { ok: true; orderId: string; paymentId: string; providerPaymentId: string }
+  /** Pagando direto à loja não há pagamento no app: paymentId e providerPaymentId vêm nulos. */
+  | { ok: true; orderId: string; paymentId: string | null; providerPaymentId: string | null }
   | { ok: false; errors: string[] };
 
 class Conflict extends Error {}
 
 /**
  * Cria o pedido a partir de uma sacola. Todo preço vem da cotação montada no
- * servidor; nada do que o navegador diz sobre dinheiro é usado. O pedido
- * nasce "awaiting_payment": a loja só o vê depois que o gateway confirma.
+ * servidor; nada do que o navegador diz sobre dinheiro é usado.
+ *
+ * Pagando direto à loja (padrão), o pedido vai para a loja na mesma transação: o
+ * cliente paga a ela na entrega ou por Pix. Pagando pelo app, nasce "awaiting_payment"
+ * e a loja só o vê depois que o gateway confirma.
  */
 export async function placeOrder(
   input: CartInput,
@@ -33,7 +39,9 @@ export async function placeOrder(
   if (!quote.ok) return { ok: false, errors: quote.errors };
 
   const settings = await getSettings();
-  const expiresAt = new Date(at.getTime() + settings.pix_expiration_minutes * MINUTE_MS);
+  const direct = paymentCollection() === "store";
+  const expiresAt = direct ? null : new Date(at.getTime() + settings.pix_expiration_minutes * MINUTE_MS);
+  const cashChangeFor = direct && input.paymentMethod === "cash" ? input.cashChangeForCents ?? null : null;
   const scheduledFor = input.scheduledFor ? new Date(input.scheduledFor) : null;
   const { totals } = quote;
 
@@ -83,7 +91,7 @@ export async function placeOrder(
           subtotal_cents, discount_cents, discount_paid_by, coupon_id, delivery_fee_cents, service_fee_cents,
           commission_rate, commission_cents, store_amount_cents, platform_amount_cents, total_cents,
           payment_method, age_confirmed, requires_age_check, missing_item_policy, notes, delivery_code,
-          payment_expires_at, created_at, delivery_provider, courier_fee_cents
+          payment_expires_at, created_at, delivery_provider, courier_fee_cents, payment_collection, cash_change_for_cents
         ) values (
           ${code}, ${internals.cityId}, ${profile.id}, ${quote.store.id}, 'awaiting_payment', ${quote.fulfillment},
           ${profile.fullName}, ${profile.phone},
@@ -103,15 +111,16 @@ export async function placeOrder(
           ${input.paymentMethod}, ${quote.requiresAgeCheck && input.ageConfirmed}, ${quote.requiresAgeCheck},
           ${quote.store.isMarket ? input.missingItemPolicy ?? null : null}, ${input.notes || null},
           ${quote.fulfillment === "delivery" ? String(randomInt(0, 10000)).padStart(4, "0") : null},
-          ${expiresAt}, ${at}, ${internals.deliveryProvider}::delivery_provider, ${internals.courierFeeCents}
+          ${expiresAt}, ${at}, ${internals.deliveryProvider}::delivery_provider, ${internals.courierFeeCents},
+          ${direct ? "store" : "app"}::payment_collection, ${cashChangeFor}
         ) returning id`;
 
       for (const line of quote.lines) {
         const { product, groups } = internals.resolved.get(line.key)!;
         const [item] = await tx<{ id: string }[]>`
-          insert into order_items (order_id, product_id, name, unit_price_cents, quantity, line_total_cents, notes, requires_age_check)
+          insert into order_items (order_id, product_id, name, unit_price_cents, quantity, line_total_cents, notes, requires_age_check, weight_step_grams)
           values (${order.id}, ${product.id}, ${product.name}, ${line.unitPriceCents}, ${line.quantity},
-                  ${line.lineTotalCents}, ${line.notes || null}, ${product.requiresAgeCheck})
+                  ${line.lineTotalCents}, ${line.notes || null}, ${product.requiresAgeCheck}, ${product.weightStepGrams})
           returning id`;
 
         // Cópias das escolhas e dos preços: mudanças futuras no cardápio nunca alteram este pedido.
@@ -136,8 +145,15 @@ export async function placeOrder(
       // A sacola virou pedido: a cópia salva não é mais necessária.
       await tx`delete from carts where profile_id = ${profile.id}`;
 
+      if (direct) {
+        // Direto à loja: o pedido já vai para ela, como um pedido pago vai no outro modo.
+        await transitionOrder(tx, { orderId: order.id, to: "paid", actor: "system", actorId: null, at });
+        return { ok: true, orderId: order.id, paymentId: null, providerPaymentId: null };
+      }
+
+      if (input.paymentMethod === "cash") throw new Conflict("Essa forma de pagamento não está disponível para este pedido.");
       const payment = await createOrderPayment(tx, {
-        orderId: order.id, code, storeId: quote.store.id, method: input.paymentMethod, expiresAt, at, card,
+        orderId: order.id, code, storeId: quote.store.id, method: input.paymentMethod, expiresAt: expiresAt!, at, card,
         totalCents: totals.totalCents, storeAmountCents: totals.storeAmountCents, platformAmountCents: totals.platformAmountCents,
       });
       return { ok: true, orderId: order.id, ...payment };

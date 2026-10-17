@@ -4,20 +4,24 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
 import { OrderSummary } from "@/components/cart/OrderSummary";
+import { PaymentLine } from "@/components/orders/PaymentLine";
 import { OrderActions, RemoveItemButton } from "@/components/merchant/OrderActions";
 import { AutoRefresh } from "@/components/orders/AutoRefresh";
 import { OrderChat } from "@/components/orders/OrderChat";
 import { OrderTimeline } from "@/components/orders/OrderTimeline";
+import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
 import { buttonClass } from "@/components/ui/Button";
 import { formatCents, formatDateTime, formatPhone } from "@/lib/format";
 import { getMerchantContext, getTeam } from "@/lib/merchant/context";
 import { chatOpen } from "@/lib/orders/moderation";
 import { loadOrder } from "@/lib/orders/queries";
 import { STATUS_LABELS } from "@/lib/orders/status";
+import { deliverWithOwnCourier, recallCouriers } from "../../actions";
+import { quantityLabel } from "@/lib/catalog/weight";
 
 export const metadata: Metadata = { title: "Pedido" };
 
-const MISSING_LABELS = { call: "Ligar para o cliente", substitute: "Substituir por similar", remove: "Remover o item e devolver o valor" };
+const MISSING_LABELS = { call: "Ligar para o cliente", substitute: "Substituir por similar", remove: "Remover o item (sai do total)" };
 
 type Params = Promise<{ id: string }>;
 
@@ -74,6 +78,26 @@ async function OrderDetail({ params }: { params: Params }) {
         />
       </section>
 
+      {order.deliveryProvider === "platform" && !order.courierId && ["accepted", "preparing", "ready"].includes(order.status) && (
+        <section className="flex flex-col gap-2 rounded-card bg-peach p-4" data-testid="waiting-courier">
+          <h2 className="text-xl">Esperando um entregador do Chegô</h2>
+          <p className="text-sm">
+            A entrega foi oferecida aos entregadores disponíveis. Se ninguém pegar, chame de novo ou entregue com a sua equipe.
+            Quem pegar recebe da loja, por fora do app, o valor mostrado na oferta (veja em Taxas do Chegô).
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <ActionForm action={recallCouriers}>
+              <input type="hidden" name="orderId" value={order.id} />
+              <SubmitButton variant="secondary" className="min-h-11 px-4 text-sm">Chamar entregadores de novo</SubmitButton>
+            </ActionForm>
+            <ActionForm action={deliverWithOwnCourier}>
+              <input type="hidden" name="orderId" value={order.id} />
+              <SubmitButton variant="secondary" className="min-h-11 px-4 text-sm">Entregar com a minha equipe</SubmitButton>
+            </ActionForm>
+          </div>
+        </section>
+      )}
+
       <section className="rounded-card bg-white p-4 ring-1 ring-peach">
         <h2 className="mb-2 text-xl">Cliente</h2>
         <p className="font-semibold">{order.customerName}</p>
@@ -98,7 +122,7 @@ async function OrderDetail({ params }: { params: Params }) {
           {order.items.map((item) => (
             <li key={item.id} data-testid="merchant-item" className="flex items-start justify-between gap-3 border-b border-cream py-2">
               <span className={item.removed ? "text-coffee-soft line-through" : ""}>
-                <strong>{item.quantity}x {item.name}</strong>
+                <strong>{quantityLabel(item.quantity, item.weightStepGrams)} {item.name}</strong>
                 {item.lines.map((line) => <span key={line} className="block pl-4 text-sm">{line}</span>)}
                 {item.notes && <span className="block pl-4 text-sm font-semibold">Obs: {item.notes}</span>}
                 {item.removed && <span className="block text-sm no-underline">Removido: {item.removedReason}</span>}
@@ -116,6 +140,7 @@ async function OrderDetail({ params }: { params: Params }) {
         )}
         <div className="mt-3">
           <OrderSummary totals={order.totals} fulfillment={order.fulfillment} />
+          <div className="mt-2"><PaymentLine order={order} /></div>
         </div>
         {order.refundedCents > 0 && (
           <p className="mt-2 text-sm font-bold text-danger" data-testid="merchant-refunded">Reembolsado ao cliente: {formatCents(order.refundedCents)}</p>

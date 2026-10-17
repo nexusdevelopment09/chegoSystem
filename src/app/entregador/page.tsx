@@ -10,10 +10,10 @@ import { Stat } from "@/components/ui/Stats";
 import { listOffers, MAX_ACTIVE_DELIVERIES, pickupPlaces, requireCourier } from "@/lib/couriers";
 import { withUser } from "@/lib/db";
 import { formatCents, formatDateTime, formatPhone } from "@/lib/format";
-import { COURIER_KIND_LABELS, VEHICLE_LABELS } from "@/lib/labels";
+import { COURIER_KIND_LABELS, EARNING_LABELS, VEHICLE_LABELS, type EarningStatus } from "@/lib/labels";
 import { loadOrders } from "@/lib/orders/queries";
 import { STATUS_LABELS } from "@/lib/orders/status";
-import { claimDelivery, completeDelivery, pickUpDelivery, releaseDelivery, setAvailability } from "./actions";
+import { claimDelivery, completeDelivery, confirmEarning, disputeEarning, pickUpDelivery, releaseDelivery, setAvailability } from "./actions";
 
 export const metadata: Metadata = { title: "Minhas entregas" };
 
@@ -65,15 +65,17 @@ async function Panel() {
   const [mine, offers, earnings] = await Promise.all([
     loadOrders(profile.id, { courierId: profile.id, statuses: ["accepted", "preparing", "ready", "out_for_delivery"] }),
     courier.available ? listOffers(courier.cityId) : Promise.resolve([]),
-    withUser(profile.id, (tx) => tx<{ id: string; code: string; store: string; amount_cents: number; paid_at: Date | null; created_at: Date }[]>`
-      select e.id, o.code, s.name as store, e.amount_cents, e.paid_at, e.created_at
+    withUser(profile.id, (tx) => tx<{ id: string; code: string; store: string; amount_cents: number; paid_at: Date | null; created_at: Date; payer: "platform" | "store"; status: EarningStatus }[]>`
+      select e.id, o.code, s.name as store, e.amount_cents, e.paid_at, e.created_at, e.payer, e.status
       from courier_earnings e join orders o on o.id = e.order_id join stores s on s.id = o.store_id
       where e.courier_id = ${profile.id}
       order by e.created_at desc limit 30`),
   ]);
   const places = await pickupPlaces(mine.map((order) => order.id));
-  const toReceive = earnings.filter((row) => !row.paid_at).reduce((total, row) => total + row.amount_cents, 0);
-  const received = earnings.filter((row) => row.paid_at).reduce((total, row) => total + row.amount_cents, 0);
+  // Recebido: o que o Chegô repassou ou o que o próprio entregador confirmou ter recebido da loja.
+  const isReceived = (row: (typeof earnings)[number]) => (row.payer === "platform" ? row.paid_at !== null : row.status === "confirmed");
+  const toReceive = earnings.filter((row) => !isReceived(row)).reduce((total, row) => total + row.amount_cents, 0);
+  const received = earnings.filter(isReceived).reduce((total, row) => total + row.amount_cents, 0);
   const full = mine.length >= MAX_ACTIVE_DELIVERIES;
 
   return (
@@ -173,7 +175,10 @@ async function Panel() {
             <article key={offer.id} data-testid="courier-offer" className={card}>
               <header className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="text-xl">{offer.storeName}</h3>
-                <span className="font-display text-xl font-semibold text-success">Você ganha {formatCents(offer.feeCents)}</span>
+                <span className="text-right">
+                  <span className="block font-display text-xl font-semibold text-success">Você ganha {formatCents(offer.feeCents)}</span>
+                  <span className="block text-xs text-coffee-soft">{offer.paidBy === "store" ? "pago pela loja, direto a você" : "pago pelo Chegô"}</span>
+                </span>
               </header>
               <p className="text-sm"><span className="text-coffee-soft">Retirar em</span> {offer.storeAddress}</p>
               <p className="text-sm"><span className="text-coffee-soft">Entregar em</span> <strong>{offer.destination}</strong></p>
@@ -193,7 +198,7 @@ async function Panel() {
       <section className="flex flex-col gap-2" aria-labelledby="ganhos">
         <h2 id="ganhos" className="text-2xl">Meus ganhos</h2>
         <div className="grid grid-cols-2 gap-3">
-          <Stat label="A receber" value={formatCents(toReceive)} hint="O Chegô repassa as entregas concluídas" />
+          <Stat label="A receber" value={formatCents(toReceive)} hint="A loja paga direto a você; confirme aqui quando receber" />
           <Stat label="Já recebido" value={formatCents(received)} />
         </div>
         {earnings.length > 0 && (
@@ -203,8 +208,24 @@ async function Panel() {
                 <span className="min-w-0"><strong>{row.code}</strong> · {row.store}<span className="block text-coffee-soft">{formatDateTime(row.created_at)}</span></span>
                 <span className="text-right font-semibold tabular-nums">
                   {formatCents(row.amount_cents)}
-                  <span className={`block text-xs font-bold ${row.paid_at ? "text-success" : "text-coffee-soft"}`}>{row.paid_at ? "Repassado" : "A receber"}</span>
+                  <span className={`block text-xs font-bold ${isReceived(row) ? "text-success" : row.status === "disputed" ? "text-danger" : "text-coffee-soft"}`}>
+                    {row.payer === "platform" ? (row.paid_at ? "Repassado pelo Chegô" : "A receber do Chegô") : EARNING_LABELS[row.status]}
+                  </span>
                 </span>
+                {row.payer === "store" && (row.status === "pending" || row.status === "paid_by_store") && (
+                  <div className="flex w-full flex-wrap gap-2">
+                    <ActionForm action={confirmEarning}>
+                      <input type="hidden" name="id" value={row.id} />
+                      <SubmitButton variant={row.status === "paid_by_store" ? "primary" : "secondary"} className="min-h-11 px-4 text-sm">Recebi da loja</SubmitButton>
+                    </ActionForm>
+                    {row.status === "paid_by_store" && (
+                      <ActionForm action={disputeEarning}>
+                        <input type="hidden" name="id" value={row.id} />
+                        <SubmitButton variant="secondary" className="min-h-11 px-4 text-sm">Não recebi</SubmitButton>
+                      </ActionForm>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

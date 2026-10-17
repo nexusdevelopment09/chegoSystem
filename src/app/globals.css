@@ -36,3 +36,26 @@ h3 {
   outline: 3px solid var(--color-brand-dark);
   outline-offset: 2px;
 }
+
+/* Faixas que rolam de lado (banners, categorias): continuam arrastáveis pelo dedo,
+   pelo mouse e pelo teclado, só sem a barra de rolagem aparecendo. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Quem pede menos movimento no sistema não vê rolagens suaves nem transições. */
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

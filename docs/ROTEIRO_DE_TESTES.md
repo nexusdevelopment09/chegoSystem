@@ -113,6 +113,12 @@ Entre como **Marcos Antônio Tavares** (Pizzaria Forno de Barro). Antes, faça u
 | [ ] | Em **Cardápio → Grupos**, crie um grupo de opções e ligue a um produto | As opções aparecem na página do produto |
 | [ ] | Em **Cardápio → Planilha**, baixe a planilha, mude um preço e importe | O preço muda; linhas com erro são apontadas sem estragar o resto |
 | [ ] | Em **Minha loja**, mude horários e áreas de entrega | A página da loja mostra os novos horários e taxas |
+| [ ] | Em **Minha loja → Como você recebe**, desmarque o dinheiro e salve | No checkout desta loja, "Dinheiro na entrega" some |
+| [ ] | Como cliente, faça um pedido com **Dinheiro na entrega** e troco para R$ 100,00 | O pedido vai direto para a loja; a loja vê "troco para R$ 100,00 (levar R$ ...)" |
+| [ ] | Faça um pedido com **Pix para a loja** e aceite como loja | O cliente passa a ver a chave Pix da loja no pedido |
+| [ ] | Conclua um pedido e abra **Taxas do Chegô** | Aparece 1 pedido e R$ 0,50 em aberto |
+| [ ] | Marque "Conferi os valores acima" e clique em **Fechar expediente**, depois em **Gerar Pix** e **Simular pagamento do Pix** | O fechamento passa a "Pago"; em **Admin → Taxas**, o recebido sobe |
+| [ ] | Numa entrega pela rede do Chegô, como loja clique **Paguei o entregador**; como entregador, **Recebi da loja** | O ganho fica "Recebido" |
 | [ ] | Em **Minha loja**, convide uma pessoa para a equipe | A pessoa entra na equipe. Se ela ainda não tinha conta, aparece uma senha provisória para repassar; com o telefone e essa senha ela entra no painel da loja |
 | [ ] | Em **Cupons**, crie um cupom | Dá para usar na sacola, só nesta loja |
 | [ ] | Em **Avaliações**, responda uma avaliação | A resposta aparece na página da loja |

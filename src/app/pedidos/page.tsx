@@ -34,7 +34,7 @@ function OrderCard({ order }: { order: OrderView }) {
         </p>
         <p className="text-sm font-semibold text-brand-darker">{STATUS_LABELS[order.status]}</p>
         <p className="text-sm text-coffee-soft">
-          {order.code} · {formatDateTime(order.createdAt)} · {order.items.reduce((total, item) => total + item.quantity, 0)} itens
+          {order.code} · {formatDateTime(order.createdAt)} · {order.items.reduce((total, item) => total + (item.weightStepGrams ? 1 : item.quantity), 0)} itens
         </p>
       </Link>
     </li>

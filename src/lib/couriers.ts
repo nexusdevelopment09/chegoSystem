@@ -58,6 +58,8 @@ export type DeliveryOffer = {
   storeAddress: string;
   destination: string;
   feeCents: number;
+  /** Quem paga o entregador: a loja (pedido pago direto a ela) ou o Chegô (pedido pago pelo app). */
+  paidBy: "store" | "platform";
   requiresAgeCheck: boolean;
   estimatedAt: Date | null;
 };
@@ -70,10 +72,10 @@ export type DeliveryOffer = {
 export async function listOffers(cityId: string): Promise<DeliveryOffer[]> {
   const rows = await sql<{
     id: string; code: string; status: OrderStatus; store_name: string; street: string; number: string; store_hood: string | null;
-    destination: string | null; courier_fee_cents: number; requires_age_check: boolean; estimated_at: Date | null;
+    destination: string | null; courier_fee_cents: number; requires_age_check: boolean; estimated_at: Date | null; payment_collection: "app" | "store";
   }[]>`
     select o.id, o.code, o.status, s.name as store_name, s.street, s.number, sn.name as store_hood,
-           o.address_snapshot->>'neighborhood' as destination, o.courier_fee_cents, o.requires_age_check, o.estimated_at
+           o.address_snapshot->>'neighborhood' as destination, o.courier_fee_cents, o.requires_age_check, o.estimated_at, o.payment_collection
     from orders o
     join stores s on s.id = o.store_id
     left join neighborhoods sn on sn.id = s.neighborhood_id
@@ -84,7 +86,7 @@ export async function listOffers(cityId: string): Promise<DeliveryOffer[]> {
   return rows.map((row) => ({
     id: row.id, code: row.code, status: row.status, storeName: row.store_name,
     storeAddress: [`${row.street}, ${row.number}`, row.store_hood].filter(Boolean).join(" · "),
-    destination: row.destination ?? "Endereço do cliente", feeCents: row.courier_fee_cents,
+    destination: row.destination ?? "Endereço do cliente", feeCents: row.courier_fee_cents, paidBy: row.payment_collection === "store" ? "store" : "platform",
     requiresAgeCheck: row.requires_age_check, estimatedAt: row.estimated_at,
   }));
 }

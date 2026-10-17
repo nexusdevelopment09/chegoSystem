@@ -132,6 +132,8 @@ export type MenuProduct = {
   fromCents: number;
   /** O preço depende de uma escolha obrigatória (sabor da pizza, tamanho...). */
   priceVaries: boolean;
+  /** Vendido por peso: preço do quilo, mostrado no lugar do preço da porção. */
+  pricePerKgCents: number | null;
   featured: boolean;
   status: ProductStatus;
 };
@@ -163,6 +165,7 @@ export async function getMenu(storeId: string, at: Date): Promise<MenuSection[]>
       id: detail.id, name: detail.name, description: detail.description, imageUrl: detail.imageUrl,
       fromCents: startingPriceCents(detail.priceCents, detail.groups),
       priceVaries: startingPriceCents(detail.priceCents, detail.groups) !== detail.priceCents, featured: row.featured,
+      pricePerKgCents: detail.pricePerKgCents,
       status: productStatus(detail.rules, at),
     });
   }

@@ -7,12 +7,13 @@ import { signInWithPhone, type PhoneSignInState } from "./actions";
 
 const initialState: PhoneSignInState = {};
 
-/** Telefone e senha: a mesma entrada para cliente, lojista e entregador. */
-export function PhonePasswordForm({ autoFocus = false }: { autoFocus?: boolean }) {
+/** Telefone e senha: a mesma entrada para cliente, lojista e entregador. `area` diz de qual tela veio. */
+export function PhonePasswordForm({ autoFocus = false, area = "customer" }: { autoFocus?: boolean; area?: "customer" | "store" | "courier" }) {
   const [state, formAction, pending] = useActionState(signInWithPhone, initialState);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      <input type="hidden" name="area" value={area} />
       <Field
         label="Seu telefone com DDD"
         name="phone"

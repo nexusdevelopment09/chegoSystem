@@ -123,7 +123,7 @@ Entre como **Marcos Antônio Tavares** (Pizzaria Forno de Barro). Antes, faça u
 | [ ] | Em **Cupons**, crie um cupom | Dá para usar na sacola, só nesta loja |
 | [ ] | Em **Avaliações**, responda uma avaliação | A resposta aparece na página da loja |
 | [ ] | Em **Relatórios**, veja os mais vendidos e baixe o CSV | Os números batem com os pedidos |
-| [ ] | Em **Financeiro**, abra o extrato | Cada pedido mostra venda, comissão, taxa e o que a loja recebe |
+| [ ] | Em **Financeiro**, confira o **Fechamento de caixa de hoje** e as vendas por pedido | Sem mensalidade nem comissão: total vendido por forma de pagamento e R$ 0,50 por pedido concluído; o botão de menu "Financeiro" fica destacado |
 | [ ] | Em **Divulgação**, baixe o QR Code e o cartaz | Baixa a imagem e o PDF com o endereço da loja |
 
 ## 6. Atendente e entregador

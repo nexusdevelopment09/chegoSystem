@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { getMerchantContext } from "@/lib/merchant/context";
+import { NavLinks } from "./NavLinks";
 
 const LINKS = [
   { href: "/lojista/pedidos", label: "Pedidos", roles: ["owner", "attendant"] },
@@ -36,11 +36,7 @@ async function MerchantNav() {
   return (
     <nav aria-label="Painel da loja" className="mx-auto flex w-full max-w-6xl gap-2 overflow-x-auto px-4 pb-1">
       <span className="flex min-h-11 shrink-0 items-center pr-2 font-display text-lg font-semibold">{store.name}</span>
-      {LINKS.filter((link) => link.roles.includes(membership.role)).map((link) => (
-        <Link key={link.href} href={link.href} className="flex min-h-11 shrink-0 items-center rounded-full bg-white px-4 text-sm font-bold ring-1 ring-peach hover:ring-brand">
-          {link.label}
-        </Link>
-      ))}
+      <NavLinks links={LINKS.filter((link) => link.roles.includes(membership.role)).map(({ href, label }) => ({ href, label }))} />
     </nav>
   );
 }

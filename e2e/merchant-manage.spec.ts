@@ -254,7 +254,12 @@ test("relatórios e extrato são só do dono; atendente não entra", async ({ pa
 
   await page.goto("/lojista/financeiro");
   await expect(visible(page, "statement")).toBeVisible();
-  await expect(page.getByText(/Sua taxa hoje: 12,0%/)).toBeVisible();
+  // Sem mensalidade nem comissão: só a taxa por pedido e o fechamento de caixa do dia.
+  await expect(visible(page, "cash-closing")).toContainText("Fechamento de caixa de hoje (09/10/2026)");
+  await expect(page.getByRole("heading", { name: "Mensalidade" })).toHaveCount(0);
+  await expect(page.getByText("Comissão do Chegô")).toHaveCount(0);
+  // O menu destaca a página aberta.
+  await expect(page.getByRole("navigation", { name: "Painel da loja" }).getByRole("link", { name: "Financeiro" })).toHaveAttribute("aria-current", "page");
 
   // Os números batem com o banco.
   const [expected] = await db`
@@ -274,20 +279,21 @@ test("relatórios e extrato são só do dono; atendente não entra", async ({ pa
   expect((await page.request.get("/lojista/relatorios/exportar", { maxRedirects: 0 })).status()).toBe(307);
 });
 
-test("fatura da mensalidade é paga pelo app", async ({ page }) => {
-  await loginAs(page, "Rosângela Batista");
-  await page.goto("/lojista/financeiro");
-  const open = page.locator('[data-testid="invoice"]:visible').filter({ hasText: "Em aberto" });
-  await expect(open).toHaveCount(1);
-  await open.getByRole("button", { name: "Pagar pelo app" }).click();
-  await expect(page.locator('[data-testid="invoice"]:visible').filter({ hasText: "Em aberto" })).toHaveCount(0);
+test("fechamento de caixa soma as vendas do dia e a taxa de cada pedido concluído", async ({ page }) => {
+  await loginAs(page, "Marcos Antônio Tavares");
+  const [order] = await db`
+    select o.id, o.store_id, o.total_cents from orders o join stores s on s.id = o.store_id
+    where s.slug = 'pizzaria-forno-de-barro' and o.status in ('delivered', 'picked_up') order by o.paid_at desc limit 1`;
+  // Um pedido entregue hoje, pago em dinheiro, com a taxa de R$ 0,50 lançada no expediente de hoje.
+  await db`update orders set paid_at = '2026-10-09T13:00:00-03:00', payment_method = 'cash' where id = ${order.id}`;
+  await db`insert into fee_entries (store_id, order_id, kind, amount_cents, business_date)
+           values (${order.store_id}, ${order.id}, 'order_fee', 50, '2026-10-09')`;
 
-  const [invoice] = await db`
-    select i.status, i.paid_at is not null as paid,
-           (select count(*)::int from ledger_entries l where l.invoice_id = i.id and l.reason = 'subscription') as ledger
-    from invoices i join stores s on s.id = i.store_id
-    where s.slug = 'mercado-boa-compra' order by i.period_start desc limit 1`;
-  expect(invoice).toEqual({ status: "paid", paid: true, ledger: 1 });
+  await page.goto("/lojista/financeiro");
+  const panel = visible(page, "cash-closing");
+  await expect(panel).toContainText("Dinheiro");
+  await expect(visible(page, "cash-closing-fee")).toContainText("R$ 0,50");
+  await expect(visible(page, "statement").locator("tr", { hasText: "R$ 0,50" }).first()).toBeVisible();
 });
 
 test("QR Code e cartaz da loja para imprimir", async ({ page }) => {

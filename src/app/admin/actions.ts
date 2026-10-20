@@ -449,11 +449,12 @@ export async function saveCity(_previous: ActionState, formData: FormData): Prom
 export async function toggleRegistry(formData: FormData): Promise<void> {
   const profile = await admin();
   const id = uuid.parse(formData.get("id"));
-  const target = z.enum(["city", "city_maintenance", "neighborhood", "category", "plan"]).parse(formData.get("target"));
+  const target = z.enum(["city", "city_maintenance", "neighborhood", "category", "subcategory", "plan"]).parse(formData.get("target"));
   if (target === "city") await sql`update cities set active = not active where id = ${id}`;
   if (target === "city_maintenance") await sql`update cities set maintenance_mode = not maintenance_mode where id = ${id}`;
   if (target === "neighborhood") await sql`update neighborhoods set active = not active where id = ${id}`;
   if (target === "category") await sql`update categories set active = not active where id = ${id}`;
+  if (target === "subcategory") await sql`update subcategories set active = not active where id = ${id}`;
   if (target === "plan") await sql`update subscription_plans set active = not active where id = ${id}`;
   await audit({ actorId: profile.id, action: `${target}.toggle`, entityType: target, entityId: id });
   done();
@@ -492,6 +493,46 @@ export async function saveCategory(_previous: ActionState, formData: FormData): 
   }
   done();
   return { ok: true, message: "Categoria salva." };
+}
+
+/** Nova subcategoria de um segmento (ex.: "Hamburguerias" em Restaurantes). */
+export async function saveSubcategory(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const profile = await admin();
+  const parsed = z
+    .object({ categoryId: uuid, name: z.string().trim().min(2).max(60), group: z.string().trim().max(60) })
+    .safeParse({ categoryId: formData.get("categoryId"), name: formData.get("name"), group: formData.get("group") ?? "" });
+  if (!parsed.success) return { error: "Diga o nome da subcategoria." };
+  try {
+    const [created] = await sql<{ id: string }[]>`
+      insert into subcategories (category_id, name, slug, group_name, sort_order)
+      values (${parsed.data.categoryId}, ${parsed.data.name}, ${slugify(parsed.data.name)}, ${parsed.data.group || null},
+              (select coalesce(max(sort_order), -1) + 1 from subcategories where category_id = ${parsed.data.categoryId}))
+      returning id`;
+    await audit({ actorId: profile.id, action: "subcategory.create", entityType: "subcategory", entityId: created.id });
+  } catch (error) {
+    if ((error as { code?: string }).code === "23505") return { error: "Esse segmento já tem uma subcategoria com esse nome." };
+    throw error;
+  }
+  done();
+  return { ok: true, message: "Subcategoria criada." };
+}
+
+/** Em quais subcategorias do seu segmento a loja aparece. */
+export async function saveStoreSubcategories(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const profile = await admin();
+  const storeId = uuid.parse(formData.get("storeId"));
+  const chosen = formData.getAll("subcategoryIds").map(String).filter((id) => uuid.safeParse(id).success);
+  await sql.begin(async (tx) => {
+    await tx`delete from store_subcategories where store_id = ${storeId}`;
+    // Só subcategorias do segmento da própria loja.
+    await tx`
+      insert into store_subcategories (store_id, subcategory_id)
+      select s.id, sc.id from stores s join subcategories sc on sc.category_id = s.category_id
+      where s.id = ${storeId} and sc.id = any(${chosen}::uuid[])`;
+  });
+  await audit({ actorId: profile.id, action: "store.subcategories", entityType: "store", entityId: storeId, storeId, details: { count: chosen.length } });
+  revalidatePath(`/admin/lojas/${storeId}`);
+  return { ok: true, message: "Subcategorias salvas." };
 }
 
 export async function savePlan(_previous: ActionState, formData: FormData): Promise<ActionState> {

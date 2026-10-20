@@ -214,7 +214,27 @@ Onde: `src/lib/fees/`, `src/app/lojista/taxas/` e `src/app/admin/taxas/`.
 - Mudanças de comissão, plano e destaque ficam no log de auditoria.
 - Uma loja nunca vê dados de outra.
 
-Onde: `src/lib/stores/queries.ts`.
+- **Filtro e ordenação são coisas diferentes.** Filtros tiram lojas da lista (abertas agora, entrega grátis, retirada, com ofertas). A ordenação só muda a ordem e nunca esconde loja: recomendados (a ordem padrão acima), menor tempo de entrega, menor taxa de entrega, melhor avaliação e promoções primeiro.
+- Quem não tem o dado de uma ordenação vai para o fim, na ordem padrão: loja que não entrega no bairro do cliente não tem prazo nem taxa (não conta como "a mais rápida" nem como "taxa zero"); loja com menos de 5 avaliações não entra na ordem por nota. Menor taxa não é o mesmo que entrega grátis.
+- Trocar a ordenação mantém os filtros, e vice-versa. Tudo fica no endereço da página (`?ordem=taxa&aberto=1`), então dá para compartilhar. Os links antigos `?nota=1` e `?rapidas=1` viram as ordenações por nota e por tempo.
+
+Onde: `src/lib/stores/queries.ts` e `src/lib/stores/filters.ts`.
+
+## 7-B. Subcategorias, vitrines e ofertas
+
+- Cada segmento tem subcategorias (Restaurantes: Pizzarias, Hamburguerias...; Mercado: Hortifrúti, Carnes...; Bebidas: Cervejas, Vinhos...; Farmácia: Genéricos, Diabetes...). A lista inicial fica em `db/seed/taxonomy.ts` e entra sozinha a cada migrate, só acrescentando o que falta: o admin pode renomear, desativar e criar novas em **Cadastros**.
+- O admin marca em quais subcategorias cada loja aparece (página da loja no admin). A loja escolhe a subcategoria de cada produto no cardápio.
+- Na página da categoria, os chips mostram **só as subcategorias que têm loja ou produto à venda na cidade**. Escolher um chip mostra os produtos daquela subcategoria e as lojas que a têm. O chip "Ofertas" só aparece quando há oferta.
+- Farmácia: as subcategorias ajudam a achar produtos e não sugerem diagnóstico nem tratamento. Medicamento com receita continua fora do app.
+- **Shopping** é um segmento de primeiro nível (presentes, flores e cestas, beleza, moda, brinquedos...). Sem lojas na cidade, a página convida a vender em vez de ficar vazia.
+- **Oferta:** a loja informa um "preço de antes" maior que o preço atual. O cliente vê "de R$ X por R$ Y" e o desconto em %. O preço cobrado é sempre o preço atual: checkout, taxas e totais não mudam. Não vale para venda por peso. Se um reajuste fizer o preço alcançar o preço de antes, a oferta acaba sozinha.
+- **Vitrines** (só com dados reais; vitrine sem dados não aparece):
+  - Início: o foco são as lojas. Só "Lojas populares" (mais pedidos concluídos nos últimos 30 dias) e uma faixa fininha de cupons; nenhuma vitrine de produto.
+  - Categoria (sem chip escolhido): Ofertas em {categoria}, Mais pedidos em {categoria} (pedidos concluídos nos últimos 30 dias, pelo menos 2 pedidos por produto) e Combos (seções ou produtos com "combo" no nome, até 2 por loja). Cada vitrine mostra só produtos das lojas daquele segmento: oferta de farmácia fica na Farmácia, comida em Restaurantes.
+  - Loja: Você já pediu (só para quem já pediu ali), Destaques da loja (produtos marcados como destaque), Mais pedidos da casa, Ofertas da loja e Novidades (cadastrados nos últimos 30 dias e não junto com a abertura da loja).
+  - Lojas abertas e que entregam no bairro do cliente vêm primeiro em cada vitrine. Esgotado não entra; fora do horário entra, com o aviso.
+
+Onde: `src/lib/catalog/showcase.ts`.
 
 ## 8. Lojas
 
@@ -265,6 +285,7 @@ Onde: `src/lib/catalog/`.
 - Tipos: valor fixo, percentual (com teto) e frete grátis.
 - Limites possíveis: validade, uso total, uso por cliente, pedido mínimo, só primeira compra, lojas, categorias e cidades específicas.
 - Cada recusa tem a sua mensagem: "Cupom expirado", "Este cupom é só para a primeira compra" etc.
+- **Faixa de cupons no início e página /ofertas:** mostram só cupons que o cliente pode usar agora (ativos, dentro da validade, com uso disponível, da cidade dele, sem dono ou dele mesmo, e de loja que está no ar). Quem já comprou não vê o de primeira compra; quem já gastou os usos por cliente também não vê. Pedido mínimo, loja, categoria e validade aparecem escritos. "Copiar cupom" copia o código real; "Ver ofertas" leva à loja ou à categoria do cupom (ou a /ofertas). O X esconde a faixa por 7 dias (cookie).
 - **Indique e ganhe:** o indicado usa o código do amigo na primeira compra e ganha R$ 5,00. Quando esse primeiro pedido é entregue, quem indicou ganha um cupom de R$ 5,00. Os dois valores são configuráveis.
 
 Onde: `src/lib/coupons/validate.ts`.
@@ -321,6 +342,8 @@ Onde: `src/lib/documents.ts`, `src/lib/uploads.ts` e `src/components/forms/`.
 | Criar conta de cliente | 10 por endereço IP por hora |
 | Trocar senha | 10 por conta a cada 10 minutos |
 | Fechar pedido | 10 por cliente a cada 10 minutos |
+| Fechar pedido sem conta | 6 por endereço IP e 4 por telefone, por hora |
+| Cancelar pedido sem conta (pelo link) | 10 por endereço IP a cada 10 minutos |
 | Testar cupom | 40 a cada 10 minutos |
 | Mensagens no pedido | 30 a cada 5 minutos |
 | Abrir chamado | 5 por hora |
@@ -343,3 +366,20 @@ Rodam a cada minuto e podem ser repetidas sem efeito dobrado:
 - recalcular as notas das lojas.
 
 Onde: `src/lib/tasks/run.ts`.
+
+## 19. Gestão da loja (estoque, mesas, equipe, auditoria, compra sem conta)
+
+Resumo; o detalhe está em [GESTAO_DA_LOJA.md](GESTAO_DA_LOJA.md).
+
+- **Taxa do Chegô**: as vendas de mesa e balcão também pagam R$ 0,50 por venda fechada.
+- **Permissões**: o dono tem todas. Atendente e entregador recebem as do papel e o dono troca uma a uma. Ninguém dá uma permissão que não tem nem altera as próprias. Acesso negado volta ao painel com aviso e fica na auditoria.
+- **Convite de funcionário**: uso único, 7 dias, opcionalmente preso a um telefone.
+- **Estoque**:
+  - venda nunca usa lote vencido; o que vence antes sai antes;
+  - cancelamento devolve; aceite consome a ficha técnica;
+  - movimentações e auditoria não se apagam.
+- **Mesa**: uma conta aberta por mesa. Só o dinheiro pode passar do total (troco). Fechar exige a conta paga e cria um pedido já concluído.
+- **Compra sem conta**:
+  - só pagando direto à loja, acompanhada por um link com token;
+  - sem cupom, chat, avaliação ou chamado;
+  - a loja vê "sem conta" e liga para o telefone do pedido.

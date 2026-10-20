@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { homeFor } from "@/lib/auth/home";
 import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth/password";
-import { createSession, destroySession, getCurrentProfile, type UserRole } from "@/lib/auth/session";
+import { auditFailedLogin, createSession, destroySession, getCurrentProfile, type UserRole } from "@/lib/auth/session";
 import { isDatabaseOffline, sql } from "@/lib/db";
 import { isLocalEnv } from "@/lib/env";
 import { toE164 } from "@/lib/format";
@@ -29,7 +29,7 @@ export async function signInWithPhone(_previous: PhoneSignInState, formData: For
   if (isLocalEnv && typed.replace(/\D/g, "") === "0000" && password === "0000") {
     const demo = await demoAccountFor(formData.get("area"));
     if (!demo) return { error: "Conta de demonstração não encontrada. Rode npm run db:reset.", phone: typed };
-    await createSession(demo.id);
+    await createSession(demo.id, "atalho_teste");
     redirect(homeFor(demo.role));
   }
 
@@ -52,6 +52,7 @@ export async function signInWithPhone(_previous: PhoneSignInState, formData: For
     return { error: databaseErrorMessage(error), phone: typed };
   }
   if (!profile || !verifyPassword(password, profile.password_hash)) {
+    if (profile) await auditFailedLogin(profile.id);
     return { error: "Telefone ou senha incorretos.", phone: typed };
   }
 
@@ -107,8 +108,8 @@ export async function createCustomerAccount(_previous: CreateAccountState, formD
     throw error;
   }
   await acceptPendingLegalDocuments(created.id, "customer");
-  await createSession(created.id);
-  redirect("/boas-vindas");
+  await createSession(created.id, "cadastro");
+  redirect("/");
 }
 
 function databaseErrorMessage(error: unknown): string {
@@ -203,6 +204,7 @@ export async function signIn(_previous: LoginState, formData: FormData): Promise
   }
 
   if (!profile || !verifyPassword(parsed.data.password, profile.password_hash)) {
+    if (profile) await auditFailedLogin(profile.id);
     return { error: "Usuário ou senha incorretos." };
   }
   if (profile.blocked_at || profile.deleted_at) {

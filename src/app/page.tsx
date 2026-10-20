@@ -1,15 +1,20 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { BannerCarousel } from "@/components/home/BannerCarousel";
 import { CategoryNav } from "@/components/home/CategoryNav";
+import { CouponBanner } from "@/components/home/CouponBanner";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { FilterChips } from "@/components/store/FilterChips";
 import { SearchBox } from "@/components/store/SearchBox";
 import { StoreGrid, StoreGridSkeleton, StoreList } from "@/components/store/StoreCard";
 import { Icon } from "@/components/ui/Icon";
 import { getCurrentProfile } from "@/lib/auth/session";
+import { offerStoreIds, popularStoreIds } from "@/lib/catalog/showcase";
 import { now } from "@/lib/clock";
+import { DISMISSED_COUPONS_COOKIE } from "@/lib/coupons/cookie";
+import { visibleCoupons } from "@/lib/coupons/visible";
 import { sql } from "@/lib/db";
 import { getShoppingContext } from "@/lib/shopping-context";
 import { applyStoreFilters, hasActiveFilters } from "@/lib/stores/filters";
@@ -20,7 +25,7 @@ type SearchParams = Promise<Record<string, string | undefined>>;
 
 export default async function Home({ searchParams }: { searchParams: SearchParams }) {
   const context = await getShoppingContext();
-  if (!context.city || context.firstVisit) redirect("/boas-vindas");
+  if (!context.city) redirect("/boas-vindas"); // nenhuma cidade ativa
 
   return (
     <>
@@ -74,7 +79,7 @@ function Shelf({ title, note, children }: { title: string; note?: string; childr
 
 async function HomeContent({ searchParams }: { searchParams: SearchParams }) {
   const [context, filters] = await Promise.all([getShoppingContext(), searchParams]);
-  if (!context.city || context.firstVisit) redirect("/boas-vindas");
+  if (!context.city) return null;
 
   if (context.city.maintenance) {
     return (
@@ -91,11 +96,8 @@ async function HomeContent({ searchParams }: { searchParams: SearchParams }) {
 
   const [stores, categories, banners, recentStoreIds] = await Promise.all([
     listStores({ cityId: context.city.id, neighborhoodId: context.neighborhood?.id }, at),
-    sql<{ slug: string; name: string }[]>`
-      select c.slug, c.name from categories c
-      where c.active and exists (
-        select 1 from stores s where s.category_id = c.id and s.city_id = ${context.city.id} and s.status in ('active', 'paused'))
-      order by c.sort_order`,
+    // Todos os segmentos ativos: um segmento ainda sem lojas abre com o convite para vender.
+    sql<{ slug: string; name: string }[]>`select c.slug, c.name from categories c where c.active order by c.sort_order`,
     sql<{ id: string; title: string; image_url: string; link_url: string | null }[]>`
       select id, title, image_url, link_url from banners
       where active and starts_at <= ${at} and (ends_at is null or ends_at > ${at})
@@ -109,7 +111,17 @@ async function HomeContent({ searchParams }: { searchParams: SearchParams }) {
       : Promise.resolve([]),
   ]);
 
-  const filtered = hasActiveFilters(filters) ? applyStoreFilters(stores, filters) : null;
+  const storeIds = stores.map((store) => store.id);
+  const dismissed = new Set(((await cookies()).get(DISMISSED_COUPONS_COOKIE)?.value ?? "").split("."));
+  const [popular, offerStores, coupons] = await Promise.all([
+    popularStoreIds(storeIds, at),
+    offerStoreIds(storeIds, at),
+    visibleCoupons({ cityId: context.city.id, profileId: profile?.id ?? null, at }),
+  ]);
+  const shownCoupons = coupons.filter((coupon) => !dismissed.has(coupon.id));
+  const popularStores = popular.flatMap((id) => stores.find((store) => store.id === id) ?? []);
+
+  const filtered = hasActiveFilters(filters) ? applyStoreFilters(stores, filters, { offerStoreIds: offerStores }) : null;
   const open = stores.filter((store) => store.availability.state === "open");
   const closed = stores.filter((store) => store.availability.state !== "open");
   const featured = stores.filter((store) => store.featured);
@@ -122,6 +134,8 @@ async function HomeContent({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <>
+      <CouponBanner coupons={shownCoupons} />
+
       <BannerCarousel
         banners={banners.map((banner) => ({ id: banner.id, title: banner.title, imageUrl: banner.image_url, linkUrl: banner.link_url }))}
       />
@@ -132,7 +146,7 @@ async function HomeContent({ searchParams }: { searchParams: SearchParams }) {
         </Shelf>
       )}
 
-      <FilterChips basePath="/" params={filters} />
+      <FilterChips basePath="/" params={filters} keys={offerStores.size > 0 ? undefined : ["aberto", "gratis", "retirada"]} />
 
       {filtered ? (
         <Shelf title="Lojas" note={filtered.length === 1 ? "1 encontrada" : `${filtered.length} encontradas`}>
@@ -140,9 +154,16 @@ async function HomeContent({ searchParams }: { searchParams: SearchParams }) {
         </Shelf>
       ) : (
         <>
+
           {featured.length > 0 && (
             <Shelf title="Destaques" note="Lojas com destaque pago">
               <StoreGrid stores={featured} neighborhoodName={hoodName} empty="" />
+            </Shelf>
+          )}
+
+          {popularStores.length > 0 && (
+            <Shelf title="Lojas populares" note="mais pedidos nos últimos 30 dias">
+              <StoreList stores={popularStores} neighborhoodName={hoodName} empty="" />
             </Shelf>
           )}
 

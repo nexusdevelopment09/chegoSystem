@@ -106,7 +106,7 @@ test("pedir de novo avisa o que esgotou e monta a sacola com o resto", async ({ 
   const orderId = await placePaidOrder(page, "Ana Clara Souza", "brasa-burger", ["Batata com cheddar e bacon", "Batata frita"]);
   await completeOrder(orderId);
   await db`update products set available = false where name = 'Batata frita'`;
-  await db`update products set price_cents = 2600 where name = 'Batata com cheddar e bacon'`;
+  await db`update products set price_cents = 2600, compare_at_price_cents = null where name = 'Batata com cheddar e bacon'`;
 
   try {
     await page.goto(`/pedidos/${orderId}`);
@@ -121,7 +121,7 @@ test("pedir de novo avisa o que esgotou e monta a sacola com o resto", async ({ 
     await expect(page.locator('[data-testid="summary-subtotal"]:visible')).toHaveText("R$ 26,00");
   } finally {
     await db`update products set available = true where name = 'Batata frita'`;
-    await db`update products set price_cents = 2400 where name = 'Batata com cheddar e bacon'`;
+    await db`update products set price_cents = 2400, compare_at_price_cents = 2490 where name = 'Batata com cheddar e bacon'`;
   }
 });
 

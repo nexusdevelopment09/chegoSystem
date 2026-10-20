@@ -24,6 +24,8 @@ export default defineConfig(({ mode }) => {
         ...(onTestDatabase ? { STORAGE_DIR: TEST_STORAGE } : {}),
       },
       testTimeout: 120_000,
+      // Um arquivo por vez: a caixa de areia confere que nada fora dela mudou enquanto rodava.
+      fileParallelism: false,
       // A tabela do resultado é impressa sempre, e não só quando algo falha.
       silent: false,
       reporters: ["verbose"],

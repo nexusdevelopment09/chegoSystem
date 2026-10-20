@@ -35,16 +35,41 @@ export function SiteHeader({ children }: { children?: ReactNode }) {
   );
 }
 
+// Cada opção leva à entrada que já existe. Quem pode o quê é decidido no servidor pelo perfil da
+// conta, nunca pela opção escolhida aqui; administrador não tem cadastro público.
+const SIGN_IN_OPTIONS = [
+  { href: "/entrar", label: "Cliente", note: "Telefone e senha" },
+  { href: "/entrar/loja", label: "Lojista", note: "Painel da loja" },
+  { href: "/entrar/entregador", label: "Entregador", note: "Minhas entregas" },
+  { href: "/entrar/senha", label: "Administrador", note: "Equipe Chegô" },
+];
+
+/** "Entrar" no canto superior direito: um menu com as entradas de cada perfil. */
+function SignInMenu() {
+  return (
+    <details className="group relative" data-testid="signin-menu">
+      <summary className={buttonClass("secondary", `${small} cursor-pointer list-none [&::-webkit-details-marker]:hidden`)}>
+        Entrar
+        <Icon name="chevronDown" size={16} className="ml-1 transition-transform group-open:rotate-180" />
+      </summary>
+      <ul className="absolute right-0 z-30 mt-2 flex w-60 flex-col gap-1 rounded-card bg-white p-2 shadow-lg ring-1 ring-peach">
+        {SIGN_IN_OPTIONS.map((option) => (
+          <li key={option.href}>
+            <Link href={option.href} className="flex min-h-11 flex-col justify-center rounded-2xl px-3 py-2 hover:bg-peach/40">
+              <span className="font-bold">{option.label}</span>
+              <span className="text-xs text-coffee-soft">{option.note}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 async function UserArea() {
   const profile = await getCurrentProfile();
 
-  if (!profile) {
-    return (
-      <Link href="/entrar" className={buttonClass("secondary", small)}>
-        Entrar
-      </Link>
-    );
-  }
+  if (!profile) return <SignInMenu />;
 
   const [{ unread }] = await sql<{ unread: number }[]>`
     select count(*)::int as unread from notifications where profile_id = ${profile.id} and read_at is null`;

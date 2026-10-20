@@ -22,7 +22,7 @@ export default function GroupsPage() {
 }
 
 async function Groups() {
-  const { profile, store } = await getMerchantContext(["owner", "attendant"]);
+  const { profile, store } = await getMerchantContext("produtos.ver");
   const { groups, options } = await withUser(profile.id, async (tx) => ({
     groups: await tx<{ id: string; name: string; products: number }[]>`
       select g.id, g.name, (select count(*)::int from product_option_groups l where l.group_id = g.id) as products

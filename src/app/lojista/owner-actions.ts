@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { audit } from "@/lib/audit";
 import { invitedAccount, temporaryPasswordNote } from "@/lib/auth/accounts";
-import { requireStoreMember } from "@/lib/auth/session";
+import { requirePermission, requireStoreMember } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
 import { parseMoney, toE164 } from "@/lib/format";
@@ -12,7 +12,7 @@ import { getPaymentProvider } from "@/lib/payments";
 import { buildMockWebhook } from "@/lib/payments/mock";
 import { handlePaymentWebhook } from "@/lib/payments/webhook";
 import { fromLocal, MINUTE_MS } from "@/lib/time";
-import { COVER_VARIANTS, LOGO_VARIANTS, pickedFile, saveImage, UploadError } from "@/lib/uploads";
+import { COVER_VARIANTS, LOGO_VARIANTS, pickedFile, saveImage, STORE_IMAGE_FORMATS, UploadError } from "@/lib/uploads";
 
 // Configurações da loja, equipe, cupons e dinheiro. Estas tabelas não dão acesso de
 // escrita a usuários comuns, então cada ação confere o papel aqui e grava pela
@@ -22,7 +22,7 @@ export type ActionState = { error?: string; ok?: boolean; message?: string };
 
 const uuid = z.uuid();
 const time = z.union([z.string().regex(/^\d{2}:\d{2}$/), z.literal("")]);
-const owner = () => requireStoreMember(["owner"]);
+const owner = () => requirePermission("loja.config");
 const done = () => revalidatePath("/lojista", "layout");
 
 // ----------------------------------------------------------- dados da loja
@@ -58,11 +58,15 @@ export async function saveStore(_previous: ActionState, formData: FormData): Pro
 
   let logoUrl: string | undefined;
   let coverUrl: string | undefined;
+  // "Remover" só vale quando nenhuma imagem nova foi escolhida no mesmo envio.
+  const removeLogo = formData.get("logoRemove") === "on";
+  const removeCover = formData.get("coverRemove") === "on";
   try {
     const logo = pickedFile(formData.get("logo"));
     const cover = pickedFile(formData.get("cover"));
-    if (logo) logoUrl = await saveImage(logo, "stores", "", LOGO_VARIANTS);
-    if (cover) coverUrl = await saveImage(cover, "stores", "", COVER_VARIANTS);
+    // Logo e capa: JPG, PNG ou WebP (o aparelho já manda a foto reduzida em WebP ou JPEG).
+    if (logo) logoUrl = await saveImage(logo, "stores", "", LOGO_VARIANTS, { formats: STORE_IMAGE_FORMATS });
+    if (cover) coverUrl = await saveImage(cover, "stores", "", COVER_VARIANTS, { formats: STORE_IMAGE_FORMATS });
   } catch (error) {
     if (error instanceof UploadError) return { error: error.message };
     throw error;
@@ -78,7 +82,8 @@ export async function saveStore(_previous: ActionState, formData: FormData): Pro
         same_day_cutoff = ${data.cutoff || null}, delivery_window_start = ${data.windowStart || null},
         delivery_window_end = ${data.windowEnd || null}, pizza_pricing = ${data.pizzaPricing}::pizza_pricing_rule,
         printer_width_mm = ${Number(data.printerWidth)}, auto_print = ${formData.get("autoPrint") === "on"},
-        logo_url = coalesce(${logoUrl ?? null}, logo_url), cover_url = coalesce(${coverUrl ?? null}, cover_url)
+        logo_url = ${logoUrl ? sql`${logoUrl}` : removeLogo ? sql`null` : sql`logo_url`},
+        cover_url = ${coverUrl ? sql`${coverUrl}` : removeCover ? sql`null` : sql`cover_url`}
       where id = ${membership.storeId}`;
     // A regra do meio a meio é aplicada a todos os grupos de sabores da loja.
     await tx`
@@ -200,7 +205,7 @@ export async function saveAreas(_previous: ActionState, formData: FormData): Pro
  * mostrada ao dono para repassar; com ela a pessoa entra e já cai no painel da loja.
  */
 export async function inviteMember(_previous: ActionState, formData: FormData): Promise<ActionState> {
-  const { profile, membership } = await owner();
+  const { profile, membership } = await requirePermission("equipe.gerenciar");
   const phone = toE164(String(formData.get("phone") ?? ""));
   const role = z.enum(["attendant", "courier"]).safeParse(formData.get("role"));
   const name = z.string().trim().max(80).parse(formData.get("name") ?? "");
@@ -212,7 +217,7 @@ export async function inviteMember(_previous: ActionState, formData: FormData): 
     await tx`update profiles set role = 'merchant' where id = ${person.id} and role = 'customer'`;
     await tx`
       insert into store_members (store_id, profile_id, role) values (${membership.storeId}, ${person.id}, ${role.data}::store_member_role)
-      on conflict (store_id, profile_id) do update set role = excluded.role where store_members.role <> 'owner'`;
+      on conflict (store_id, profile_id) do update set role = excluded.role, active = true, deactivated_at = null where store_members.role <> 'owner'`;
     await audit({ actorId: profile.id, action: "store.member_invite", entityType: "profile", entityId: person.id, storeId: membership.storeId, details: { role: role.data } }, tx);
     return password;
   });
@@ -221,11 +226,13 @@ export async function inviteMember(_previous: ActionState, formData: FormData): 
 }
 
 export async function removeMember(formData: FormData): Promise<void> {
-  const { profile, membership } = await owner();
+  const { profile, membership } = await requirePermission("equipe.gerenciar");
   const memberId = uuid.parse(formData.get("profileId"));
   await sql.begin(async (tx) => {
+    // Tirar da equipe desativa (não apaga): o que a pessoa fez continua no histórico.
     const removed = await tx`
-      delete from store_members where store_id = ${membership.storeId} and profile_id = ${memberId} and role <> 'owner' returning profile_id`;
+      update store_members set active = false, deactivated_at = now()
+      where store_id = ${membership.storeId} and profile_id = ${memberId} and role <> 'owner' and active returning profile_id`;
     if (removed.length > 0) {
       await audit({ actorId: profile.id, action: "store.member_remove", entityType: "profile", entityId: memberId, storeId: membership.storeId }, tx);
     }
@@ -323,7 +330,7 @@ export async function reportReview(formData: FormData): Promise<void> {
 
 /** Paga uma fatura mensal pelo app, com o mesmo provedor usado nos pedidos. */
 export async function payInvoice(_previous: ActionState, formData: FormData): Promise<ActionState> {
-  const { profile, membership } = await owner();
+  const { profile, membership } = await requirePermission("financeiro.ver");
   const id = uuid.safeParse(formData.get("id"));
   if (!id.success) return { error: "Fatura inválida." };
 

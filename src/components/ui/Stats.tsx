@@ -21,19 +21,25 @@ export function Stat({ label, value, hint, href }: { label: string; value: React
 }
 
 /** Um gráfico de barras horizontais simples, feito de elementos comuns: leve e legível por leitores de tela. */
+/**
+ * Barras horizontais com o nome inteiro (quebra a linha quando é comprido, nunca corta) e o
+ * valor sempre à vista; a barra fica embaixo, ocupando a largura toda.
+ */
 export function Bars({ rows, format }: { rows: { label: string; value: number; href?: string }[]; format: (value: number) => string }) {
   const max = Math.max(1, ...rows.map((row) => row.value));
   return (
-    <ul className="flex flex-col gap-1">
+    <ul className="flex flex-col gap-2.5" data-testid="bars">
       {rows.map((row) => (
-        <li key={row.label} className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2 text-sm">
-          {row.href
-            ? <Link href={row.href} className="truncate font-semibold text-brand-dark underline">{row.label}</Link>
-            : <span className="truncate text-coffee-soft">{row.label}</span>}
-          <span className="h-4 rounded-full bg-cream" aria-hidden="true">
-            <span className="block h-4 rounded-full bg-brand" style={{ width: `${Math.max(2, (row.value / max) * 100)}%` }} />
+        <li key={row.label} className="flex flex-col gap-1 text-sm">
+          <div className="flex items-start justify-between gap-3">
+            {row.href
+              ? <Link href={row.href} className="min-w-0 break-words font-semibold text-brand-dark underline">{row.label}</Link>
+              : <span className="min-w-0 break-words text-coffee">{row.label}</span>}
+            <span className="shrink-0 font-semibold tabular-nums">{format(row.value)}</span>
+          </div>
+          <span className="h-2.5 rounded-full bg-cream" aria-hidden="true">
+            <span className="block h-2.5 rounded-full bg-brand-dark" style={{ width: `${Math.max(2, (row.value / max) * 100)}%` }} />
           </span>
-          <span className="font-semibold tabular-nums">{format(row.value)}</span>
         </li>
       ))}
     </ul>

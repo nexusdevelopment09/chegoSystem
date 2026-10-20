@@ -18,7 +18,7 @@ import { getTeam } from "@/lib/merchant/context";
 import { storeReport } from "@/lib/merchant/reports";
 import { STATUS_LABELS, type OrderStatus } from "@/lib/orders/status";
 import { DAY_MS } from "@/lib/time";
-import { approveStore, setStoreStatus, updateStoreTerms } from "../../actions";
+import { approveStore, saveStoreSubcategories, setStoreStatus, updateStoreTerms } from "../../actions";
 import { ResetPasswordForm } from "../../ResetPasswordForm";
 
 export const metadata: Metadata = { title: "Loja" };
@@ -65,6 +65,12 @@ async function StoreDetail({ params, searchParams }: Props) {
     left join store_subscriptions sub on sub.store_id = s.id
     where s.id = ${id}`;
   if (!store) notFound();
+
+  const subcategories = await sql<{ id: string; name: string; group_name: string | null; checked: boolean }[]>`
+    select sc.id, sc.name, sc.group_name,
+           exists (select 1 from store_subcategories ss where ss.store_id = s.id and ss.subcategory_id = sc.id) as checked
+    from stores s join subcategories sc on sc.category_id = s.category_id
+    where s.id = ${id} and sc.active order by sc.sort_order, sc.name`;
 
   const plans = await sql<{ id: string; name: string; monthly_price_cents: number }[]>`
     select id, name, monthly_price_cents from subscription_plans where active order by monthly_price_cents`;
@@ -176,6 +182,23 @@ async function StoreDetail({ params, searchParams }: Props) {
             </label>
           ))}
           <SubmitButton className="self-start">Aprovar e colocar no ar</SubmitButton>
+        </ActionForm>
+      )}
+
+      {store.status !== "pending" && subcategories.length > 0 && (
+        <ActionForm action={saveStoreSubcategories} className={card}>
+          <h2 className="text-xl">Subcategorias em {store.category}</h2>
+          <p className="-mt-2 text-sm text-coffee-soft">Onde a loja aparece nos filtros da categoria (ex.: Pizzarias, Comida italiana).</p>
+          <input type="hidden" name="storeId" value={store.id} />
+          <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+            {subcategories.map((sub) => (
+              <label key={sub.id} className="flex min-h-11 items-center gap-3 text-sm">
+                <input type="checkbox" name="subcategoryIds" value={sub.id} defaultChecked={sub.checked} className={check} />
+                <span>{sub.name}{sub.group_name && <span className="text-coffee-soft"> · {sub.group_name}</span>}</span>
+              </label>
+            ))}
+          </div>
+          <SubmitButton variant="secondary" className="self-start">Salvar subcategorias</SubmitButton>
         </ActionForm>
       )}
 

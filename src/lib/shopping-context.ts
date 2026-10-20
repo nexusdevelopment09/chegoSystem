@@ -47,10 +47,12 @@ export const getShoppingContext = cache(async (): Promise<ShoppingContext> => {
     }
   }
 
-  const [city] = cityId
-    ? await sql<{ id: string; name: string; state: string; maintenance: boolean }[]>`
-        select id, name, state, maintenance_mode as maintenance from cities where id = ${cityId} and active`
-    : [];
+  // Sem cidade escolhida, vale a primeira cidade ativa: as lojas aparecem já na primeira visita,
+  // e o bairro é pedido no fechamento do pedido, junto com o endereço.
+  const [city] = await sql<{ id: string; name: string; state: string; maintenance: boolean }[]>`
+    select id, name, state, maintenance_mode as maintenance from cities
+    where active
+    order by ${cityId ? sql`(id = ${cityId}) desc,` : sql``} (select count(*) from stores s where s.city_id = cities.id and s.status = 'active') desc, name limit 1`;
 
   const [hood] = city && hoodId
     ? await sql<{ id: string; name: string; is_rural: boolean }[]>`

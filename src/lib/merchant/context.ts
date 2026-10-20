@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
-import { requireStoreMember, type CurrentProfile, type StoreMembership, type StoreRole } from "@/lib/auth/session";
+import { requirePermission, requireStoreMember, type CurrentProfile, type StoreMembership, type StoreRole } from "@/lib/auth/session";
+import type { Permission } from "./permissions";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
 import { storeAvailability, type Shift, type StoreAvailability } from "@/lib/stores/hours";
@@ -49,9 +50,12 @@ const loadStore = cache(async (storeId: string, atMs: number): Promise<MerchantS
   };
 });
 
-/** O usuário de loja que entrou, a loja em que trabalha e a hora atual. */
-export async function getMerchantContext(roles: StoreRole[]): Promise<MerchantContext> {
-  const { profile, membership } = await requireStoreMember(roles);
+/**
+ * O usuário de loja que entrou, a loja em que trabalha e a hora atual. Recebe os papéis
+ * aceitos ou uma permissão (o dono tem todas; os outros, as que o dono deu).
+ */
+export async function getMerchantContext(access: StoreRole[] | Permission): Promise<MerchantContext> {
+  const { profile, membership } = Array.isArray(access) ? await requireStoreMember(access) : await requirePermission(access);
   const at = await now();
   return { profile, membership, store: await loadStore(membership.storeId, at.getTime()), at };
 }
@@ -63,7 +67,7 @@ export async function getTeam(storeId: string): Promise<TeamMember[]> {
   const rows = await sql<{ id: string; full_name: string; phone: string | null; role: StoreRole }[]>`
     select p.id, p.full_name, p.phone, m.role
     from store_members m join profiles p on p.id = m.profile_id
-    where m.store_id = ${storeId}
+    where m.store_id = ${storeId} and m.active
     order by m.role, p.full_name`;
   return rows.map((row) => ({ id: row.id, name: row.full_name, phone: row.phone, role: row.role }));
 }

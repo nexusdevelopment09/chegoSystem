@@ -1,4 +1,5 @@
 import { commissionsByStore } from "@/lib/admin/metrics";
+import { csvCell } from "@/lib/merchant/csv";
 import { requireRole } from "@/lib/auth/session";
 
 const money = (cents: number) => (cents / 100).toFixed(2).replace(".", ",");
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
 
   const header = "mes;loja;documento;pedidos;vendas;comissao;taxa_de_servico;mensalidade;total_a_faturar";
   const rows = lines.map((line) => [
-    month, `"${line.storeName.replace(/"/g, '""')}"`, line.document ?? "", line.orders, money(line.gmvCents), money(line.commissionCents),
+    month, csvCell(line.storeName), csvCell(line.document ?? ""), line.orders, money(line.gmvCents), money(line.commissionCents),
     money(line.serviceFeeCents), money(line.subscriptionCents), money(line.commissionCents + line.serviceFeeCents + line.subscriptionCents),
   ].join(";"));
 

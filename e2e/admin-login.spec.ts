@@ -6,7 +6,9 @@ test.beforeAll(() => freshDatabase());
 test("a página inicial mostra a marca e a faixa de testes", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("Ambiente de testes")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Pediu, Chegô." })).toBeVisible();
+  // A página inicial é a lista de lojas, com a marca no topo.
+  await expect(page.getByRole("link", { name: "Chegô, página inicial" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Abertas agora" })).toBeVisible();
 });
 
 test("o painel do admin exige login", async ({ page }) => {

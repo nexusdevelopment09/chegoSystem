@@ -4,18 +4,21 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ProductImage } from "@/components/catalog/ProductImage";
+import { ProductShelf } from "@/components/catalog/ProductShelf";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { CartBar } from "@/components/store/CartBar";
 import { deliveryText, Rating, StoreLogo } from "@/components/store/StoreCard";
+import { StoreInfo, type StoreInfoData } from "@/components/store/StoreInfo";
 import { Button } from "@/components/ui/Button";
 import { WideImage } from "@/components/ui/WideImage";
 import { getCurrentProfile } from "@/lib/auth/session";
+import { storeShowcases } from "@/lib/catalog/showcase";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
 import { formatCents, formatDateTime } from "@/lib/format";
 import { getShoppingContext } from "@/lib/shopping-context";
 import { estimateMinutes, getMenu, listDeliveryAreas, listReviews, listStores, type StoreSummary } from "@/lib/stores/queries";
-import { formatHour, parseTime, WEEKDAY_NAMES } from "@/lib/time";
+import { formatHour, parseTime, toLocal, WEEKDAY_NAMES } from "@/lib/time";
 import { toggleFavorite } from "../actions";
 
 type Params = Promise<{ slug: string }>;
@@ -47,7 +50,7 @@ export default function StorePage({ params }: { params: Params }) {
   return (
     <>
       <SiteHeader />
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-6">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-6">
         <Suspense fallback={<div className="h-96 animate-pulse rounded-card bg-peach" aria-busy="true" aria-label="Carregando loja" />}>
           <StoreContent params={params} />
         </Suspense>
@@ -64,7 +67,7 @@ async function StoreContent({ params }: { params: Params }) {
   const store = await findStore(slug, context.neighborhood?.id ?? null, at);
   if (!store) notFound();
 
-  const [menu, reviews, areas, favorite, host] = await Promise.all([
+  const [menu, reviews, areas, favorite, host, [extra], showcases] = await Promise.all([
     getMenu(store.id, at),
     listReviews(store.id, 5),
     listDeliveryAreas(store.id),
@@ -72,10 +75,56 @@ async function StoreContent({ params }: { params: Params }) {
       ? sql`select 1 from favorites where profile_id = ${profile.id} and store_id = ${store.id}`.then((rows) => rows.length > 0)
       : false,
     headers().then((list) => list.get("host") ?? "localhost:3000"),
+    sql<{
+      street: string; number: string; reference: string | null; neighborhood: string | null; city: string; state: string;
+      accepts_pix: boolean; accepts_card: boolean; accepts_cash: boolean; delivery_provider: string;
+      document_type: string | null; document_number: string | null; subcategories: string[];
+    }[]>`
+      select s.street, s.number, s.reference, n.name as neighborhood, c.name as city, c.state,
+             s.accepts_pix, s.accepts_card, s.accepts_cash, s.delivery_provider, p.document_type, p.document_number,
+             array(select sc.name from store_subcategories ss join subcategories sc on sc.id = ss.subcategory_id and sc.active
+                   where ss.store_id = s.id order by sc.sort_order) as subcategories
+      from stores s join cities c on c.id = s.city_id
+      left join neighborhoods n on n.id = s.neighborhood_id
+      left join store_private p on p.store_id = s.id
+      where s.id = ${store.id}`,
+    storeShowcases(store.id, at, profile?.id ?? null),
   ]);
 
   const open = store.availability.state === "open";
   const hoodName = context.neighborhood?.name ?? null;
+  const today = toLocal(at).weekday;
+  const city = `${extra.city} - ${extra.state}`;
+  const info: StoreInfoData = {
+    name: store.name,
+    description: store.description,
+    address: {
+      line: `${extra.street}, ${extra.number}`, neighborhood: extra.neighborhood, reference: extra.reference, city,
+      mapsQuery: [`${extra.street}, ${extra.number}`, extra.neighborhood, city].filter(Boolean).join(", "),
+    },
+    cnpj: extra.document_type === "cnpj" ? formatCnpj(extra.document_number) : null,
+    since: new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "America/Maceio" }).format(store.createdAt),
+    open,
+    stateLabel: open ? (store.availability.pickupOnly ? "Aberta · hoje só retirada" : "Aberta agora") : store.availability.label,
+    hours: WEEKDAY_NAMES.map((day, weekday) => {
+      const shifts = store.shifts.filter((shift) => shift.weekday === weekday).sort((a, b) => a.opensAt.localeCompare(b.opensAt));
+      return {
+        day, today: weekday === today,
+        text: shifts.length === 0
+          ? "Fechada"
+          : shifts.map((shift) => `${formatHour(parseTime(shift.opensAt))} às ${formatHour(parseTime(shift.closesAt))}${shift.pickupOnly ? " (só retirada)" : ""}`).join(" e "),
+      };
+    }),
+    delivery: {
+      offers: store.offersDelivery, byNetwork: extra.delivery_provider === "platform",
+      areas: areas.map((area) => ({
+        name: `${area.name}${area.is_rural ? " (zona rural)" : ""}`, fee: formatCents(area.delivery_fee_cents), time: `${area.min_minutes}–${area.max_minutes} min`,
+      })),
+    },
+    offersPickup: store.offersPickup,
+    minOrder: store.minOrderCents > 0 ? formatCents(store.minOrderCents) : null,
+    payments: { pix: extra.accepts_pix, card: extra.accepts_card, cash: extra.accepts_cash },
+  };
   const shareText = encodeURIComponent(`Olha a ${store.name} no Chegô: http://${host}/loja/${store.slug}`);
 
   return (
@@ -106,13 +155,17 @@ async function StoreContent({ params }: { params: Params }) {
         </div>
 
         <h1 className="text-3xl">{store.name}</h1>
-        <p className="text-coffee-soft">{store.description}</p>
+        <p className="text-sm font-semibold text-brand-darker" data-testid="store-segment">
+          {[store.categoryName, ...extra.subcategories].join(" · ")}
+        </p>
+        <p className="line-clamp-2 text-coffee-soft">{store.description}</p>
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <Rating avg={store.ratingAvg} count={store.ratingCount} />
           <span>{estimateMinutes(store)}</span>
           <span data-testid="delivery-text">{deliveryText(store, hoodName)}</span>
           {store.minOrderCents > 0 && <span>Pedido mínimo {formatCents(store.minOrderCents)}</span>}
         </p>
+        <div className="max-w-xl"><StoreInfo info={info} /></div>
 
         <p data-testid="store-state" className={`self-start rounded-full px-3 py-1 text-sm font-bold ${open ? "bg-success text-white" : "bg-coffee text-peach"}`}>
           {open ? (store.availability.pickupOnly ? "Aberta · hoje só retirada" : "Aberta") : store.availability.label}
@@ -141,6 +194,12 @@ async function StoreContent({ params }: { params: Params }) {
         )}
       </header>
 
+      <ProductShelf title="Você já pediu" products={showcases.again} badge="de-novo" testId="store-again" />
+      <ProductShelf title="Destaques da loja" products={showcases.featured} badge="destaque" testId="store-featured" />
+      <ProductShelf title="Mais pedidos da casa" note="nos últimos 30 dias" products={showcases.popular} badge="mais-pedido" testId="store-popular" />
+      <ProductShelf title="Ofertas da loja" products={showcases.offers} badge="oferta" testId="store-offers" />
+      <ProductShelf title="Novidades" products={showcases.newest} badge="novo" testId="store-newest" />
+
       <nav aria-label="Seções do cardápio" className="sticky top-0 z-10 -mx-4 flex gap-2 overflow-x-auto bg-cream px-4 py-2">
         {menu.map((section) => (
           <a key={section.id} href={`#secao-${section.id}`} className="flex min-h-11 shrink-0 items-center rounded-full bg-white px-4 text-sm font-bold ring-1 ring-peach">
@@ -152,13 +211,13 @@ async function StoreContent({ params }: { params: Params }) {
       {menu.map((section) => (
         <section key={section.id} id={`secao-${section.id}`} className="scroll-mt-16">
           <h2 className="mb-2 text-2xl">{section.name}</h2>
-          <ul className="flex flex-col gap-2">
+          <ul className="grid gap-2 md:grid-cols-2 md:gap-3">
             {section.products.map((product) => (
-              <li key={product.id}>
+              <li key={product.id} className="min-w-0">
                 <Link
                   href={`/loja/${store.slug}/produto/${product.id}`}
                   data-testid="menu-product"
-                  className={`flex items-center gap-3 rounded-card bg-white p-3 shadow-sm ring-1 ring-peach ${product.status.orderable ? "" : "grayscale"}`}
+                  className={`flex h-full items-center gap-3 rounded-card transition hover:ring-brand bg-white p-3 shadow-sm ring-1 ring-peach ${product.status.orderable ? "" : "grayscale"}`}
                 >
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold leading-tight">{product.name}</p>
@@ -169,7 +228,12 @@ async function StoreContent({ params }: { params: Params }) {
                       ) : (
                         <>
                           {product.priceVaries && <span className="text-sm font-normal text-coffee-soft">a partir de </span>}
-                          {formatCents(product.fromCents)}
+                          <span className={product.compareAtCents ? "text-success" : ""}>{formatCents(product.fromCents)}</span>
+                          {product.compareAtCents && (
+                            <s className="ml-1.5 text-sm font-normal text-coffee-soft" aria-label={`antes ${formatCents(product.compareAtCents)}`}>
+                              {formatCents(product.compareAtCents)}
+                            </s>
+                          )}
                         </>
                       )}
                     </p>
@@ -209,38 +273,13 @@ async function StoreContent({ params }: { params: Params }) {
         )}
       </section>
 
-      <section className="rounded-card bg-white p-4 ring-1 ring-peach">
-        <h2 className="mb-2 text-2xl">Informações</h2>
-        <h3 className="font-sans text-sm font-bold uppercase text-coffee-soft">Horários</h3>
-        <ul className="mb-3 text-sm">
-          {WEEKDAY_NAMES.map((name, weekday) => {
-            const shifts = store.shifts.filter((shift) => shift.weekday === weekday).sort((a, b) => a.opensAt.localeCompare(b.opensAt));
-            return (
-              <li key={name} className="flex justify-between gap-3 border-b border-cream py-1 last:border-0">
-                <span className="capitalize">{name}</span>
-                <span>
-                  {shifts.length === 0
-                    ? "Fechada"
-                    : shifts.map((shift) => `${formatHour(parseTime(shift.opensAt))} às ${formatHour(parseTime(shift.closesAt))}${shift.pickupOnly ? " (só retirada)" : ""}`).join(" e ")}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-        <h3 className="font-sans text-sm font-bold uppercase text-coffee-soft">Onde entrega</h3>
-        {areas.length === 0 ? (
-          <p className="text-sm">Só retirada no balcão.</p>
-        ) : (
-          <ul className="text-sm">
-            {areas.map((area) => (
-              <li key={area.name} className="flex justify-between gap-3 border-b border-cream py-1 last:border-0">
-                <span>{area.name}{area.is_rural && " (zona rural)"}</span>
-                <span>{formatCents(area.delivery_fee_cents)} · {area.min_minutes}–{area.max_minutes} min</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
+}
+
+/** "12345678000190" -> "12.345.678/0001-90". */
+function formatCnpj(value: string | null): string | null {
+  const digits = (value ?? "").replace(/\D/g, "");
+  if (digits.length !== 14) return null;
+  return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
 }

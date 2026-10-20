@@ -1,5 +1,6 @@
 // GENERATED FILE. Do not edit: run `npm run db:types` after changing migrations.
 
+export type BillStatus = "aberta" | "fechada" | "cancelada";
 export type ClosingStatus = "awaiting_payment" | "paid" | "overdue" | "in_review";
 export type CouponType = "fixed" | "percent" | "free_delivery";
 export type CourierEarningStatus = "pending" | "paid_by_store" | "confirmed" | "disputed";
@@ -24,7 +25,16 @@ export type PaymentCollection = "app" | "store";
 export type PaymentMethod = "pix" | "card" | "cash";
 export type PaymentStatus = "pending" | "approved" | "declined" | "expired" | "refunded" | "partially_refunded";
 export type PizzaPricingRule = "highest" | "average";
+export type PrintJobStatus = "pending" | "sending" | "sent" | "failed" | "unknown";
+export type PrintKind = "completo" | "cozinha" | "comprovante" | "teste";
+export type PrinterSector = "caixa" | "cozinha" | "expedicao" | "geral";
 export type ProductType = "standard" | "variant" | "service";
+export type PurchaseListStatus = "rascunho" | "aprovada" | "recebida" | "cancelada";
+export type SaleChannel = "app" | "mesa" | "balcao";
+export type StockAlertKind = "baixo" | "vencendo" | "vencido" | "conferir";
+export type StockItemStatus = "ativo" | "inativo" | "indisponivel";
+export type StockMovementKind = "compra" | "venda" | "producao" | "perda" | "vencido" | "ajuste" | "devolucao" | "transferencia";
+export type StockUnit = "un" | "kg" | "g" | "l" | "ml" | "pacote" | "caixa";
 export type StoreManualState = "auto" | "open" | "closed";
 export type StoreMemberRole = "owner" | "attendant" | "courier";
 export type StoreStatus = "pending" | "active" | "paused" | "suspended";
@@ -57,6 +67,12 @@ export interface AuditLogsRow {
   store_id: string | null;
   details: unknown;
   created_at: Date;
+  actor_role: string | null;
+  module: string | null;
+  result: string;
+  reason: string | null;
+  process: string | null;
+  request_id: string | null;
 }
 
 export interface BannersRow {
@@ -124,9 +140,10 @@ export interface CouponRedemptionsRow {
   id: string;
   coupon_id: string;
   order_id: string;
-  customer_id: string;
+  customer_id: string | null;
   discount_cents: number;
   created_at: Date;
+  customer_phone: string | null;
 }
 
 export interface CouponsRow {
@@ -382,7 +399,7 @@ export interface OrdersRow {
   id: string;
   code: string;
   city_id: string;
-  customer_id: string;
+  customer_id: string | null;
   store_id: string;
   status: OrderStatus;
   fulfillment: FulfillmentType;
@@ -424,6 +441,8 @@ export interface OrdersRow {
   courier_assigned_at: Date | null;
   payment_collection: PaymentCollection;
   cash_change_for_cents: number | null;
+  guest_token_hash: string | null;
+  channel: SaleChannel;
 }
 
 export interface OutboundMessagesRow {
@@ -458,6 +477,23 @@ export interface PlatformSettingsRow {
   description: string;
   updated_at: Date;
   updated_by: string | null;
+}
+
+export interface PrintJobsRow {
+  id: string;
+  store_id: string;
+  printer_id: string | null;
+  order_id: string | null;
+  kind: PrintKind;
+  reprint: boolean;
+  status: PrintJobStatus;
+  attempts: number;
+  error: string | null;
+  device_id: string | null;
+  requested_by: string | null;
+  created_at: Date;
+  claimed_at: Date | null;
+  finished_at: Date | null;
 }
 
 export interface ProductAvailabilityRow {
@@ -517,6 +553,8 @@ export interface ProductsRow {
   weight_step_grams: number | null;
   price_per_kg_cents: number | null;
   weight_min_grams: number | null;
+  subcategory_id: string | null;
+  compare_at_price_cents: number | null;
 }
 
 export interface ProfilesRow {
@@ -539,6 +577,27 @@ export interface ProfilesRow {
   promo_notifications: boolean;
 }
 
+export interface PurchaseListItemsRow {
+  id: string;
+  list_id: string;
+  item_id: string;
+  suggested_quantity: string;
+  quantity: string;
+  unit_cost_cents: number | null;
+  reason: string | null;
+}
+
+export interface PurchaseListsRow {
+  id: string;
+  store_id: string;
+  status: PurchaseListStatus;
+  created_by: string;
+  approved_by: string | null;
+  approved_at: Date | null;
+  received_at: Date | null;
+  created_at: Date;
+}
+
 export interface PushSubscriptionsRow {
   id: string;
   profile_id: string;
@@ -553,6 +612,15 @@ export interface RateLimitsRow {
   key: string;
   window_start: Date;
   count: number;
+}
+
+export interface RecipeLinesRow {
+  id: string;
+  store_id: string;
+  product_id: string;
+  option_id: string | null;
+  item_id: string;
+  quantity: string;
 }
 
 export interface ReferralsRow {
@@ -603,6 +671,71 @@ export interface SessionsRow {
   expires_at: Date;
 }
 
+export interface StockAlertsRow {
+  id: string;
+  store_id: string;
+  item_id: string;
+  lot_id: string | null;
+  kind: StockAlertKind;
+  detail: string | null;
+  opened_at: Date;
+  resolved_at: Date | null;
+}
+
+export interface StockItemsRow {
+  id: string;
+  store_id: string;
+  name: string;
+  category: string | null;
+  sku: string | null;
+  unit: StockUnit;
+  quantity: string;
+  min_quantity: string;
+  ideal_quantity: string | null;
+  unit_cost_cents: number | null;
+  supplier: string | null;
+  lead_time_days: number | null;
+  storage_location: string | null;
+  perishable: boolean;
+  status: StockItemStatus;
+  product_id: string | null;
+  last_purchase_at: Date | null;
+  last_movement_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface StockLotsRow {
+  id: string;
+  store_id: string;
+  item_id: string;
+  received_quantity: string;
+  remaining_quantity: string;
+  received_at: Date;
+  manufactured_at: Date | null;
+  expires_at: Date | null;
+  supplier: string | null;
+  cost_cents: number | null;
+  discarded_at: Date | null;
+  created_at: Date;
+}
+
+export interface StockMovementsRow {
+  id: string;
+  store_id: string;
+  item_id: string;
+  lot_id: string | null;
+  kind: StockMovementKind;
+  quantity: string;
+  balance_after: string;
+  reason: string | null;
+  order_id: string | null;
+  bill_item_id: string | null;
+  created_by: string | null;
+  process: string | null;
+  created_at: Date;
+}
+
 export interface StoreClosingsRow {
   id: string;
   store_id: string;
@@ -646,11 +779,49 @@ export interface StoreHoursRow {
   pickup_only: boolean;
 }
 
+export interface StoreInvitesRow {
+  id: string;
+  store_id: string;
+  token_hash: string;
+  full_name: string;
+  phone: string | null;
+  role: StoreMemberRole;
+  permissions: string[] | null;
+  expires_at: Date;
+  used_at: Date | null;
+  used_by: string | null;
+  revoked_at: Date | null;
+  created_by: string;
+  created_at: Date;
+}
+
 export interface StoreMembersRow {
   store_id: string;
   profile_id: string;
   role: StoreMemberRole;
   created_at: Date;
+  permissions: string[] | null;
+  active: boolean;
+  deactivated_at: Date | null;
+  invited_by: string | null;
+}
+
+export interface StorePrintersRow {
+  id: string;
+  store_id: string;
+  name: string;
+  sector: PrinterSector;
+  print_kind: PrintKind;
+  paper_width_mm: number;
+  copies: number;
+  encoding: string;
+  auto_print: boolean;
+  auto_since: Date | null;
+  is_default: boolean;
+  device_id: string | null;
+  device_label: string | null;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface StorePrivateRow {
@@ -668,6 +839,18 @@ export interface StorePrivateRow {
   pix_key: string | null;
 }
 
+export interface StoreStockSettingsRow {
+  store_id: string;
+  expiry_warning_days: number[];
+  allow_negative: boolean;
+  updated_at: Date;
+}
+
+export interface StoreSubcategoriesRow {
+  store_id: string;
+  subcategory_id: string;
+}
+
 export interface StoreSubscriptionsRow {
   id: string;
   store_id: string;
@@ -675,6 +858,14 @@ export interface StoreSubscriptionsRow {
   free_until: Date | null;
   active: boolean;
   started_at: Date;
+}
+
+export interface StoreTablesRow {
+  id: string;
+  store_id: string;
+  label: string;
+  active: boolean;
+  sort_order: number;
 }
 
 export interface StoresRow {
@@ -723,6 +914,16 @@ export interface StoresRow {
   accepts_cash: boolean;
 }
 
+export interface SubcategoriesRow {
+  id: string;
+  category_id: string;
+  name: string;
+  slug: string;
+  group_name: string | null;
+  sort_order: number;
+  active: boolean;
+}
+
 export interface SubscriptionPlansRow {
   id: string;
   name: string;
@@ -743,6 +944,50 @@ export interface SupportTicketsRow {
   created_at: Date;
   updated_at: Date;
   resolved_at: Date | null;
+}
+
+export interface TableBillItemsRow {
+  id: string;
+  bill_id: string;
+  product_id: string | null;
+  name: string;
+  unit_price_cents: number;
+  quantity: number;
+  notes: string | null;
+  added_by: string;
+  added_at: Date;
+  cancelled_at: Date | null;
+  cancelled_by: string | null;
+  cancel_reason: string | null;
+  options: unknown;
+  lines: string[];
+}
+
+export interface TableBillPaymentsRow {
+  id: string;
+  bill_id: string;
+  method: PaymentMethod;
+  amount_cents: number;
+  received_by: string;
+  received_at: Date;
+  cancelled_at: Date | null;
+  cancelled_by: string | null;
+  cancel_reason: string | null;
+}
+
+export interface TableBillsRow {
+  id: string;
+  store_id: string;
+  table_id: string | null;
+  label: string;
+  status: BillStatus;
+  customer_name: string | null;
+  opened_by: string;
+  opened_at: Date;
+  closed_by: string | null;
+  closed_at: Date | null;
+  cancel_reason: string | null;
+  order_id: string | null;
 }
 
 export interface TicketMessagesRow {

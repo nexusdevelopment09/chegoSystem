@@ -3,13 +3,25 @@ import { createAccount, db, freshDatabase, loginAs, loginWithPhone } from "./hel
 
 test.beforeAll(() => freshDatabase());
 
-test("a entrada mostra o cliente em destaque e leva lojista e entregador às suas áreas", async ({ page }) => {
+test("o link abre direto nas lojas; 'Entrar' no topo leva cliente, lojista, entregador e admin às suas entradas", async ({ page }) => {
   await page.goto("/");
-  await expect(page).toHaveURL(/\/boas-vindas$/);
+  // Sem tela de boas-vindas nem escolha de bairro antes das lojas.
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { name: "Abertas agora" })).toBeVisible();
+  await expect(page.getByLabel("Seu bairro ou comunidade")).toHaveCount(0);
+
+  const menu = page.getByTestId("signin-menu");
+  await menu.getByText("Entrar", { exact: true }).click();
+  for (const [label, href] of [["Cliente", "/entrar"], ["Lojista", "/entrar/loja"], ["Entregador", "/entrar/entregador"], ["Administrador", "/entrar/senha"]]) {
+    await expect(menu.getByRole("link", { name: new RegExp("^" + label) })).toHaveAttribute("href", href);
+  }
+  await menu.getByRole("link", { name: /^Cliente/ }).click();
   await expect(page.getByRole("heading", { name: "Entrar para pedir" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Criar minha conta" })).toBeVisible();
 
-  await page.getByRole("link", { name: /Sou lojista/ }).click();
+  await page.goto("/");
+  await page.getByTestId("signin-menu").getByText("Entrar", { exact: true }).click();
+  await page.getByTestId("signin-menu").getByRole("link", { name: /^Lojista/ }).click();
   await expect(page).toHaveURL(/\/entrar\/loja$/);
   await expect(page.getByRole("heading", { name: "Área do lojista" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Cadastrar minha loja" })).toHaveAttribute("href", "/quero-vender");
@@ -25,10 +37,10 @@ test("a entrada mostra o cliente em destaque e leva lojista e entregador às sua
   await expect(page.getByRole("heading", { name: "Área do entregador" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Quero ser entregador" })).toHaveAttribute("href", "/quero-entregar");
 
-  // Quem só quer olhar escolhe o bairro sem entrar.
+  // Quem só quer olhar volta para as lojas, sem escolher bairro.
   await page.goto("/entrar");
   await page.getByRole("link", { name: "Só quero ver as lojas" }).click();
-  await expect(page.getByRole("button", { name: "Ver as lojas" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Abertas agora" })).toBeVisible();
 });
 
 test("no ambiente de testes, 0000 e senha 0000 entram na conta de demonstração de cada área", async ({ page }) => {
@@ -65,9 +77,9 @@ test("no ambiente de testes, 0000 e senha 0000 entram na conta de demonstração
 test("cliente novo cria a conta com nome, telefone, senha e aceite dos termos", async ({ page }) => {
   await createAccount(page, "Maria Teste da Silva", "(82) 98888-1234", "minha-senha-boa");
 
-  // Já entra na conta e escolhe onde está.
-  await expect(page).toHaveURL(/\/boas-vindas$/);
-  await expect(page.getByRole("button", { name: "Ver as lojas" })).toBeVisible();
+  // Já entra na conta e vai direto para as lojas.
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { name: "Abertas agora" })).toBeVisible();
   await page.goto("/perfil");
   await expect(page.getByLabel("Nome completo")).toHaveValue("Maria Teste da Silva");
   await expect(page.getByText("(82) 98888-1234")).toBeVisible();
@@ -83,7 +95,7 @@ test("cliente novo cria a conta com nome, telefone, senha e aceite dos termos", 
   // Depois de sair, entra de novo com o telefone e a senha.
   await page.context().clearCookies();
   await loginWithPhone(page, "(82) 98888-1234", "minha-senha-boa");
-  await expect(page).toHaveURL(/\/$|\/boas-vindas$/);
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test("criar conta recusa senha fácil e telefone que já tem conta", async ({ page }) => {
@@ -168,9 +180,9 @@ test("cada papel só entra no seu painel", async ({ page }) => {
   await loginAs(page, "Robson Entregas");
   await expect(page).toHaveURL(/\/lojista\/entregas$/);
   await expect(page.getByRole("heading", { name: "Minhas entregas" })).toBeVisible();
-  // Um entregador não tem endereço, então a página inicial o manda escolher uma cidade.
+  // Sem permissão de admin, volta para a página inicial (as lojas).
   await page.goto("/admin");
-  await expect(page).toHaveURL(/\/boas-vindas$/);
+  await expect(page).toHaveURL(/\/$/);
 
   await loginWithPhone(page, "82900000000", "admin");
   await expect(page).toHaveURL(/\/admin$/);

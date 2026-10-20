@@ -6,7 +6,7 @@ import { loadProducts, type ProductDetail } from "@/lib/catalog/queries";
 import { describeOptions, resolveSelection, toSnapshot, type ResolvedGroup } from "@/lib/catalog/selection";
 import { validateCoupon, type CouponRules } from "@/lib/coupons/validate";
 import { sql } from "@/lib/db";
-import { formatCents } from "@/lib/format";
+import { formatCents, toE164 } from "@/lib/format";
 import { computeTotals, courierFee, type DiscountPayer, type Totals } from "@/lib/orders/totals";
 import { paymentCollection, type PaymentCollection } from "@/lib/payments/collection";
 import { formatWeight, weightPriceCents } from "@/lib/catalog/weight";
@@ -40,6 +40,16 @@ export const cartInputSchema = z.object({
   paymentMethod: z.enum(["pix", "card", "cash"]).default("pix"),
   /** Dinheiro: para quanto o cliente precisa de troco, em centavos. */
   cashChangeForCents: z.number().int().positive().max(1_000_000).nullish(),
+  /** Compra sem conta: quem pede e, na entrega, o endereço digitado (não fica salvo em lugar nenhum além do pedido). */
+  guest: z.object({
+    name: z.string().trim().max(80),
+    phone: z.string().trim().max(30),
+    street: z.string().trim().max(120).default(""),
+    number: z.string().trim().max(20).default(""),
+    neighborhoodId: z.uuid().nullish(),
+    reference: z.string().trim().max(200).default(""),
+    complement: z.string().trim().max(100).default(""),
+  }).nullish(),
 });
 
 export type CartInput = z.infer<typeof cartInputSchema>;
@@ -74,7 +84,11 @@ export type Quote = {
   minOrderCents: number;
   missingForMinCents: number;
   fulfillment: "delivery" | "pickup";
-  delivery: { available: boolean; reason: string | null; feeCents: number; neighborhoodName: string | null };
+  delivery: {
+    available: boolean; reason: string | null; feeCents: number; neighborhoodName: string | null;
+    /** Bairros onde a loja entrega, com a taxa de cada um (só os ativos). */
+    servedNeighborhoods: { id: string; name: string; feeCents: number }[];
+  };
   pickupAvailable: boolean;
   requiresAgeCheck: boolean;
   orderNow: { allowed: boolean; reason: string | null };
@@ -237,7 +251,20 @@ export async function buildQuote(
       join cities c on c.id = n.city_id
       where a.id = ${input.addressId} and a.profile_id = ${profile.id} and a.deleted_at is null`;
   }
-  const neighborhoodId = address?.neighborhood_id ?? options.fallbackNeighborhoodId ?? null;
+  // Visitante: o endereço vem digitado no próprio pedido.
+  const guest = profile ? null : input.guest ?? null;
+  if (guest?.neighborhoodId) {
+    const [place] = await sql<{ name: string; is_rural: boolean; city_name: string; state: string }[]>`
+      select n.name, n.is_rural, c.name as city_name, c.state
+      from neighborhoods n join cities c on c.id = n.city_id where n.id = ${guest.neighborhoodId} and n.active`;
+    if (place && guest.street.length >= 2) {
+      address = {
+        id: "", street: guest.street, number: guest.number || "S/N", reference: guest.reference || null, complement: guest.complement || null,
+        neighborhood_id: guest.neighborhoodId, neighborhood_name: place.name, is_rural: place.is_rural, city_name: place.city_name, state: place.state,
+      };
+    }
+  }
+  const neighborhoodId = address?.neighborhood_id ?? guest?.neighborhoodId ?? options.fallbackNeighborhoodId ?? null;
   const [area] = neighborhoodId
     ? await sql<{ delivery_fee_cents: number; max_minutes: number; name: string }[]>`
         select a.delivery_fee_cents, a.max_minutes, n.name
@@ -248,6 +275,11 @@ export async function buildQuote(
     ? await sql<{ name: string }[]>`select name from neighborhoods where id = ${neighborhoodId}`
     : [];
   const neighborhoodName = area?.name ?? hood?.name ?? null;
+  const servedNeighborhoods = (await sql<{ id: string; name: string; fee_cents: number }[]>`
+    select n.id, n.name, a.delivery_fee_cents as fee_cents
+    from store_delivery_areas a join neighborhoods n on n.id = a.neighborhood_id and n.active
+    where a.store_id = ${store.id}
+    order by n.is_rural, n.name`).map((row) => ({ id: row.id, name: row.name, feeCents: row.fee_cents }));
 
   const availabilityThen = storeAvailability({ ...schedule, manualState: scheduledFor ? "auto" : schedule.manualState }, when);
   let deliveryReason: string | null = null;
@@ -317,7 +349,12 @@ export async function buildQuote(
 
   const isMarket = store.category_slug === "mercado";
   if (options.mode === "place") {
-    if (!profile) errors.push("Entre na sua conta para fazer o pedido.");
+    if (!profile && !guest) errors.push("Entre na sua conta ou diga seu nome e telefone para fazer o pedido.");
+    if (guest) {
+      if (guest.name.length < 3) errors.push("Diga seu nome completo.");
+      if (!toE164(guest.phone)) errors.push("Oxe, esse telefone não parece certo. Use DDD + número.");
+      if (address?.is_rural && !address.reference) errors.push("Na zona rural, diga um ponto de referência para o entregador achar.");
+    }
     if (fulfillment === "delivery" && !address) errors.push("Oxe, faltou o endereço.");
     if (requiresAgeCheck && !input.ageConfirmed) errors.push("Confirme que você tem 18 anos ou mais.");
     if (isMarket && !input.missingItemPolicy) errors.push("Diga o que fazer se faltar um item.");
@@ -357,13 +394,15 @@ export async function buildQuote(
     }
   }
   if (methods.length === 0) errors.push("Esta loja ainda não informou como recebe os pagamentos.");
+  // Sem conta só pagando direto à loja: o pagamento pelo app fica ligado a uma conta.
+  if (options.mode === "place" && guest && !direct) errors.push("Para pagar pelo app, entre na sua conta.");
 
   return {
     quote: {
       ok: errors.length === 0, errors: [...new Set(errors)], warnings,
       store: { id: store.id, name: store.name, slug: store.slug, isMarket },
       lines, totals, minOrderCents: store.min_order_cents, missingForMinCents, fulfillment,
-      delivery: { available: deliveryAvailable, reason: deliveryReason, feeCents: area?.delivery_fee_cents ?? 0, neighborhoodName },
+      delivery: { available: deliveryAvailable, reason: deliveryReason, feeCents: area?.delivery_fee_cents ?? 0, neighborhoodName, servedNeighborhoods },
       pickupAvailable: store.offers_pickup,
       requiresAgeCheck,
       orderNow: { allowed: nowCheck.allowed, reason: nowCheck.allowed ? null : nowCheck.reason },

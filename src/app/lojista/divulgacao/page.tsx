@@ -16,7 +16,7 @@ export default function PromoPage() {
 }
 
 async function Promo() {
-  const { store } = await getMerchantContext(["owner"]);
+  const { store } = await getMerchantContext("loja.config");
   const host = (await headers()).get("host") ?? "localhost:3000";
   const url = `http://${host}/loja/${store.slug}`;
   const qr = await QRCode.toString(url, { type: "svg", margin: 1, width: 260 });

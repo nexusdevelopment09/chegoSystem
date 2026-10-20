@@ -3,8 +3,10 @@ import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { audit } from "@/lib/audit";
 import { sql } from "@/lib/db";
 import { pendingLegalDocuments } from "@/lib/legal";
+import { can, effectivePermissions, type Permission } from "@/lib/merchant/permissions";
 
 export type UserRole = "customer" | "merchant" | "admin" | "courier";
 export type StoreRole = "owner" | "attendant" | "courier";
@@ -26,7 +28,7 @@ const SESSION_DAYS = 30;
 // Só o hash vai para o banco, então uma tabela vazada não serve para entrar.
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
-export async function createSession(profileId: string) {
+export async function createSession(profileId: string, method = "senha") {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
 
@@ -34,6 +36,8 @@ export async function createSession(profileId: string) {
     insert into sessions (profile_id, token_hash, expires_at)
     values (${profileId}, ${hashToken(token)}, ${expiresAt})
   `;
+  // Entrada no sistema: quem, quando e como (nunca a senha nem o token).
+  await audit({ actorId: profileId, action: "auth.entrada", entityType: "profile", entityId: profileId, module: "acesso", actorRole: await roleOf(profileId), details: { method } });
 
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
@@ -47,8 +51,21 @@ export async function createSession(profileId: string) {
 export async function destroySession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE)?.value;
-  if (token) await sql`delete from sessions where token_hash = ${hashToken(token)}`;
+  if (token) {
+    const [ended] = await sql<{ profile_id: string }[]>`delete from sessions where token_hash = ${hashToken(token)} returning profile_id`;
+    if (ended) await audit({ actorId: ended.profile_id, action: "auth.saida", entityType: "profile", entityId: ended.profile_id, module: "acesso", actorRole: await roleOf(ended.profile_id) });
+  }
   cookieStore.delete(COOKIE);
+}
+
+/** Senha errada numa conta que existe: fica no histórico da conta como tentativa negada. */
+export async function auditFailedLogin(profileId: string) {
+  await audit({ actorId: profileId, action: "auth.entrada", entityType: "profile", entityId: profileId, module: "acesso", result: "negado", reason: "Senha incorreta", actorRole: await roleOf(profileId) });
+}
+
+async function roleOf(profileId: string): Promise<string | null> {
+  const [row] = await sql<{ role: string }[]>`select role::text from profiles where id = ${profileId}`;
+  return row?.role ?? null;
 }
 
 /** "Sair de todos os aparelhos". */
@@ -105,16 +122,20 @@ export async function requireRole(...roles: UserRole[]): Promise<CurrentProfile>
   return profile;
 }
 
-export type StoreMembership = { storeId: string; storeName: string; storeSlug: string; role: StoreRole };
+export type StoreMembership = { storeId: string; storeName: string; storeSlug: string; role: StoreRole; permissions: Permission[] };
 
 export const getStoreMemberships = cache(async (profileId: string): Promise<StoreMembership[]> => {
-  const rows = await sql<{ store_id: string; name: string; slug: string; role: StoreRole }[]>`
-    select m.store_id, s.name, s.slug, m.role
+  // Membro desativado não entra mais no painel (o histórico dele continua).
+  const rows = await sql<{ store_id: string; name: string; slug: string; role: StoreRole; permissions: string[] | null }[]>`
+    select m.store_id, s.name, s.slug, m.role, m.permissions
     from store_members m
     join stores s on s.id = m.store_id
-    where m.profile_id = ${profileId}
+    where m.profile_id = ${profileId} and m.active
     order by s.name`;
-  return rows.map((row) => ({ storeId: row.store_id, storeName: row.name, storeSlug: row.slug, role: row.role }));
+  return rows.map((row) => ({
+    storeId: row.store_id, storeName: row.name, storeSlug: row.slug, role: row.role,
+    permissions: effectivePermissions(row.role, row.permissions),
+  }));
 });
 
 /**
@@ -133,3 +154,23 @@ export async function requireStoreMember(
   if (!membership) redirect(memberships.length > 0 ? "/lojista" : "/");
   return { profile, membership };
 }
+
+/**
+ * O vínculo com a loja, exigindo uma permissão (o dono tem todas). Sem a permissão, a
+ * tentativa fica na auditoria e a pessoa volta ao painel com o aviso de acesso negado.
+ */
+export async function requirePermission(permission: Permission): Promise<{ profile: CurrentProfile; membership: StoreMembership }> {
+  const { profile, membership } = await requireStoreMember(["owner", "attendant", "courier"]);
+  if (!can(membership, permission)) {
+    await audit({
+      actorId: profile.id, action: "acesso.negado", entityType: "permission", storeId: membership.storeId,
+      actorRole: membership.role, module: "acesso", result: "negado", details: { permission },
+    });
+    // O entregador da loja só tem a tela de entregas: volta para ela em vez do aviso.
+    redirect(membership.role === "courier" ? "/lojista/entregas" : "/lojista?negado=1");
+  }
+  return { profile, membership };
+}
+
+/** A pessoa tem esta permissão na loja? (para mostrar ou esconder botões; a ação confere de novo.) */
+export const hasPermission = (membership: StoreMembership, permission: Permission) => can(membership, permission);

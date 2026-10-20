@@ -97,6 +97,37 @@ O resto do sistema só conhece a interface `PaymentProvider` (`src/lib/payments/
 
 Além do entregador de cada loja (um membro da equipe dela), existe a rede do Chegô: perfis com o papel global `courier` e uma linha na tabela `couriers` (tipo `platform` ou `partner`, situação, cidade, documento, veículo). O pedido guarda `delivery_provider` (`store` ou `platform`), copiado da loja na compra, e `courier_fee_cents`. As entregas sem entregador são listadas por `listOffers` (`src/lib/couriers.ts`), pela conexão dona do banco e sem os dados do cliente; depois de pegar a entrega, o entregador lê o pedido pelas regras de acesso normais. O ganho fica em `courier_earnings` e nos lançamentos, na conta `courier`.
 
+## Subcategorias, vitrines e ofertas
+
+- `subcategories` (por segmento, com `group_name` opcional), `store_subcategories` (loja ↔ subcategoria, marcado pelo admin) e `products.subcategory_id` (escolhido pela loja). Migration `0015`.
+- A lista de segmentos e subcategorias mora em `db/seed/taxonomy.ts`; `syncTaxonomy` roda no fim de cada `migrate` (e no seed) e só insere o que falta, pelo slug. O contêiner também grava, ao ligar, a imagem de segmento que ainda não existir.
+- `products.compare_at_price_cents` é o "preço de antes", só vitrine; o banco exige `compare_at > price_cents`. Reajustes em massa e importação de planilha apagam a oferta quando o preço novo a alcança.
+- Vitrines em `src/lib/catalog/showcase.ts` (`homeShowcases`, `storeShowcases`, `categoryProducts`, `offerStoreIds`); cupons visíveis em `src/lib/coupons/visible.ts`.
+- Componentes genéricos: `HScroller` (faixa horizontal com setas que somem nas pontas, toque, trackpad e teclado; centraliza o item ativo), `ProductShelf`/`ProductCard`/`PriceTag` e `FilterChips` (menu de ordenação + chips de filtro, como links).
+
+## Relatórios da loja
+
+`src/lib/merchant/report-data.ts` carrega, numa consulta só e com todos os filtros (período no horário de Maceió, situação, bairro, pagamento, entrega/retirada, produto, cliente, número, hora), a lista de pedidos da loja. `src/lib/merchant/report-rules.ts` calcula todos os indicadores, gráficos e listagens **a partir dessas mesmas linhas**: cada indicador é um segmento (`SEGMENTS`) e o número do cartão é a soma das linhas da listagem do segmento (`/lojista/relatorios/pedidos?segmento=...`). Os filtros ficam na URL e seguem nos links.
+
+## Impressão térmica
+
+Ver `docs/IMPRESSAO_TERMICA.md`: Web Serial do Chrome para Android (Bluetooth SPP), cupom ESC/POS gerado no servidor (`src/lib/printing/`), fila `print_jobs` sem duplicar, impressoras por loja em `store_printers`.
+
+## Receita do Chegô (admin)
+
+`/admin/simulador`: desempenho real só de registros gravados (`src/lib/fees/performance.ts`) e, separado, o simulador (`src/lib/fees/simulator.ts`, funções puras no navegador, nada é gravado). Caixa de areia financeira com dados sintéticos: `npm run sandbox:fees` / `npm run sandbox:fees:clean` (só com `APP_ENV=local` e banco local).
+
+## Gestão da loja
+
+Estoque, mesas, equipe e auditoria seguem o mesmo padrão:
+
+- o navegador só lê as tabelas novas, pelas regras de acesso por linha (RLS);
+- as gravações são Server Actions que conferem a permissão do funcionário (`requirePermission`) e gravam numa transação junto com o registro de auditoria;
+- as regras de cálculo ficam em funções puras testadas: `src/lib/inventory/rules.ts`, `src/lib/tables/rules.ts`, `src/lib/merchant/permissions.ts`, `src/lib/merchant/report-rules.ts`;
+- `audit_logs` tem um gatilho que impede alterar ou apagar.
+
+Detalhes em `docs/GESTAO_DA_LOJA.md`.
+
 ## Regras em funções puras
 
 As contas que mais importam não dependem do banco nem do Next.js, e por isso têm testes unitários rápidos:

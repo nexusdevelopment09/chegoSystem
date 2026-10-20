@@ -7,7 +7,8 @@ import { sendPush } from "./push";
 type Db = postgres.Sql | postgres.TransactionSql;
 
 export type Notice = {
-  profileIds: string[];
+  /** Nulos são ignorados (ex.: o cliente de um pedido feito sem conta, que acompanha pelo link). */
+  profileIds: (string | null)[];
   type: string;
   title: string;
   body: string;
@@ -25,12 +26,13 @@ export type Notice = {
  * do cliente; avisos de pedido sempre saem.
  */
 export async function notify(notice: Notice, db: Db = sql) {
-  if (notice.profileIds.length === 0) return;
+  const ids = notice.profileIds.filter((id): id is string => Boolean(id));
+  if (ids.length === 0) return;
 
   const recipients = await db<{ id: string; full_name: string; phone: string | null; email: string | null }[]>`
     select id, full_name, phone, email
     from profiles
-    where id = any(${notice.profileIds}::uuid[])
+    where id = any(${ids}::uuid[])
       and deleted_at is null
       ${notice.promotional ? db`and promo_notifications` : db``}`;
 

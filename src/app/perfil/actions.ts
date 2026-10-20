@@ -37,7 +37,7 @@ export async function changePassword(_previous: ActionState, formData: FormData)
   await sql`update profiles set password_hash = ${hashPassword(next)} where id = ${profile.id}`;
   // Sai de todos os aparelhos e entra de novo só neste.
   await destroyAllSessions(profile.id);
-  await createSession(profile.id);
+  await createSession(profile.id, "troca_de_senha");
   return { ok: true, message: "Senha trocada. Os outros aparelhos vão pedir a senha nova." };
 }
 

@@ -18,7 +18,9 @@ import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
+import { generateImages } from "../db/seed/images.ts";
 import { seed, seedBase } from "../db/seed/index.ts";
+import { syncTaxonomy } from "../db/seed/taxonomy.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BIN = join(ROOT, "node_modules", "@embedded-postgres", "windows-x64", "native", "bin");
@@ -96,6 +98,8 @@ async function migrate() {
       });
       console.log(`  migration aplicada: ${file}`);
     }
+    // Segmentos e subcategorias novos chegam junto com as migrations (só acrescenta o que falta).
+    await syncTaxonomy(sql);
   } finally {
     await sql.end();
   }
@@ -158,6 +162,8 @@ function stop() {
 /** O seed escolhido por SEED_MODE: "demo" (padrão) ou "base" (produção, sem dados fictícios). */
 async function runSeed(sql: postgres.Sql) {
   if (process.env.SEED_MODE !== "base") {
+    // Dados fictícios (lojas, clientes, pedidos de mentira) nunca entram em produção.
+    if (process.env.APP_ENV === "production") throw new Error("SEED_MODE=demo é recusado com APP_ENV=production. Use SEED_MODE=base.");
     await seed(sql);
     return;
   }
@@ -170,6 +176,11 @@ async function runSeed(sql: postgres.Sql) {
 }
 
 async function reset() {
+  // O banco embutido é sempre desta máquina. Um banco externo (o da VPS, DB_MODE=external)
+  // só é apagado no ambiente de testes ou confirmando o nome dele.
+  if (EXTERNAL && process.env.APP_ENV !== "local" && process.env.CONFIRM_RESET !== DATABASE) {
+    throw new Error(`db:reset apaga o banco "${DATABASE}" inteiro. Fora do ambiente de testes, rode com CONFIRM_RESET=${DATABASE} para confirmar.`);
+  }
   await boot();
   const admin = postgres(url("postgres"), { max: 1, onnotice: () => {} });
   try {
@@ -192,6 +203,8 @@ async function reset() {
 /** Usado ao ligar o contêiner do app: migrations sempre; dados de teste só na primeira vez. */
 async function bootstrap() {
   await start();
+  // Imagem de segmento novo (ex.: Shopping): grava só as que ainda não existem.
+  await generateImages({ categoriesOnly: true });
   if (process.env.SEED_IF_EMPTY !== "1") return;
 
   const sql = postgres(url(DATABASE), { max: 1, onnotice: () => {} });

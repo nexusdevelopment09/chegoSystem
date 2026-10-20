@@ -35,7 +35,7 @@ export default function FinancePage() {
 }
 
 async function Finance() {
-  const { store, at } = await getMerchantContext(["owner"]);
+  const { store, at } = await getMerchantContext("financeiro.ver");
   const [summary, settings] = await Promise.all([feeSummary(store.id, at), getSettings()]);
   // O expediente de hoje vai da hora de corte até a mesma hora do dia seguinte.
   const cutoff = settings.business_day_cutoff_hour * 60;

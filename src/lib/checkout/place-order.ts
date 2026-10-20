@@ -1,9 +1,11 @@
 import "server-only";
-import { randomInt } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import type postgres from "postgres";
 import type { CurrentProfile } from "@/lib/auth/session";
 import { toSnapshot } from "@/lib/catalog/selection";
 import { sql } from "@/lib/db";
+import { toE164 } from "@/lib/format";
+import { hashGuestToken } from "@/lib/orders/guest";
 import { MINUTE_MS } from "@/lib/time";
 import { getPaymentProvider } from "@/lib/payments";
 import { paymentCollection } from "@/lib/payments/collection";
@@ -11,10 +13,11 @@ import { transitionOrder } from "@/lib/orders/transitions";
 import type { CardData } from "@/lib/payments/types";
 import { getSettings } from "@/lib/settings";
 import { buildQuote, type CartInput } from "./quote";
+import { recordOrderSales } from "@/lib/inventory/stock";
 
 export type PlaceOrderResult =
   /** Pagando direto à loja não há pagamento no app: paymentId e providerPaymentId vêm nulos. */
-  | { ok: true; orderId: string; paymentId: string | null; providerPaymentId: string | null }
+  | { ok: true; orderId: string; paymentId: string | null; providerPaymentId: string | null; guestToken?: string }
   | { ok: false; errors: string[] };
 
 class Conflict extends Error {}
@@ -29,10 +32,16 @@ class Conflict extends Error {}
  */
 export async function placeOrder(
   input: CartInput,
-  profile: CurrentProfile,
+  profile: CurrentProfile | null,
   at: Date,
   card?: CardData,
 ): Promise<PlaceOrderResult> {
+  // Sem conta: nome e telefone vêm do pedido, e o link de acompanhamento leva um token
+  // (só o hash fica no banco). Cupom, chat e avaliação continuam pedindo conta.
+  const guestToken = profile ? null : randomBytes(24).toString("base64url");
+  const buyer = profile
+    ? { id: profile.id as string | null, name: profile.fullName, phone: profile.phone }
+    : { id: null, name: input.guest?.name ?? "", phone: toE164(input.guest?.phone ?? "") };
   const built = await buildQuote(input, profile, at, { mode: "place" });
   if ("fatal" in built) return { ok: false, errors: [built.fatal] };
   const { quote, internals } = built;
@@ -58,7 +67,7 @@ export async function placeOrder(
 
       // "Indique e ganhe": o código do amigo vira um cupom pessoal deste cliente.
       let couponId = internals.coupon?.id ?? null;
-      if (internals.coupon && !couponId && internals.coupon.referrerId) {
+      if (internals.coupon && !couponId && internals.coupon.referrerId && profile) {
         const [created] = await tx<{ id: string }[]>`
           insert into coupons (code, description, type, value_cents, paid_by, owner_profile_id, max_uses, first_order_only)
           values (${`INDICADO-${randomInt(100000, 999999)}`}, 'Desconto por indicação', 'fixed', ${totals.discountCents},
@@ -86,15 +95,15 @@ export async function placeOrder(
       const address = internals.address;
       const [order] = await tx<{ id: string }[]>`
         insert into orders (
-          code, city_id, customer_id, store_id, status, fulfillment, customer_name, customer_phone,
+          code, city_id, customer_id, guest_token_hash, store_id, status, fulfillment, customer_name, customer_phone,
           address_snapshot, neighborhood_id, scheduled_for, estimated_at,
           subtotal_cents, discount_cents, discount_paid_by, coupon_id, delivery_fee_cents, service_fee_cents,
           commission_rate, commission_cents, store_amount_cents, platform_amount_cents, total_cents,
           payment_method, age_confirmed, requires_age_check, missing_item_policy, notes, delivery_code,
           payment_expires_at, created_at, delivery_provider, courier_fee_cents, payment_collection, cash_change_for_cents
         ) values (
-          ${code}, ${internals.cityId}, ${profile.id}, ${quote.store.id}, 'awaiting_payment', ${quote.fulfillment},
-          ${profile.fullName}, ${profile.phone},
+          ${code}, ${internals.cityId}, ${buyer.id}, ${guestToken ? hashGuestToken(guestToken) : null}, ${quote.store.id}, 'awaiting_payment', ${quote.fulfillment},
+          ${buyer.name}, ${buyer.phone},
           ${quote.fulfillment === "delivery" && address
             ? tx.json({
                 street: address.street, number: address.number, neighborhood: address.neighborhood_name,
@@ -134,21 +143,24 @@ export async function placeOrder(
 
       await tx`
         insert into order_status_history (order_id, status, changed_by, created_at)
-        values (${order.id}, 'awaiting_payment', ${profile.id}, ${at})`;
+        values (${order.id}, 'awaiting_payment', ${buyer.id}, ${at})`;
 
       if (totals.discountCents > 0 && couponId) {
         await tx`
           insert into coupon_redemptions (coupon_id, order_id, customer_id, discount_cents, created_at)
-          values (${couponId}, ${order.id}, ${profile.id}, ${totals.discountCents}, ${at})`;
+          values (${couponId}, ${order.id}, ${buyer.id}, ${totals.discountCents}, ${at})`;
       }
 
+      // Baixa no controle de estoque (itens ligados aos produtos), junto com a reserva acima.
+      await recordOrderSales(tx, order.id);
+
       // A sacola virou pedido: a cópia salva não é mais necessária.
-      await tx`delete from carts where profile_id = ${profile.id}`;
+      if (profile) await tx`delete from carts where profile_id = ${profile.id}`;
 
       if (direct) {
         // Direto à loja: o pedido já vai para ela, como um pedido pago vai no outro modo.
         await transitionOrder(tx, { orderId: order.id, to: "paid", actor: "system", actorId: null, at });
-        return { ok: true, orderId: order.id, paymentId: null, providerPaymentId: null };
+        return { ok: true, orderId: order.id, paymentId: null, providerPaymentId: null, ...(guestToken ? { guestToken } : {}) };
       }
 
       if (input.paymentMethod === "cash") throw new Conflict("Essa forma de pagamento não está disponível para este pedido.");

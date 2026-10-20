@@ -34,7 +34,7 @@ export function LoginChooser() {
         </p>
       </section>
 
-      <Link href="/boas-vindas?onde=1" className="text-center text-sm font-semibold text-brand-dark underline">
+      <Link href="/" className="text-center text-sm font-semibold text-brand-dark underline">
         Só quero ver as lojas
       </Link>
 

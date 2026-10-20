@@ -42,16 +42,7 @@ export const BANNERS = [
   { key: "acai-em-dobro", title: "Açaí em dobro no domingo", subtitle: "Só no Açaí Tropical", color: "#5B2A86", arts: ["acai", "acai", "cake"] },
 ] as const;
 
-export const CATEGORY_COLORS: Record<string, string> = {
-  restaurantes: "#C2410C",
-  lanches: "#B45309",
-  "cafe-da-manha": "#A16207",
-  "acai-e-sobremesas": "#6D28D9",
-  bebidas: "#1D4ED8",
-  mercado: "#15803D",
-  farmacia: "#0F766E",
-  saudavel: "#4D7C0F",
-};
+export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(CATEGORIES.map((category) => [category.slug, category.color]));
 
 /** Os desenhos que representam cada segmento. */
 const CATEGORY_ARTS: Record<string, Drawing[]> = {
@@ -63,6 +54,7 @@ const CATEGORY_ARTS: Record<string, Drawing[]> = {
   mercado: ["produce", "package", "carton"],
   farmacia: ["medicine", "hygiene", "cleaning"],
   saudavel: ["jar", "tub", "produce"],
+  shopping: ["bag", "package", "cake"],
 };
 
 const escapeXml = (text: string) =>

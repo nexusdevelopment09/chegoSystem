@@ -31,7 +31,7 @@ function describe(coupon: CouponRow): string {
 }
 
 async function Coupons() {
-  const { profile, store } = await getMerchantContext(["owner"]);
+  const { profile, store } = await getMerchantContext("loja.config");
   // Como dono da loja: as regras de acesso por linha (RLS) devolvem só os cupons desta loja.
   const coupons = await withUser(profile.id, (tx) => tx<CouponRow[]>`
     select id, code, type, value_cents, percent, max_discount_cents, min_order_cents, uses_count, max_uses, expires_at, active

@@ -28,7 +28,7 @@ async function Ticket({ params, searchParams }: Props) {
   const [{ id }, { l }] = await Promise.all([params, searchParams]);
   if (!z.uuid().safeParse(id).success) notFound();
 
-  const { profile, store } = await getMerchantContext(["owner", "attendant"]);
+  const { profile, store } = await getMerchantContext("pedidos.ver");
   const order = await loadOrder(profile.id, id);
   if (!order || order.storeId !== store.id) notFound();
 

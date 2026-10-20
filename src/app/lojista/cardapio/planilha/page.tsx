@@ -19,7 +19,7 @@ export default function SpreadsheetPage() {
 }
 
 async function Spreadsheet() {
-  const { profile, store } = await getMerchantContext(["owner", "attendant"]);
+  const { profile, store } = await getMerchantContext("produtos.ver");
   const sections = await withUser(profile.id, (tx) => tx<{ id: string; name: string }[]>`
     select id, name from product_sections where store_id = ${store.id} order by sort_order`);
 

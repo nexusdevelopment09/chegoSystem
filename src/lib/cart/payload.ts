@@ -10,7 +10,11 @@ export type CheckoutChoices = {
   paymentMethod?: "pix" | "card" | "cash";
   /** Dinheiro: para quanto precisa de troco, em centavos. */
   cashChangeForCents?: number | null;
+  /** Compra sem conta: nome, telefone e o endereço digitado. */
+  guest?: GuestDetails | null;
 };
+
+export type GuestDetails = { name: string; phone: string; street: string; number: string; neighborhoodId: string | null; reference: string; complement: string };
 
 /** O que é enviado ao servidor sobre uma sacola. O preço mostrado só vai como "o que eu vi". */
 export function toCartPayload(cart: Cart, choices: CheckoutChoices = {}) {

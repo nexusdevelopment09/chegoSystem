@@ -33,7 +33,7 @@ export default function MerchantOrdersPage() {
 }
 
 async function OrdersBoard() {
-  const { profile, membership, store, at } = await getMerchantContext(["owner", "attendant"]);
+  const { profile, membership, store, at } = await getMerchantContext("pedidos.ver");
   const [settings, team] = await Promise.all([getSettings(), getTeam(store.id)]);
   const startOfDay = fromLocal(toLocal(at).date, 0);
 

@@ -205,3 +205,45 @@ Entre como **Admin Chegô**.
 ---
 
 Achou algo diferente do esperado? Anote o usuário, a página, o que você fez e o que apareceu. Com essas quatro informações dá para reproduzir e corrigir.
+
+## Novidades: bairros, logo e capa, relatórios, impressão e receita
+
+| Feito | Passo | Resultado esperado |
+|---|---|---|
+| [ ] | Como lojista, em **Minha loja → Áreas de entrega**, marque **Casal** com taxa R$ 4,00 e salve | "Áreas de entrega salvas."; as outras taxas não mudam |
+| [ ] | Como cliente dessa loja, no fechamento do pedido, toque em **Novo endereço** | O campo de bairro mostra só os bairros atendidos, com a taxa ("Casal · entrega R$ 4,00") |
+| [ ] | Use um endereço salvo num bairro que a loja não atende | Aparece "Esta loja não entrega em ..." |
+| [ ] | Em **Minha loja**, toque em **Trocar imagem** na logo, escolha uma foto (JPG, PNG ou WebP) e salve | Prévia antes de salvar; depois de salvar e recarregar, a logo nova aparece também na página da loja |
+| [ ] | Tente enviar um GIF como logo | "Formato não aceito. Envie JPG, PNG, WebP." |
+| [ ] | Marque **Remover** na capa e salve | A capa some (a loja fica com o fundo padrão) |
+| [ ] | Em **Relatórios**, escolha **Últimos 7 dias** e toque em **A receber** | Abre a lista dos pedidos a receber, com o mesmo total do cartão e o período mantido |
+| [ ] | Filtre a lista por **Retirada** e toque em **Voltar ao relatório** | O relatório volta com o filtro de retirada ativo |
+| [ ] | Toque numa barra de **Vendas por dia** | Abre os pedidos vendidos só daquele dia |
+| [ ] | No celular Android, em **Impressoras**, cadastre uma impressora, toque em **Conectar pelo Bluetooth** e em **Imprimir teste** | Siga o roteiro de teste físico de docs/IMPRESSAO_TERMICA.md |
+| [ ] | No admin, abra **Simulador** e use 1.000 lojas e 30 pedidos | Receita em 30 dias de R$ 450.000,00, marcada como simulação; a tarifa de produção continua R$ 0,50 |
+
+## Novidades: gestão da loja e compra sem conta
+
+| Feito | Passo | Resultado esperado |
+|---|---|---|
+| [ ] | Sem entrar, monte uma sacola e vá para **Finalizar pedido** | Aparece **Seus dados** (nome e telefone) e o endereço é digitado ali mesmo |
+| [ ] | Faça o pedido pagando em dinheiro | Abre **/acompanhar/...** com "Guarde este link"; enquanto a loja não aceita, **Cancelar pedido** funciona |
+| [ ] | Como lojista, abra esse pedido | Aparece "sem conta" ao lado do nome e não há chat |
+| [ ] | Como dono, abra **Resumo** | Vendido hoje com a comparação com ontem, pedidos em andamento, estoque baixo, validade e reposição |
+| [ ] | Em **Funcionários**, crie um convite e abra o link numa janela anônima | Cria o acesso; o mesmo link não serve de novo |
+| [ ] | Entre como o funcionário e abra `/lojista/financeiro` | "Você não tem acesso a essa área" |
+| [ ] | Como dono, abra **Auditoria** com o filtro **Negada** | A tentativa aparece com o nome do funcionário; abrir mostra a permissão |
+| [ ] | Mude o preço de um produto e veja a **Auditoria** | "Alterou preço de produto" com o preço antes e depois |
+| [ ] | Em **Estoque → Novo item**, cadastre um item com saldo 3 e mínimo 10 | Abre a página do item; aparece em **Alertas** e no **Resumo** como estoque baixo |
+| [ ] | Em **Mesas e balcão**, cadastre uma mesa, abra a conta, lance um item, receba e feche | Vira um pedido de **Mesa** já concluído, com a taxa de R$ 0,50 |
+| [ ] | Abra **Relatórios → Anual** | Gráficos por mês, com legenda e tabela; anos sem pedido aparecem como "sem dados" |
+
+## Novidades: entrada direto nas lojas
+
+| Feito | Passo | Resultado esperado |
+|---|---|---|
+| [ ] | Numa janela anônima, abra o endereço do Chegô | Abre direto a lista de lojas, sem tela de boas-vindas nem pergunta de bairro |
+| [ ] | Toque em **Entrar** no canto superior direito | Menu com **Cliente**, **Lojista**, **Entregador** e **Administrador**, cada um levando à entrada que já existia |
+| [ ] | Entre como lojista pelo menu e depois abra `/admin` | Volta para a página inicial: o perfil decide o acesso, não a opção escolhida |
+| [ ] | Sem conta, finalize um pedido com entrega | O bairro é escolhido no endereço, com a taxa de cada bairro |
+| [ ] | Com conta e endereço salvo, finalize um pedido | O endereço vem marcado, com o aviso para conferir se continua certo |

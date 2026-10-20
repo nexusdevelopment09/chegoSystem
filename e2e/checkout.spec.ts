@@ -28,7 +28,7 @@ async function placeOrder(page: Page) {
 
 test("cliente novo monta pizza de 2 sabores, usa PRIMEIRA e paga com Pix direto à loja", async ({ page, browser }) => {
   await createAccount(page, "Cliente Novo de Teste", "(82) 97777-0001");
-  await expect(page).toHaveURL(/\/boas-vindas$/);
+  await expect(page).toHaveURL(/\/$/);
   await chooseNeighborhood(page, "Centro");
 
   await page.goto(await productUrl("pizzaria-forno-de-barro", "Pizza Grande (8 fatias)"));
@@ -49,7 +49,8 @@ test("cliente novo monta pizza de 2 sabores, usa PRIMEIRA e paga com Pix direto 
   // Ainda sem endereço: o formulário já vem aberto.
   await page.getByLabel("Rua").fill("Rua das Acácias");
   await page.getByLabel("Número").fill("77");
-  await page.getByLabel("Bairro ou comunidade").selectOption({ label: "Centro" });
+  // Só os bairros que a loja atende, com a taxa de cada um.
+  await page.getByLabel("Bairro ou comunidade").selectOption({ label: "Centro · entrega R$ 3,00" });
   await page.getByRole("button", { name: "Salvar endereço" }).click();
   await expect(page.getByText("Rua das Acácias, 77")).toBeVisible();
   // 64,00 - 10,00 + 3,00 de entrega. Pagando direto à loja não há taxa de serviço.
@@ -143,6 +144,9 @@ test("dinheiro na entrega: troco precisa ser maior que o total e aparece para a 
   await addSimple(page, "brasa-burger", "Batata frita");
   await addSimple(page, "brasa-burger", "Anéis de cebola");
   await page.goto("/checkout");
+  // Endereço já cadastrado: vem escolhido, com o pedido para conferir (o bairro decide a taxa).
+  await expect(page.locator('[data-testid="address-confirm"]:visible')).toBeVisible();
+  await expect(page.getByRole("radio", { name: /Centro/ }).first()).toBeChecked();
 
   await page.getByRole("radio", { name: "Dinheiro na entrega" }).check();
   await page.getByLabel("Troco para quanto? (opcional)").fill("1,00");
@@ -347,4 +351,38 @@ test("a sacola acompanha o cliente em outro aparelho", async ({ page, browser })
   await otherPage.goto("/carrinho");
   await expect(otherPage.getByTestId("cart-item")).toContainText("Batata com cheddar e bacon");
   await other.close();
+});
+
+test("compra sem conta: nome, telefone e endereço no checkout, acompanha pelo link e cancela antes do aceite", async ({ page, browser }) => {
+  await addSimple(page, "brasa-burger", "Batata frita");
+  await addSimple(page, "brasa-burger", "Anéis de cebola");
+  await page.goto("/checkout");
+  await expect(page).toHaveURL(/\/checkout$/);
+
+  const details = page.locator('[data-testid="guest-details"]:visible');
+  await details.getByLabel("Seu nome").fill("Visitante do Teste");
+  await details.getByLabel("Telefone (WhatsApp)").fill("(82) 96666-1234");
+  await page.getByLabel("Rua").fill("Rua do Visitante");
+  await page.getByLabel("Número").fill("77");
+  await page.getByLabel("Bairro ou comunidade").selectOption({ label: "Centro · entrega R$ 3,00" });
+  await page.getByRole("radio", { name: "Dinheiro na entrega" }).check();
+  await page.getByRole("button", { name: /^Fazer pedido/ }).click();
+  await page.waitForURL(/\/acompanhar\/[A-Za-z0-9_-]{32}$/);
+  await expect(page.locator('[data-testid="order-status"]:visible')).toContainText("esperando a loja aceitar");
+  await expect(page.getByText("Guarde este link")).toBeVisible();
+
+  const [order] = await db`select id, customer_id, customer_name, customer_phone, status from orders where customer_name = 'Visitante do Teste'`;
+  expect(order).toMatchObject({ customer_id: null, customer_phone: "+5582966661234", status: "paid" });
+
+  // A loja vê o pedido normalmente, marcado como "sem conta" e sem chat.
+  const store = await browser.newPage();
+  const [{ owner }] = await db`select p.full_name as owner from stores s join profiles p on p.id = s.owner_id where s.slug = 'brasa-burger'`;
+  await loginAs(store, owner);
+  await store.goto(`/lojista/pedidos/${order.id}`);
+  await expect(store.getByTestId("guest-badge")).toBeVisible();
+  await store.close();
+
+  await page.getByRole("button", { name: "Cancelar pedido" }).click();
+  await expect(page.locator('[data-testid="order-status"]:visible')).toContainText("Cancelado");
+  expect((await db`select status from orders where id = ${order.id}`)[0].status).toBe("cancelled");
 });

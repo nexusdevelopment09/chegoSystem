@@ -47,7 +47,7 @@ async function check(page: Page, path: string, ready: () => Promise<unknown>) {
 }
 
 test("telas do cliente: acessíveis e sem estourar a tela do celular", async ({ page }) => {
-  await check(page, "/boas-vindas", () => page.getByRole("heading", { name: "Entrar para pedir" }).waitFor());
+  await check(page, "/", () => page.getByRole("heading", { name: "Abertas agora" }).waitFor());
   await check(page, "/boas-vindas?onde=1", () => page.getByRole("button", { name: "Ver as lojas" }).waitFor());
   await check(page, "/entrar", () => page.getByRole("button", { name: "Entrar", exact: true }).waitFor());
   await check(page, "/entrar/criar-conta", () => page.getByRole("button", { name: "Criar minha conta" }).waitFor());
@@ -60,8 +60,8 @@ test("telas do cliente: acessíveis e sem estourar a tela do celular", async ({ 
   await chooseNeighborhood(page, "Centro");
   await check(page, "/", () => page.getByRole("heading", { name: "Abertas agora" }).waitFor());
   await check(page, "/busca?q=pizza", () => page.getByRole("heading", { name: /Lojas com/ }).waitFor());
-  await check(page, "/categoria/restaurantes", () => page.getByRole("heading", { name: "Restaurantes" }).waitFor());
-  await check(page, "/loja/pizzaria-forno-de-barro", () => page.getByRole("heading", { name: "Informações" }).waitFor());
+  await check(page, "/categoria/restaurantes", () => page.getByRole("heading", { name: "Restaurantes", exact: true }).waitFor());
+  await check(page, "/loja/pizzaria-forno-de-barro", () => page.getByRole("button", { name: "Ver mais" }).waitFor());
   await check(page, await productUrl("pizzaria-forno-de-barro", "Pizza Grande (8 fatias)"), () => page.getByRole("button", { name: /^Adicionar/ }).waitFor());
 
   await loginAs(page, "Ana Clara Souza");
@@ -142,7 +142,7 @@ test("painel do lojista funciona só com o teclado", async ({ page }) => {
 });
 
 test("segurança: cabeçalhos, cookies e o que não pode ser acessado sem permissão", async ({ page, request }) => {
-  const home = await request.get("/boas-vindas");
+  const home = await request.get("/");
   const headers = home.headers();
   expect(headers["x-content-type-options"]).toBe("nosniff");
   expect(headers["x-frame-options"]).toBe("DENY");

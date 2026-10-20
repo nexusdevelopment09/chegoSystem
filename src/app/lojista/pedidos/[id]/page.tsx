@@ -6,6 +6,7 @@ import { z } from "zod";
 import { OrderSummary } from "@/components/cart/OrderSummary";
 import { PaymentLine } from "@/components/orders/PaymentLine";
 import { OrderActions, RemoveItemButton } from "@/components/merchant/OrderActions";
+import { ReprintButton } from "@/components/merchant/PrinterControls";
 import { AutoRefresh } from "@/components/orders/AutoRefresh";
 import { OrderChat } from "@/components/orders/OrderChat";
 import { OrderTimeline } from "@/components/orders/OrderTimeline";
@@ -15,6 +16,7 @@ import { formatCents, formatDateTime, formatPhone } from "@/lib/format";
 import { getMerchantContext, getTeam } from "@/lib/merchant/context";
 import { chatOpen } from "@/lib/orders/moderation";
 import { loadOrder } from "@/lib/orders/queries";
+import { listPrinters } from "@/lib/printing/jobs";
 import { STATUS_LABELS } from "@/lib/orders/status";
 import { deliverWithOwnCourier, recallCouriers } from "../../actions";
 import { quantityLabel } from "@/lib/catalog/weight";
@@ -37,11 +39,11 @@ async function OrderDetail({ params }: { params: Params }) {
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
 
-  const { profile, membership, store, at } = await getMerchantContext(["owner", "attendant"]);
+  const { profile, membership, store, at } = await getMerchantContext("pedidos.ver");
   const order = await loadOrder(profile.id, id);
   if (!order || order.storeId !== store.id) notFound();
 
-  const team = await getTeam(store.id);
+  const [team, printers] = await Promise.all([getTeam(store.id), listPrinters(store.id)]);
   const couriers = team.filter((member) => member.role === "courier").map((member) => ({ id: member.id, name: member.name }));
   const courier = team.find((member) => member.id === order.courierId);
   const canRemove = order.status === "accepted" || order.status === "preparing";
@@ -61,6 +63,8 @@ async function OrderDetail({ params }: { params: Params }) {
           Imprimir
         </Link>
       </header>
+
+      <ReprintButton orderId={order.id} printers={printers.map((printer) => ({ id: printer.id, name: printer.name, isDefault: printer.is_default }))} />
 
       {order.requiresAgeCheck && (
         <p role="alert" className="rounded-2xl bg-danger px-4 py-3 text-lg font-bold text-white">Conferir documento na entrega</p>
@@ -100,7 +104,7 @@ async function OrderDetail({ params }: { params: Params }) {
 
       <section className="rounded-card bg-white p-4 ring-1 ring-peach">
         <h2 className="mb-2 text-xl">Cliente</h2>
-        <p className="font-semibold">{order.customerName}</p>
+        <p className="font-semibold">{order.customerName}{!order.customerId && <span className="ml-2 rounded-full bg-cream px-2 text-xs font-bold" data-testid="guest-badge">sem conta</span>}</p>
         {order.customerPhone && (
           <p><a href={`tel:${order.customerPhone}`} className="font-bold text-brand-dark underline">{formatPhone(order.customerPhone)}</a></p>
         )}
@@ -147,8 +151,11 @@ async function OrderDetail({ params }: { params: Params }) {
         )}
       </section>
 
-      <OrderChat orderId={order.id} viewerId={profile.id} side="store"
-        open={chatOpen({ paidAt: order.paidAt, completedAt: order.completedAt, status: order.status }, at)} />
+      {/* Sem conta não há chat: a loja fala com o cliente pelo telefone do pedido. */}
+      {order.customerId && (
+        <OrderChat orderId={order.id} viewerId={profile.id} side="store"
+          open={chatOpen({ paidAt: order.paidAt, completedAt: order.completedAt, status: order.status }, at)} />
+      )}
 
       <section className="rounded-card bg-white p-4 ring-1 ring-peach">
         <h2 className="mb-2 text-xl">Andamento</h2>

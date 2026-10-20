@@ -21,6 +21,8 @@ export type ProductDetail = {
   pricePerKgCents: number | null;
   /** Por peso: o mínimo de gramas por pedido. */
   weightMinGrams: number | null;
+  /** Preço "de", só para mostrar a oferta. O preço cobrado é sempre priceCents. */
+  compareAtCents: number | null;
   rules: ProductRules;
   groups: GroupView[];
 };
@@ -31,6 +33,7 @@ type ProductRow = {
   requires_age_check: boolean; max_per_order: number | null; available: boolean;
   track_stock: boolean; stock_qty: number | null; min_lead_minutes: number;
   weight_step_grams: number | null; price_per_kg_cents: number | null; weight_min_grams: number | null;
+  compare_at_price_cents: number | null;
 };
 
 /**
@@ -45,7 +48,8 @@ export async function loadProducts(productIds: string[]): Promise<Map<string, Pr
   const products = await sql<ProductRow[]>`
     select p.id, p.store_id, s.slug as store_slug, s.name as store_name, sec.name as section_name,
            p.name, p.description, p.price_cents, p.image_url, p.requires_age_check, p.max_per_order,
-           p.available, p.track_stock, p.stock_qty, p.min_lead_minutes, p.weight_step_grams, p.price_per_kg_cents, p.weight_min_grams
+           p.available, p.track_stock, p.stock_qty, p.min_lead_minutes, p.weight_step_grams, p.price_per_kg_cents, p.weight_min_grams,
+           p.compare_at_price_cents
     from products p
     join stores s on s.id = p.store_id
     left join product_sections sec on sec.id = p.section_id
@@ -59,7 +63,7 @@ export async function loadProducts(productIds: string[]): Promise<Map<string, Pr
       sectionName: row.section_name, name: row.name, description: row.description,
       priceCents: row.price_cents, imageUrl: row.image_url, requiresAgeCheck: row.requires_age_check,
       maxPerOrder: row.max_per_order, weightStepGrams: row.weight_step_grams, pricePerKgCents: row.price_per_kg_cents,
-      weightMinGrams: row.weight_min_grams,
+      weightMinGrams: row.weight_min_grams, compareAtCents: row.compare_at_price_cents,
       rules: {
         available: row.available, trackStock: row.track_stock, stockQty: row.stock_qty,
         minLeadMinutes: row.min_lead_minutes, windows: [],

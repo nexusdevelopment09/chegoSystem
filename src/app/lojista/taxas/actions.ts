@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { audit } from "@/lib/audit";
-import { requireStoreMember } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
 import { isLocalEnv } from "@/lib/env";
@@ -19,7 +19,7 @@ import { formatCents } from "@/lib/format";
 
 export type ActionState = { error?: string; ok?: boolean; message?: string };
 
-const owner = () => requireStoreMember(["owner"]);
+const owner = () => requirePermission("financeiro.ver");
 const uuid = z.uuid();
 
 /** Fecha o expediente de hoje, depois de a loja conferir o resumo. */

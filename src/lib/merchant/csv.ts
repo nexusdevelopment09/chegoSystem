@@ -79,7 +79,16 @@ export function parseMenuCsv(text: string): CsvResult {
   return { products, errors };
 }
 
-const quote = (value: string) => (/[";\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+/**
+ * Uma célula de planilha segura: entre aspas quando precisa e, se começar com = + - @
+ * (o Excel trataria como fórmula, ex.: um nome de loja "=HYPERLINK(...)"), com um
+ * apóstrofo na frente, que o Excel mostra como texto comum.
+ */
+export function csvCell(value: string): string {
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return /[";\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+const quote = csvCell;
 
 /** Com a marca de ordem de bytes (BOM), para o Excel abrir os acentos certo. */
 export function toMenuCsv(products: CsvProduct[]): string {

@@ -108,14 +108,5 @@ export async function storeStatement(storeId: string, period: Period): Promise<S
   }));
 }
 
-/** A divisão paga a loja dois dias úteis depois da venda (regra de mentira para o ambiente de testes). */
-export function payoutDate(paidAt: Date): Date {
-  const date = new Date(paidAt.getTime());
-  let added = 0;
-  while (added < 2) {
-    date.setUTCDate(date.getUTCDate() + 1);
-    const weekday = new Date(date.getTime() - 3 * 60 * 60 * 1000).getUTCDay();
-    if (weekday !== 0 && weekday !== 6) added += 1;
-  }
-  return date;
-}
+/** A data do repasse de um pedido pago pelo app (a regra mora em report-rules.ts). */
+export { payoutDate } from "./report-rules";

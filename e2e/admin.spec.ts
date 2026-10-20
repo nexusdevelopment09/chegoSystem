@@ -24,7 +24,7 @@ test("painel geral mostra os números do período e só o admin entra", async ({
   await expect(page.getByRole("link", { name: /1 loja esperando aprovação/ })).toBeVisible();
 
   // Cada um termina onde o seu papel mora; a URL é conferida depois que os redirecionamentos assentam.
-  const landing: [string, RegExp][] = [["Ana Clara Souza", /\/$/], ["Marcos Antônio Tavares", /\/boas-vindas$/]];
+  const landing: [string, RegExp][] = [["Ana Clara Souza", /\/$/], ["Marcos Antônio Tavares", /\/$/]];
   for (const [who, home] of landing) {
     await loginAs(page, who);
     for (const path of ["/admin", "/admin/lojas", "/admin/financeiro", "/admin/auditoria"]) {
@@ -242,7 +242,8 @@ test("financeiro: comissões por loja, CSV do contador e conciliação que acusa
   expect(csv.headers()["content-type"]).toContain("text/csv");
   const text = await csv.text();
   expect(text).toMatch(/^﻿mes;loja;documento;pedidos;vendas;comissao;taxa_de_servico;mensalidade;total_a_faturar/);
-  expect(text).toContain('2026-09;"Pizzaria Forno de Barro"');
+  // Aspas só quando a célula precisa (e fórmulas viram texto: docs/AUDITORIA_SEGURANCA.md, B1).
+  expect(text).toContain("2026-09;Pizzaria Forno de Barro;");
 
   // O gateway "cobrou" um valor diferente em um pedido: a conciliação tem que apontar.
   const [payment] = await db`

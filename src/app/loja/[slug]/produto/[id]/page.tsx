@@ -67,7 +67,15 @@ async function ProductContent({ params }: { params: Params }) {
           ) : (
             <>
               {hasChoices && from !== product.priceCents ? "A partir de " : ""}
-              {formatCents(from)}
+              <span className={product.compareAtCents ? "text-success" : ""}>{formatCents(from)}</span>
+              {product.compareAtCents && (
+                <>
+                  {" "}<s className="text-base font-normal text-coffee-soft" aria-label={`antes ${formatCents(product.compareAtCents)}`}>{formatCents(product.compareAtCents)}</s>
+                  <span className="ml-2 rounded-full bg-success px-2 py-0.5 align-middle text-xs font-bold text-white">
+                    -{Math.floor(((product.compareAtCents - product.priceCents) / product.compareAtCents) * 100)}%
+                  </span>
+                </>
+              )}
             </>
           )}
         </p>

@@ -5,9 +5,10 @@ import { chooseNeighborhood, loginAs, setClock, freshDatabase } from "./helpers"
 test.beforeAll(() => freshDatabase("2026-10-09T20:00"));
 test.afterAll(() => setClock(null));
 
-test("primeira visita escolhe o bairro e vê só as lojas da cidade", async ({ page }) => {
+test("primeira visita vê as lojas direto; escolher o bairro continua opcional", async ({ page }) => {
   await page.goto("/");
-  await expect(page).toHaveURL(/\/boas-vindas$/);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByText("Pizzaria Forno de Barro").first()).toBeVisible();
 
   await chooseNeighborhood(page, "Centro");
   await expect(page.getByTestId("current-location")).toHaveText("Centro, Joaquim Gomes");
@@ -59,10 +60,10 @@ test("os banners passam sozinhos, têm setas e pausa, e param com 'reduzir movim
 test("cada categoria leva à sua página", async ({ page }) => {
   await chooseNeighborhood(page, "Centro");
   const categories = page.getByRole("navigation", { name: "Categorias" });
-  await expect(categories.getByRole("link")).toHaveCount(8);
+  await expect(categories.getByRole("link")).toHaveCount(9);
   await categories.getByRole("link", { name: "Lanches" }).click();
   await expect(page).toHaveURL(/\/categoria\/lanches$/);
-  await expect(page.getByRole("heading", { name: "Lanches" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lanches", exact: true })).toBeVisible();
 });
 
 test("abertas primeiro, destaques em seção própria e fechadas dizem quando abrem", async ({ page }) => {
@@ -113,7 +114,7 @@ test("filtros e categoria", async ({ page }) => {
   await chooseNeighborhood(page, "Centro");
 
   await page.goto("/categoria/lanches");
-  await expect(page.getByRole("heading", { name: "Lanches" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lanches", exact: true })).toBeVisible();
   await expect(page.getByTestId("store-card")).toHaveCount(2);
   await expect(page.getByText("Espetinho do Zé")).toHaveCount(0);
 
@@ -142,7 +143,22 @@ test("página da loja: seções, esgotados no fim, avisos e informações", asyn
   await page.goto("/loja/pizzaria-forno-de-barro");
   await expect(page.getByText("a partir de R$ 45,00")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Avaliações" })).toBeVisible();
-  await expect(page.getByText("Sítio Riacho Fundo (zona rural)")).toBeVisible();
+
+  // "Ver mais" abre o painel da loja com Sobre, Horário e Pagamento.
+  await page.getByRole("button", { name: "Ver mais" }).click();
+  const info = page.getByRole("dialog", { name: "Pizzaria Forno de Barro" });
+  await expect(info).toBeVisible();
+  await expect(info.getByRole("tab", { name: "Sobre" })).toHaveAttribute("aria-selected", "true");
+  await expect(info.getByRole("heading", { name: "Endereço" })).toBeVisible();
+  await expect(info.getByRole("link", { name: "Ver no mapa" })).toHaveAttribute("href", /google\.com\/maps/);
+  await info.getByText(/^Onde entrega/).click();
+  await expect(info.getByText("Sítio Riacho Fundo (zona rural)")).toBeVisible();
+  await info.getByRole("tab", { name: "Horário" }).click();
+  await expect(info.getByTestId("hours-today")).toContainText("sexta");
+  await info.getByRole("tab", { name: "Pagamento" }).click();
+  await expect(info.getByTestId("payment-method").first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(info).toBeHidden();
 
   // Lojas não aprovadas, ou de uma cidade inativa, não têm página.
   for (const slug of ["espetinho-do-ze", "pastelaria-sabor-antigo", "lanchonete-ponto-certo"]) {

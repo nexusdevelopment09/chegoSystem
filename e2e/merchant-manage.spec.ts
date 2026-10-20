@@ -266,15 +266,16 @@ test("relatórios e extrato são só do dono; atendente não entra", async ({ pa
     select count(*)::int as orders from orders o join stores s on s.id = o.store_id
     where s.slug = 'pizzaria-forno-de-barro' and o.paid_at is not null
       and o.status not in ('rejected', 'cancelled', 'refunded', 'expired')
-      and o.paid_at >= ${new Date(new Date("2026-10-09T15:00:00-03:00").getTime() - 90 * 86_400_000)}
-      and o.paid_at < ${new Date("2026-10-09T15:00:00-03:00")}`;
+      -- 90 dias de calendário em Maceió (12/07 a 09/10, da meia-noite à meia-noite), como os filtros de data.
+      and o.paid_at >= '2026-07-12T00:00:00-03:00' and o.paid_at < '2026-10-10T00:00:00-03:00'`;
   await page.goto("/lojista/relatorios?dias=90");
   await expect(stats.filter({ hasText: "Pedidos" }).first()).toContainText(String(expected.orders));
 
   await loginAs(page, "Juliana Peixoto");
   for (const path of ["/lojista/relatorios", "/lojista/financeiro", "/lojista/loja", "/lojista/cupons"]) {
     await page.goto(path);
-    await expect(page).toHaveURL(/\/lojista\/pedidos$/);
+    // Sem a permissão: volta ao painel com o aviso de acesso negado (e a tentativa vai para a auditoria).
+    await expect(page).toHaveURL(/\/lojista\?negado=1$/);
   }
   expect((await page.request.get("/lojista/relatorios/exportar", { maxRedirects: 0 })).status()).toBe(307);
 });

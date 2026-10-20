@@ -10,6 +10,7 @@ import { isLocalEnv } from "@/lib/env";
 import { createOrderPayment } from "@/lib/checkout/place-order";
 import { TransitionError, transitionOrder } from "@/lib/orders/transitions";
 import { isMockPayments } from "@/lib/payments";
+import { paymentCollection } from "@/lib/payments/collection";
 import { buildMockWebhook, mockCardOutcome } from "@/lib/payments/mock";
 import { handlePaymentWebhook } from "@/lib/payments/webhook";
 import { rateLimit } from "@/lib/rate-limit";
@@ -25,7 +26,7 @@ const SIMULATED_EVENTS = { approve: "payment.approved", decline: "payment.declin
  */
 export async function simulateMyPayment(formData: FormData): Promise<void> {
   const profile = await getCurrentProfile();
-  if (!profile || !isMockPayments()) return;
+  if (!profile || !isMockPayments() || paymentCollection() !== "app") return;
   const orderId = z.uuid().parse(formData.get("orderId"));
   const outcome = z.enum(isLocalEnv ? ["approve", "decline", "expire"] : ["approve"]).parse(formData.get("outcome"));
   if (!(await rateLimit(`simulate-payment:${profile.id}`, 20, 600))) return;
@@ -78,7 +79,7 @@ export async function payWithCard(formData: FormData): Promise<void> {
     number: formData.get("number"), holder: formData.get("holder"), expiry: formData.get("expiry"), cvv: formData.get("cvv"),
   });
   const profile = await getCurrentProfile();
-  if (!profile || !card.success) return;
+  if (!profile || !card.success || paymentCollection() !== "app") return;
   if (!(await rateLimit(`checkout:${profile.id}`, 10, 600))) return;
 
   const at = await now();

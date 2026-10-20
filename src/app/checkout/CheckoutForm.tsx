@@ -9,12 +9,12 @@ import { useQuote } from "@/components/cart/useQuote";
 import { Button, buttonClass } from "@/components/ui/Button";
 import { Field, inputClass } from "@/components/ui/Field";
 import { clearCart, useCart, useCoupon, writeCoupon } from "@/lib/cart/local";
-import { toCartPayload, type CheckoutChoices } from "@/lib/cart/payload";
+import { toCartPayload, type CheckoutChoices, type GuestDetails } from "@/lib/cart/payload";
 import { quantityLabel } from "@/lib/catalog/weight";
 import { formatCents, parseMoney } from "@/lib/format";
 import { STORE_PAYMENT_LABELS } from "@/lib/payments/collection";
 
-export type SavedAddress = { id: string; street: string; number: string; reference: string | null; neighborhood: string; isDefault: boolean };
+export type SavedAddress = { id: string; street: string; number: string; reference: string | null; neighborhood: string; neighborhoodId: string; isDefault: boolean };
 type Neighborhood = { id: string; name: string; isRural: boolean };
 
 type Props = {
@@ -22,6 +22,8 @@ type Props = {
   neighborhoods: Neighborhood[];
   cardEnabled: boolean;
   blocked: boolean;
+  /** Sem conta: pede nome, telefone e o endereço aqui mesmo, sem salvar. */
+  guest?: boolean;
 };
 
 function Step({ title, children }: { title: string; children: ReactNode }) {
@@ -36,7 +38,7 @@ function Step({ title, children }: { title: string; children: ReactNode }) {
 const choiceClass = (selected: boolean) =>
   `flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border-2 px-4 py-2 ${selected ? "border-brand-dark bg-cream" : "border-peach bg-white"}`;
 
-export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardEnabled, blocked }: Props) {
+export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardEnabled, blocked, guest = false }: Props) {
   const router = useRouter();
   const cart = useCart();
   const [addresses, setAddresses] = useState(initialAddresses);
@@ -52,11 +54,20 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
   const [changeText, setChangeText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [visitor, setVisitor] = useState<GuestDetails>({ name: "", phone: "", street: "", number: "", neighborhoodId: null, reference: "", complement: "" });
+  const setGuest = (changes: Partial<GuestDetails>) => setVisitor((current) => ({ ...current, ...changes }));
+  // Na cotação só o bairro importa (taxa de entrega); o resto vai só ao fechar o pedido.
+  const guestPreview = guest ? { ...visitor, name: "", phone: "", street: "", number: "", reference: "", complement: "" } : null;
 
   // O horário agendado só vale enquanto "Agendar" for a opção escolhida.
-  const state = useQuote(cart, { ...choices, couponCode: couponCode || null, scheduledFor: chosenTiming === "schedule" ? choices.scheduledFor : null });
+  const state = useQuote(cart, { ...choices, guest: guestPreview, couponCode: couponCode || null, scheduledFor: chosenTiming === "schedule" ? choices.scheduledFor : null });
   const quote = state.quote;
   const set = (changes: CheckoutChoices) => setChoices((current) => ({ ...current, ...changes }));
+  // Bairros em que a loja da sacola entrega (vêm do servidor). Enquanto não chegam, todos.
+  const served = quote?.delivery.servedNeighborhoods ?? null;
+  const servedIds = served ? new Set(served.map((hood) => hood.id)) : null;
+  const hoodOptions = servedIds ? neighborhoods.filter((hood) => servedIds.has(hood.id)) : neighborhoods;
+  const feeOf = (id: string) => served?.find((hood) => hood.id === id)?.feeCents ?? null;
 
   // Quando a loja não pode receber o pedido para agora, agendar é o único jeito.
   const mustSchedule = quote ? !quote.orderNow.allowed && quote.slots.length > 0 : false;
@@ -67,6 +78,7 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
   const effective = {
     ...choices, paymentMethod: effectiveMethod, cashChangeForCents: effectiveMethod === "cash" ? choices.cashChangeForCents ?? null : null,
     couponCode: couponCode || null, scheduledFor: timing === "schedule" ? choices.scheduledFor : null,
+    guest: guest ? visitor : null, addressId: guest ? null : choices.addressId,
   };
 
   if (!cart) {
@@ -90,7 +102,7 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
     const hood = neighborhoods.find((item) => item.id === hoodId);
     setAddresses((current) => [
       { id: response.addressId, street: String(formData.get("street")), number: String(formData.get("number") || "S/N"),
-        reference: String(formData.get("reference") || "") || null, neighborhood: hood?.name ?? "", isDefault: true },
+        reference: String(formData.get("reference") || "") || null, neighborhood: hood?.name ?? "", neighborhoodId: hoodId, isDefault: true },
       ...current,
     ]);
     set({ addressId: response.addressId });
@@ -129,6 +141,19 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
         </p>
       )}
 
+      {guest && (
+        <Step title="Seus dados">
+          <div className="flex flex-col gap-3" data-testid="guest-details">
+            <p className="text-sm text-coffee-soft">
+              Peça sem criar conta: a loja usa seu nome e telefone só para este pedido.{" "}
+              <Link href="/entrar" className="font-semibold text-brand-dark underline">Já tenho conta</Link>
+            </p>
+            <Field label="Seu nome" autoComplete="name" maxLength={80} value={visitor.name} onChange={(event) => setGuest({ name: event.target.value })} />
+            <Field label="Telefone (WhatsApp)" type="tel" inputMode="tel" autoComplete="tel" maxLength={30} placeholder="(82) 99999-9999" value={visitor.phone} onChange={(event) => setGuest({ phone: event.target.value })} />
+          </div>
+        </Step>
+      )}
+
       <Step title="Como você quer receber?">
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Entrega ou retirada">
           <label className={choiceClass(delivery)}>
@@ -145,15 +170,45 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
         )}
       </Step>
 
-      {delivery && (
+      {delivery && guest && (
+        <Step title="Onde entregar?">
+          <div className="flex flex-col gap-3">
+            <Field label="Rua" maxLength={120} autoComplete="address-line1" value={visitor.street} onChange={(event) => setGuest({ street: event.target.value })} />
+            <Field label="Número" maxLength={20} placeholder="S/N" value={visitor.number} onChange={(event) => setGuest({ number: event.target.value })} />
+            <label className="flex flex-col gap-1.5 text-sm font-semibold">
+              Bairro ou comunidade
+              <select value={visitor.neighborhoodId ?? ""} onChange={(event) => setGuest({ neighborhoodId: event.target.value || null })} className={inputClass}>
+                <option value="" disabled>Escolha</option>
+                {hoodOptions.map((hood) => {
+                  const fee = feeOf(hood.id);
+                  return <option key={hood.id} value={hood.id}>{hood.name}{hood.isRural ? " (zona rural)" : ""}{fee !== null ? ` · entrega ${fee === 0 ? "grátis" : formatCents(fee)}` : ""}</option>;
+                })}
+              </select>
+              {servedIds && <span className="text-xs font-normal text-coffee-soft">Só aparecem os bairros onde esta loja entrega.</span>}
+            </label>
+            <Field label="Ponto de referência" maxLength={200} hint="Obrigatório na zona rural. Ex.: casa azul depois da ponte." value={visitor.reference} onChange={(event) => setGuest({ reference: event.target.value })} />
+            <Field label="Complemento" maxLength={100} value={visitor.complement} onChange={(event) => setGuest({ complement: event.target.value })} />
+          </div>
+        </Step>
+      )}
+
+      {delivery && !guest && (
         <Step title="Onde entregar?">
           <div className="flex flex-col gap-2">
+            {addresses.length > 0 && (
+              <p className="text-sm text-coffee-soft" data-testid="address-confirm">
+                Confira se o endereço continua certo: a taxa e o tempo de entrega dependem do bairro.
+              </p>
+            )}
             {addresses.map((address) => (
               <label key={address.id} className={choiceClass(choices.addressId === address.id)}>
                 <input type="radio" name="address" checked={choices.addressId === address.id} onChange={() => set({ addressId: address.id })} className="size-5 shrink-0 accent-brand-dark" />
                 <span>
                   <strong>{address.street}, {address.number}</strong> · {address.neighborhood}
                   {address.reference && <span className="block text-sm text-coffee-soft">Referência: {address.reference}</span>}
+                  {servedIds && !servedIds.has(address.neighborhoodId) && (
+                    <span className="block text-sm font-bold text-danger" data-testid="address-not-served">Esta loja não entrega em {address.neighborhood}.</span>
+                  )}
                 </span>
               </label>
             ))}
@@ -173,10 +228,16 @@ export function CheckoutForm({ addresses: initialAddresses, neighborhoods, cardE
                   Bairro ou comunidade
                   <select name="neighborhoodId" required defaultValue="" className={inputClass}>
                     <option value="" disabled>Escolha</option>
-                    {neighborhoods.map((hood) => (
-                      <option key={hood.id} value={hood.id}>{hood.name}{hood.isRural ? " (zona rural)" : ""}</option>
-                    ))}
+                    {hoodOptions.map((hood) => {
+                      const fee = feeOf(hood.id);
+                      return (
+                        <option key={hood.id} value={hood.id}>
+                          {hood.name}{hood.isRural ? " (zona rural)" : ""}{fee !== null ? ` · entrega ${fee === 0 ? "grátis" : formatCents(fee)}` : ""}
+                        </option>
+                      );
+                    })}
                   </select>
+                  {servedIds && <span className="text-xs font-normal text-coffee-soft">Só aparecem os bairros onde esta loja entrega.</span>}
                 </label>
                 <Field label="Ponto de referência" name="reference" maxLength={200} hint="Obrigatório na zona rural. Ex.: casa azul depois da ponte." />
                 <Field label="Complemento" name="complement" maxLength={100} />

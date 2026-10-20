@@ -9,8 +9,10 @@ import { hashPassword } from "../../src/lib/auth/password.ts";
 import { itemUnitPriceCents, type ChosenGroup, type PriceMode } from "../../src/lib/catalog/pricing.ts";
 import { completeCnpj, completeCpf } from "../../src/lib/documents.ts";
 import { computeTotals, courierFee, refundLedgerLines, refundShares, saleLedgerLines } from "../../src/lib/orders/totals.ts";
-import { BANNERS, bannerImageUrl, CATEGORY_COLORS, generateImages, productImageUrl, storeCoverUrl, storeLogoUrl } from "./images.ts";
+import { BANNERS, bannerImageUrl, generateImages, productImageUrl, storeCoverUrl, storeLogoUrl } from "./images.ts";
 import { STORES, type ProductDef, type StoreDef } from "./menus.ts";
+import { tagDemoTaxonomy } from "./demo-taxonomy.ts";
+import { syncTaxonomy } from "./taxonomy.ts";
 import {
   BAD_COMMENTS, CATEGORIES, COURIERS, CUSTOMERS, GOOD_COMMENTS, NEIGHBOR_CITY, OK_COMMENTS,
   OWNER_NAMES, REJECT_REASONS, REPLIES, RURAL, URBAN, type CustomerDef,
@@ -138,13 +140,9 @@ async function insertPlatform(sql: Sql) {
   return legalIds;
 }
 
+/** Segmentos e subcategorias (os mesmos de produção, ver taxonomy.ts). */
 async function insertCategories(sql: Sql) {
-  const categoryIds = new Map<string, string>();
-  await insert(sql, "categories", CATEGORIES.map((category, index) => ({
-    id: remember(categoryIds, category.slug), name: category.name, slug: category.slug, icon: category.icon,
-    color: CATEGORY_COLORS[category.slug] ?? "#5C4632", sort_order: index, active: category.active ?? true,
-  })));
-  return categoryIds;
+  return syncTaxonomy(sql);
 }
 
 async function insertPlans(sql: Sql) {
@@ -398,6 +396,8 @@ export async function seed(sql: Sql) {
         requires_age_check: product.ageCheck ?? false,
         weight_step_grams: product.weight?.step ?? null, price_per_kg_cents: product.weight?.perKg ?? null,
         weight_min_grams: product.weight?.min ?? null,
+        // Os produtos chegam junto com a loja: não contam como "novidades".
+        created_at: plus(START, -110 * DAY),
       });
 
       if (product.availability) {
@@ -446,6 +446,7 @@ export async function seed(sql: Sql) {
   for (const table of Object.keys(rows) as (keyof typeof rows)[]) {
     await insert(sql, table, rows[table]);
   }
+  await tagDemoTaxonomy(sql);
 
   // A Peixaria fecha por um feriado local na semana que vem (para testar fechamentos especiais).
   await insert(sql, "store_closures", [{

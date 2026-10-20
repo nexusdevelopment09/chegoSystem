@@ -20,7 +20,7 @@ export default function StoreReviewsPage() {
 }
 
 async function Reviews() {
-  const { store } = await getMerchantContext(["owner", "attendant"]);
+  const { store } = await getMerchantContext("pedidos.ver");
   const [[summary], reviews] = await Promise.all([
     sql<{ rating_avg: string | null; rating_count: number }[]>`select rating_avg, rating_count from stores where id = ${store.id}`,
     // O primeiro nome do cliente pode aparecer; o telefone e o resto ficam privados.

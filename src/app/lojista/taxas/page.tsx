@@ -25,7 +25,7 @@ export default function FeesPage() {
 }
 
 async function Fees() {
-  const { store, at } = await getMerchantContext(["owner"]);
+  const { store, at } = await getMerchantContext("financeiro.ver");
   const [summary, open, closings, settings, couriers] = await Promise.all([
     feeSummary(store.id, at),
     closingEntries({ storeId: store.id, open: true }),

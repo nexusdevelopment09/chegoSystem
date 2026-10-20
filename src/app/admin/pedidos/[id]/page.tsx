@@ -80,7 +80,9 @@ async function OrderDetail({ params }: { params: Params }) {
       <section className={card}>
         <h2 className="text-xl">Cliente e entrega</h2>
         <p>
-          <Link href={`/admin/clientes/${order.customerId}`} className="font-semibold text-brand-dark underline">{order.customerName}</Link>
+          {order.customerId
+            ? <Link href={`/admin/clientes/${order.customerId}`} className="font-semibold text-brand-dark underline">{order.customerName}</Link>
+            : <span className="font-semibold">{order.customerName} <span className="font-normal text-coffee-soft">(sem conta)</span></span>}
           {order.customerPhone && ` · ${formatPhone(order.customerPhone)}`}
         </p>
         {order.address ? (

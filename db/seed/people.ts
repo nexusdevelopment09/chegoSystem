@@ -19,21 +19,7 @@ export const NEIGHBOR_CITY = [
   { name: "Bairro Novo", fee: 400, min: 30, max: 45 },
 ];
 
-export const CATEGORIES = [
-  { name: "Restaurantes", slug: "restaurantes", icon: "utensils" },
-  { name: "Lanches", slug: "lanches", icon: "burger" },
-  { name: "Café da manhã", slug: "cafe-da-manha", icon: "coffee" },
-  { name: "Açaí e sobremesas", slug: "acai-e-sobremesas", icon: "ice-cream" },
-  { name: "Bebidas", slug: "bebidas", icon: "bottle" },
-  { name: "Mercado", slug: "mercado", icon: "basket" },
-  { name: "Farmácia", slug: "farmacia", icon: "pill" },
-  { name: "Saudável", slug: "saudavel", icon: "leaf" },
-  // Preparado para o futuro: ainda sem telas.
-  { name: "Moda e calçados", slug: "moda-e-calcados", icon: "shirt", active: false },
-  { name: "Papelaria", slug: "papelaria", icon: "pencil", active: false },
-  { name: "Serviços", slug: "servicos", icon: "calendar", active: false },
-  { name: "Classificados", slug: "classificados", icon: "tag", active: false },
-];
+export { CATEGORIES } from "./taxonomy.ts";
 
 /** Um dono por loja, na mesma ordem de STORES. */
 export const OWNER_NAMES = [

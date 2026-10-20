@@ -31,7 +31,7 @@ export async function loginAs(formData: FormData) {
     select id, role from profiles where id = ${profileId} and deleted_at is null`;
   if (!profile) throw new Error("Test user not found.");
 
-  await createSession(profile.id);
+  await createSession(profile.id, "dev");
   redirect(homeFor(profile.role));
 }
 

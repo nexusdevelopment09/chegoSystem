@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type postgres from "postgres";
 import { z } from "zod";
 import { audit } from "@/lib/audit";
-import { requireStoreMember } from "@/lib/auth/session";
+import { hasPermission, requirePermission } from "@/lib/auth/session";
 import { withUser } from "@/lib/db";
 import { parseMoney } from "@/lib/format";
 import { adjustPrice, parseMenuCsv } from "@/lib/merchant/csv";
@@ -18,7 +19,9 @@ export type ActionState = { error?: string; ok?: boolean; message?: string };
 
 const uuid = z.uuid();
 const done = () => revalidatePath("/lojista/cardapio", "layout");
-const staff = () => requireStoreMember(["owner", "attendant"]);
+const staff = () => requirePermission("produtos.editar");
+/** Mudar preço é uma permissão à parte. */
+const pricing = () => requirePermission("produtos.precos");
 
 // ------------------------------------------------------------------- seções
 
@@ -96,9 +99,10 @@ export async function duplicateProduct(formData: FormData): Promise<void> {
   const copyId = await withUser(profile.id, async (tx) => {
     const [copy] = await tx<{ id: string }[]>`
       insert into products (store_id, section_id, name, description, price_cents, image_url, available, sort_order,
-                            min_lead_minutes, max_per_order, track_stock, stock_qty, requires_age_check, weight_step_grams, price_per_kg_cents, weight_min_grams)
+                            min_lead_minutes, max_per_order, track_stock, stock_qty, requires_age_check, weight_step_grams, price_per_kg_cents, weight_min_grams, subcategory_id, compare_at_price_cents)
       select store_id, section_id, name || ' (cópia)', description, price_cents, image_url, false, sort_order + 1,
-             min_lead_minutes, max_per_order, track_stock, stock_qty, requires_age_check, weight_step_grams, price_per_kg_cents, weight_min_grams
+             min_lead_minutes, max_per_order, track_stock, stock_qty, requires_age_check, weight_step_grams, price_per_kg_cents, weight_min_grams,
+             subcategory_id, compare_at_price_cents
       from products where id = ${id} and deleted_at is null
       returning id`;
     if (!copy) return null;
@@ -161,6 +165,13 @@ export async function saveProduct(_previous: ActionState, formData: FormData): P
   const maxPerOrder = data.maxPerOrder === "" ? null : byWeight ? Math.max(1, toPortions(data.maxPerOrder)) : data.maxPerOrder;
   const weekdays = formData.getAll("weekdays").map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6);
 
+  // Preço "de" (oferta): só vitrine, o preço cobrado continua sendo price_cents.
+  const compareText = String(formData.get("compareAt") ?? "").trim();
+  const compareAt = byWeight || compareText === "" ? null : parseMoney(compareText);
+  if (compareAt === null && compareText !== "" && !byWeight) return { error: "Preço de antes inválido. Use o formato 12,50." };
+  if (compareAt !== null && compareAt <= priceCents) return { error: "O preço de antes precisa ser maior que o preço atual." };
+  const subcategoryId = uuid.safeParse(formData.get("subcategoryId"));
+
   let imageUrl: string | null | undefined;
   try {
     const file = pickedFile(formData.get("image"));
@@ -178,11 +189,32 @@ export async function saveProduct(_previous: ActionState, formData: FormData): P
     track_stock: trackStock, stock_qty: stockQty,
     weight_step_grams: step, price_per_kg_cents: byWeight ? typedPrice : null, weight_min_grams: minGrams,
     requires_age_check: formData.get("requiresAgeCheck") === "on",
+    compare_at_price_cents: compareAt,
   };
 
+  // Quem não pode alterar preços edita o resto do produto, mas não o preço (nem o "de").
+  if (id.success && !hasPermission(membership, "produtos.precos")) {
+    const [current] = await withUser(profile.id, (tx) => tx<{ price_cents: number; price_per_kg_cents: number | null; compare_at_price_cents: number | null }[]>`
+      select price_cents, price_per_kg_cents, compare_at_price_cents from products where id = ${id.data}`);
+    if (current && (current.price_cents !== priceCents || current.price_per_kg_cents !== fields.price_per_kg_cents || current.compare_at_price_cents !== compareAt)) {
+      return { error: "Você não tem permissão para alterar preços. Peça ao dono da loja." };
+    }
+  }
+
+  type Before = { name: string; price_cents: number; compare_at_price_cents: number | null; available: boolean };
+  let before: Before | undefined;
   const productId = await withUser(profile.id, async (tx) => {
+    // Subcategoria só do segmento da própria loja.
+    const [sub] = subcategoryId.success
+      ? await tx<{ id: string }[]>`
+          select sc.id from subcategories sc join stores s on s.category_id = sc.category_id
+          where sc.id = ${subcategoryId.data} and s.id = ${membership.storeId}`
+      : [];
+    Object.assign(fields, { subcategory_id: sub?.id ?? null });
     let savedId: string;
     if (id.success) {
+      [before] = await tx<Before[]>`
+        select name, price_cents, compare_at_price_cents, available from products where id = ${id.data} and deleted_at is null for update`;
       const updated = await tx<{ id: string }[]>`
         update products set ${tx(fields)} ${imageUrl !== undefined ? tx`, image_url = ${imageUrl}` : tx``}
         where id = ${id.data} and deleted_at is null returning id`;
@@ -208,6 +240,14 @@ export async function saveProduct(_previous: ActionState, formData: FormData): P
   });
 
   if (!productId) return { error: "Produto não encontrado." };
+  // Auditoria: criação, edição e, à parte, mudança de preço (antes e depois).
+  const after = { name: fields.name, price_cents: priceCents, compare_at_price_cents: compareAt, available: fields.available };
+  const priceChanged = before && (before.price_cents !== priceCents || before.compare_at_price_cents !== compareAt);
+  await audit({
+    actorId: profile.id, action: !before ? "produtos.criado" : priceChanged ? "produtos.preco_alterado" : "produtos.editado",
+    entityType: "product", entityId: productId, storeId: membership.storeId, actorRole: membership.role, module: "cardapio",
+    details: before ? { antes: before, depois: after } : { depois: after },
+  });
   done();
   if (!id.success) redirect(`/lojista/cardapio/produto/${productId}`);
   return { ok: true, message: "Produto salvo." };
@@ -315,7 +355,7 @@ export async function unlinkGroup(formData: FormData): Promise<void> {
 
 /** Preços das opções em um produto (ex.: cada sabor na pizza grande). */
 export async function saveOptionPrices(_previous: ActionState, formData: FormData): Promise<ActionState> {
-  const { profile } = await staff();
+  const { profile } = await pricing();
   const productId = uuid.safeParse(formData.get("productId"));
   if (!productId.success) return { error: "Produto inválido." };
 
@@ -392,8 +432,9 @@ export async function importMenuCsv(_previous: ActionState, formData: FormData):
             stock_qty: product.stock === null ? null : Math.floor(product.stock / weighted.weight_step_grams),
           }
         : fields;
+      // Se o preço novo alcançar o preço "de", a oferta acaba (o banco exige de > por).
       const changed = await tx`
-        update products set ${tx(update)}
+        update products set ${tx(update)}, ${keepOffer(tx, update.price_cents)}
         where store_id = ${membership.storeId} and deleted_at is null and lower(name) = lower(${product.name})
         returning id`;
       if (changed.length > 0) updated += changed.length;
@@ -410,9 +451,13 @@ export async function importMenuCsv(_previous: ActionState, formData: FormData):
   return { ok: true, message: `Planilha importada: ${result.created} produtos novos e ${result.updated} atualizados.` };
 }
 
+/** Mantém o preço "de" só enquanto ele continuar maior que o preço novo. */
+const keepOffer = (tx: postgres.TransactionSql, priceCents: number) =>
+  tx`compare_at_price_cents = case when compare_at_price_cents > ${priceCents} then compare_at_price_cents end`;
+
 /** Sobe ou baixa todos os preços de uma seção (ou do cardápio inteiro) por um percentual. */
 export async function adjustPrices(_previous: ActionState, formData: FormData): Promise<ActionState> {
-  const { profile, membership } = await staff();
+  const { profile, membership } = await pricing();
   const percent = z.coerce.number().min(-90).max(500).safeParse(String(formData.get("percent") ?? "").replace(",", "."));
   if (!percent.success || percent.data === 0) return { error: "Diga o percentual, por exemplo 5 ou -10." };
   const sectionId = uuid.safeParse(formData.get("sectionId"));
@@ -428,7 +473,8 @@ export async function adjustPrices(_previous: ActionState, formData: FormData): 
         const perKg = adjustPrice(product.price_per_kg_cents, percent.data);
         await tx`update products set price_per_kg_cents = ${perKg}, price_cents = ${portionPriceCents(perKg, product.weight_step_grams)} where id = ${product.id}`;
       } else {
-        await tx`update products set price_cents = ${adjustPrice(product.price_cents, percent.data)} where id = ${product.id}`;
+        const price = adjustPrice(product.price_cents, percent.data);
+        await tx`update products set price_cents = ${price}, ${keepOffer(tx, price)} where id = ${product.id}`;
       }
     }
     // Os preços definidos por produto (sabores de pizza por tamanho) seguem o mesmo reajuste.

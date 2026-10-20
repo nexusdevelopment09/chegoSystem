@@ -8,6 +8,8 @@ import {
   type Actor, type Fulfillment, type OrderStatus,
 } from "./status";
 import { saleLedgerLines } from "./totals";
+import { consumeIngredients, returnOrderSales } from "@/lib/inventory/stock";
+import { audit } from "@/lib/audit";
 
 type Tx = postgres.TransactionSql;
 
@@ -27,7 +29,7 @@ export type TransitionInput = {
 };
 
 type OrderRow = {
-  id: string; code: string; status: OrderStatus; fulfillment: Fulfillment; customer_id: string; store_id: string;
+  id: string; code: string; status: OrderStatus; fulfillment: Fulfillment; customer_id: string | null; store_id: string;
   store_amount_cents: number; platform_amount_cents: number; total_cents: number; refunded_cents: number;
   coupon_id: string | null; paid_at: Date | null;
   city_id: string; delivery_provider: "store" | "platform"; courier_id: string | null; courier_fee_cents: number;
@@ -68,6 +70,14 @@ export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<O
   await tx`
     insert into order_status_history (order_id, status, changed_by, reason, created_at)
     values (${order.id}, ${to}::order_status, ${input.actorId}, ${input.reason ?? null}, ${at})`;
+
+  // Auditoria na mesma transação: quem (ou qual processo) mudou, de onde para onde.
+  await audit({
+    actorId: input.actorId, action: input.force ? "pedidos.status_forcado" : "pedidos.status", entityType: "order",
+    entityId: order.id, storeId: order.store_id, actorRole: input.actor, module: "pedidos",
+    reason: input.reason ?? null, process: input.actorId ? null : "sistema",
+    details: { code: order.code, from: order.status, to },
+  }, tx);
 
   // Pago pelo app: o dinheiro passou pelo gateway e é dividido nos lançamentos.
   // Direto à loja, o app não recebe nada: não há lançamento de venda.
@@ -134,7 +144,12 @@ export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<O
     });
   }
 
-  if (RELEASES_STOCK.includes(to)) await releaseReservations(tx, order);
+  if (RELEASES_STOCK.includes(to)) {
+    await releaseReservations(tx, order);
+    await returnOrderSales(tx, order.id);
+  }
+  // Aceito: a loja vai produzir, os insumos da ficha técnica saem do estoque.
+  if (to === "accepted") await consumeIngredients(tx, order.id);
 
   const message = CUSTOMER_MESSAGES[to];
   if (message) {

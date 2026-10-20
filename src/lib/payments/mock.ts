@@ -1,12 +1,16 @@
 import "server-only";
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { isLocalEnv } from "@/lib/env";
 import type { CreatedPayment, CreatePaymentInput, PaymentProvider, WebhookEvent } from "./types";
 
 // Um gateway de mentira para o ambiente de testes. Sem dinheiro de verdade, sem rede.
 // Ele assina os webhooks exatamente como um gateway de verdade, então o código
 // do webhook (checagem da assinatura, idempotência) é o mesmo que vai rodar em produção.
 
-const secret = () => process.env.PAYMENT_WEBHOOK_SECRET ?? "segredo-local-de-teste";
+// Sem PAYMENT_WEBHOOK_SECRET fora do ambiente de testes, um segredo aleatório por processo:
+// nenhum webhook passa (falha fechada), em vez de aceitar um segredo conhecido.
+const UNGUESSABLE = randomBytes(32).toString("hex");
+const secret = () => process.env.PAYMENT_WEBHOOK_SECRET || (isLocalEnv ? "segredo-local-de-teste" : UNGUESSABLE);
 
 export const signMockBody = (rawBody: string) => createHmac("sha256", secret()).update(rawBody).digest("hex");
 

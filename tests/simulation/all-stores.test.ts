@@ -111,13 +111,16 @@ async function simulateAt(store: Store, index: number, customers: Customer[], ne
   const served = new Set((await sql<{ neighborhood_id: string }[]>`select neighborhood_id from store_delivery_areas where store_id = ${store.id}`).map((row) => row.neighborhood_id));
   const reachable = customers.filter((customer) => served.has(customer.neighborhoodId));
   // De cinco em cinco lojas, um pedido para retirar no balcão, para exercitar os dois caminhos.
-  const pickup = store.offers_pickup && (!store.offers_delivery || reachable.length === 0 || index % 5 === 4);
+  // Turno "só retirada" (ex.: a Peixaria no domingo) também obriga a retirar no balcão.
+  const pickupOnlyNow = storeAvailability({ status: store.status, manualState: "auto", pausedUntil: null, shifts: store.shifts, closures: [] }, startedAt).pickupOnly === true;
+  const pickup = store.offers_pickup && (pickupOnlyNow || !store.offers_delivery || reachable.length === 0 || index % 5 === 4);
   if (!pickup && reachable.length === 0) return label("ERRO: nenhum cliente de teste mora onde a loja entrega, e ela não aceita retirada");
   const customer = (pickup ? customers : reachable)[index % (pickup ? customers : reachable).length];
 
   // Até dois produtos que podem ser pedidos naquele momento, variando conforme a loja.
   const ids = (await sql<{ id: string }[]>`select id from products where store_id = ${store.id} and deleted_at is null order by name`).map((row) => row.id);
-  const orderable = [...(await loadProducts(ids)).values()].filter((product) => {
+  const details = await loadProducts(ids);
+  const orderable = ids.flatMap((id) => details.get(id) ?? []).filter((product) => {
     const status = productStatus(product.rules, startedAt);
     return status.orderable && !status.mustSchedule && requiredPicks(product) !== null;
   });
@@ -126,7 +129,9 @@ async function simulateAt(store: Store, index: number, customers: Customer[], ne
 
   const cart: CartInput = {
     storeId: store.id,
-    items: chosen.map((product, position) => ({ key: `item-${position}`, productId: product.id, quantity: 1, notes: position === 0 ? "Pedido de simulação" : "", picks: requiredPicks(product)! })),
+    items: chosen.map((product, position) => ({ key: `item-${position}`, productId: product.id,
+      // Por peso, a quantidade é em passos de precisão: começa no mínimo de gramas do produto.
+      quantity: product.weightStepGrams ? Math.ceil((product.weightMinGrams ?? product.weightStepGrams) / product.weightStepGrams) : 1, notes: position === 0 ? "Pedido de simulação" : "", picks: requiredPicks(product)! })),
     fulfillment: pickup ? "pickup" : "delivery", addressId: pickup ? null : customer.addressId,
     ageConfirmed: true, missingItemPolicy: "remove", notes: "", paymentMethod: "pix",
   };

@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/admin/moderacao", label: "Moderação" },
   { href: "/admin/taxas", label: "Taxas" },
   { href: "/admin/financeiro", label: "Financeiro" },
+  { href: "/admin/simulador", label: "Simulador" },
   { href: "/admin/marketing", label: "Marketing" },
   { href: "/admin/cadastros", label: "Cadastros" },
   { href: "/admin/configuracoes", label: "Configurações" },

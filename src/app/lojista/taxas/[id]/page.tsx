@@ -34,7 +34,7 @@ export default function ClosingPage({ params }: { params: Params }) {
 async function ClosingDetail({ params }: { params: Params }) {
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
-  const { store, at } = await getMerchantContext(["owner"]);
+  const { store, at } = await getMerchantContext("financeiro.ver");
   const closing = await loadClosing(id);
   // Uma loja nunca vê o fechamento de outra.
   if (!closing || closing.store_id !== store.id) notFound();

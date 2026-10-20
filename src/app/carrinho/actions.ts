@@ -9,7 +9,8 @@ import { sql, withUser } from "@/lib/db";
 import { handlePaymentWebhook } from "@/lib/payments/webhook";
 import { buildMockWebhook, mockCardOutcome } from "@/lib/payments/mock";
 import { paymentCollection } from "@/lib/payments/collection";
-import { rateLimit, TOO_MANY_ATTEMPTS } from "@/lib/rate-limit";
+import { toE164 } from "@/lib/format";
+import { clientIp, rateLimit, TOO_MANY_ATTEMPTS } from "@/lib/rate-limit";
 
 const cardSchema = z.object({
   number: z.string().regex(/^[\d ]{13,23}$/, "Número do cartão inválido."),
@@ -24,11 +25,18 @@ export type SubmitResponse = { ok: true; orderId: string; next: string } | { ok:
 /** Fecha o pedido. Os preços vêm do servidor; o que chega do navegador só diz o que foi escolhido. */
 export async function submitOrder(payload: unknown, cardPayload?: unknown): Promise<SubmitResponse> {
   const profile = await getCurrentProfile();
-  if (!profile) return { ok: false, errors: ["Entre na sua conta para fazer o pedido."] };
-  if (!(await rateLimit(`checkout:${profile.id}`, 10, 600))) return { ok: false, errors: [TOO_MANY_ATTEMPTS] };
-
   const parsed = cartInputSchema.safeParse(payload);
   if (!parsed.success) return { ok: false, errors: ["Seu carrinho está com um problema. Esvazie e monte de novo."] };
+
+  if (profile) {
+    if (!(await rateLimit(`checkout:${profile.id}`, 10, 600))) return { ok: false, errors: [TOO_MANY_ATTEMPTS] };
+  } else {
+    // Sem conta: limite por aparelho (IP) e por telefone, contra pedidos falsos em série.
+    if (!parsed.data.guest) return { ok: false, errors: ["Entre na sua conta ou diga seu nome e telefone para fazer o pedido."] };
+    const phone = toE164(parsed.data.guest.phone) ?? "invalido";
+    const allowed = (await rateLimit(`checkout:guest:ip:${await clientIp()}`, 6, 3600)) && (await rateLimit(`checkout:guest:phone:${phone}`, 4, 3600));
+    if (!allowed) return { ok: false, errors: [TOO_MANY_ATTEMPTS] };
+  }
 
   // O cartão só é digitado no app quando o pagamento é pelo app; direto à loja ele é
   // passado na maquininha na entrega.
@@ -49,6 +57,7 @@ export async function submitOrder(payload: unknown, cardPayload?: unknown): Prom
     await handlePaymentWebhook(rawBody, signature);
   }
   // Direto à loja não há pagamento no app: o cliente já vai acompanhar o pedido.
+  if (result.guestToken) return { ok: true, orderId: result.orderId, next: `/acompanhar/${result.guestToken}` };
   const next = result.providerPaymentId ? `/pedidos/${result.orderId}/pagamento` : `/pedidos/${result.orderId}`;
   return { ok: true, orderId: result.orderId, next };
 }

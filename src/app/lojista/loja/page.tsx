@@ -11,6 +11,9 @@ import { getMerchantContext, getTeam } from "@/lib/merchant/context";
 import { WEEKDAY_NAMES } from "@/lib/time";
 import { addClosure, deleteClosure, inviteMember, removeMember, saveAreas, saveHours, savePayments, saveStore } from "../owner-actions";
 
+/** Logo e capa: os formatos que o cadastro aceita (o servidor confere de novo pelo conteúdo). */
+const STORE_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
 export const metadata: Metadata = { title: "Minha loja" };
 
 const check = "size-5 shrink-0 accent-brand-dark";
@@ -26,7 +29,7 @@ export default function StoreSettingsPage() {
 }
 
 async function StoreSettings() {
-  const { profile, store, at } = await getMerchantContext(["owner"]);
+  const { profile, store, at } = await getMerchantContext("loja.config");
 
   const [[details], hours, closures, hoods, team] = await Promise.all([
     sql<{
@@ -34,10 +37,11 @@ async function StoreSettings() {
       schedule_min_lead_minutes: number; schedule_max_days: number; same_day_cutoff: string | null;
       delivery_window_start: string | null; delivery_window_end: string | null; pizza_pricing: string;
       delivery_provider: "store" | "platform"; accepts_pix: boolean; accepts_card: boolean; accepts_cash: boolean; pix_key: string | null;
+      logo_url: string | null; cover_url: string | null;
     }[]>`
       select s.description, s.min_order_cents, s.offers_delivery, s.offers_pickup, s.accepts_scheduled, s.schedule_min_lead_minutes,
              s.schedule_max_days, s.same_day_cutoff::text, s.delivery_window_start::text, s.delivery_window_end::text, s.pizza_pricing,
-             s.delivery_provider, s.accepts_pix, s.accepts_card, s.accepts_cash, sp.pix_key
+             s.delivery_provider, s.accepts_pix, s.accepts_card, s.accepts_cash, sp.pix_key, s.logo_url, s.cover_url
       from stores s join store_private sp on sp.store_id = s.id where s.id = ${store.id}`,
     sql<{ weekday: number; opens_at: string; closes_at: string; pickup_only: boolean }[]>`
       select weekday, opens_at::text, closes_at::text, pickup_only from store_hours where store_id = ${store.id} order by weekday, opens_at`,
@@ -64,8 +68,10 @@ async function StoreSettings() {
           <textarea name="description" maxLength={300} rows={2} defaultValue={details.description} className={`${inputClass} py-3 font-normal`} />
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
-          <ImageInput name="logo" label="Logo" maxSide={800} hint="Qualquer formato de imagem, de preferência quadrada." />
-          <ImageInput name="cover" label="Capa" hint="Qualquer formato de imagem, de preferência deitada (proporção 3 × 1)." />
+          <ImageInput name="logo" label="Logo" maxSide={800} shape="square" currentUrl={details.logo_url} removable types={STORE_IMAGE_TYPES}
+            hint="JPG, PNG ou WebP, até 15 MB. De preferência quadrada." />
+          <ImageInput name="cover" label="Capa" currentUrl={details.cover_url} removable types={STORE_IMAGE_TYPES}
+            hint="JPG, PNG ou WebP, até 15 MB. De preferência deitada (proporção 3 × 1)." />
           <Field label="Tempo de preparo (min)" name="prepMinutes" type="number" min={0} max={600} required defaultValue={store.prepMinutes} />
           <Field label="Pedido mínimo (R$)" name="minOrder" inputMode="decimal" defaultValue={money(details.min_order_cents)} hint="Não conta a taxa de entrega." />
         </div>

@@ -30,7 +30,7 @@ type ProductRow = {
 };
 
 async function Menu() {
-  const { profile, store } = await getMerchantContext(["owner", "attendant"]);
+  const { profile, store } = await getMerchantContext("produtos.ver");
 
   const { sections, products } = await withUser(profile.id, async (tx) => ({
     sections: await tx<{ id: string; name: string }[]>`

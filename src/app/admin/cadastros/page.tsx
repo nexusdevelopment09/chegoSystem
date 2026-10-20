@@ -6,7 +6,7 @@ import { Field, inputClass } from "@/components/ui/Field";
 import { requireRole } from "@/lib/auth/session";
 import { sql } from "@/lib/db";
 import { formatCents } from "@/lib/format";
-import { saveCategory, saveCity, saveNeighborhood, savePlan, toggleRegistry } from "../actions";
+import { saveCategory, saveCity, saveNeighborhood, savePlan, saveSubcategory, toggleRegistry } from "../actions";
 
 export const metadata: Metadata = { title: "Cadastros" };
 
@@ -35,7 +35,7 @@ export default function RegistryPage() {
 
 async function Registry() {
   await requireRole("admin");
-  const [cities, hoods, categories, plans] = await Promise.all([
+  const [cities, hoods, categories, plans, subcategories] = await Promise.all([
     sql<{ id: string; name: string; state: string; order_code_prefix: string; active: boolean; maintenance_mode: boolean; stores: number }[]>`
       select c.id, c.name, c.state, c.order_code_prefix, c.active, c.maintenance_mode,
              (select count(*)::int from stores s where s.city_id = c.id) as stores
@@ -48,6 +48,11 @@ async function Registry() {
       select p.id, p.name, p.monthly_price_cents, p.active,
              (select count(*)::int from store_subscriptions s where s.plan_id = p.id) as stores
       from subscription_plans p order by p.monthly_price_cents`,
+    sql<{ id: string; category_id: string; name: string; group_name: string | null; active: boolean; stores: number; products: number }[]>`
+      select sc.id, sc.category_id, sc.name, sc.group_name, sc.active,
+             (select count(*)::int from store_subcategories ss where ss.subcategory_id = sc.id) as stores,
+             (select count(*)::int from products p where p.subcategory_id = sc.id and p.deleted_at is null) as products
+      from subcategories sc order by sc.sort_order, sc.name`,
   ]);
 
   return (
@@ -117,6 +122,33 @@ async function Registry() {
                 <SubmitButton variant="secondary" className={small}>Salvar</SubmitButton>
               </ActionForm>
               <Toggle id={category.id} target="category" on={category.active} labelOn="Ativa" labelOff="Inativa" name={category.name} />
+              <details className="w-full" data-testid="admin-subcategories">
+                <summary className="min-h-11 cursor-pointer content-center text-sm font-semibold text-brand-dark">
+                  Subcategorias ({subcategories.filter((sub) => sub.category_id === category.id).length})
+                </summary>
+                <p className="mb-2 text-xs text-coffee-soft">
+                  Viram os filtros da categoria no app. Só aparecem para o cliente as que têm loja ou produto. As lojas são marcadas na página de cada loja;
+                  os produtos, pela própria loja no cardápio.
+                </p>
+                <ul className="mb-2 flex flex-wrap gap-2">
+                  {subcategories.filter((sub) => sub.category_id === category.id).map((sub) => (
+                    <li key={sub.id} className="flex items-center gap-2 rounded-full bg-white py-1 pl-3 pr-1 text-sm ring-1 ring-peach">
+                      <span>
+                        {sub.name}
+                        {sub.group_name && <span className="text-coffee-soft"> · {sub.group_name}</span>}
+                        <span className="text-xs text-coffee-soft"> ({sub.stores} lojas, {sub.products} produtos)</span>
+                      </span>
+                      <Toggle id={sub.id} target="subcategory" on={sub.active} labelOn="Ativa" labelOff="Inativa" name={sub.name} />
+                    </li>
+                  ))}
+                </ul>
+                <ActionForm action={saveSubcategory} resetOnSuccess className="grid gap-2 sm:grid-cols-[2fr_2fr_auto] sm:items-end">
+                  <input type="hidden" name="categoryId" value={category.id} />
+                  <Field label="Nova subcategoria" name="name" required maxLength={60} />
+                  <Field label="Grupo (opcional)" name="group" maxLength={60} placeholder="Ex.: Presentes e ocasiões" />
+                  <SubmitButton variant="secondary" className="min-h-12">Criar</SubmitButton>
+                </ActionForm>
+              </details>
             </li>
           ))}
         </ul>

@@ -133,6 +133,7 @@ public/sw.js           service worker (página offline e push)
 - **Cupons:** `coupons` (`fixed | percent | free_delivery`, pago por `platform | store`), `coupon_redemptions`, `referrals` (indique e ganhe)
 - **Dinheiro:** `payments`, `refunds`, `webhook_events` (idempotência), `ledger_entries` (contas `store | platform | courier`, crédito/débito)
 - **Entregadores:** `couriers` (`platform | partner`, `pending | active | blocked`, disponível), `courier_earnings`
+- **Gestão da loja (0017–0020):** `store_invites`, `store_members.permissions/active`, `stock_items`, `stock_lots`, `stock_movements`, `recipe_lines`, `store_stock_settings`, `stock_alerts`, `purchase_lists`, `purchase_list_items`, `store_tables`, `table_bills`, `table_bill_items`, `table_bill_payments`, `store_printers`, `print_jobs`. Em `orders`: `customer_id` pode ser nulo (pedido sem conta, mesa, balcão), `guest_token_hash` e `channel` (`app | mesa | balcao`). Detalhes em `docs/GESTAO_DA_LOJA.md`
 - **Plataforma:** `banners`, `notifications`, `outbound_messages`, `support_tickets`, `ticket_messages`, `legal_documents` (versionados), `legal_acceptances`, `platform_settings`, `feature_flags`, `audit_logs`, `rate_limits`
 
 **Todas as tabelas têm RLS.** Funções SQL: `current_user_id()`, `is_admin()`, `is_store_member()`, `can_view_order()`.
@@ -195,6 +196,11 @@ Exemplo: pizza R$ 64,00, cupom R$ 10 da plataforma, entrega R$ 3, comissão 12% 
 - **Área de entrega por bairro**, cada um com taxa e tempo. Zona rural exige ponto de referência. Não há geolocalização (o cliente escolhe o bairro numa lista).
 - **Categorias especiais:** bebida alcoólica (confirmação 18+), farmácia (só sem receita), quentinha (pedido até 11h), mercado (política para item em falta: ligar, substituir ou remover e reembolsar).
 - **Ordem justa das lojas:** abertas primeiro → entregam no bairro (mais barata primeiro) → avaliação. Destaque pago aparece numa seção separada e identificada, sem alterar a ordem.
+- **Relatórios:** indicadores, gráficos e listagens saem da mesma lista de pedidos (`report-data.ts` + `report-rules.ts`); cada número abre a lista que o forma. "A receber" = em andamento pago em dinheiro/cartão na entrega + repasses do app ainda não caídos (Pix direto à loja não conta).
+- **Impressão térmica Bluetooth:** Web Serial do Chrome Android, fila `print_jobs`, cupom ESC/POS no servidor (`src/lib/printing/`, `docs/IMPRESSAO_TERMICA.md`).
+- **Segurança:** relatório em `docs/AUDITORIA_SEGURANCA.md`. **Simulador de receita** do admin isolado dos registros reais.
+- **Filtros × ordenação:** filtros (abertas, entrega grátis, retirada, com ofertas) tiram lojas; a ordenação (recomendados, tempo, taxa, nota, promoções) só reordena, e quem não tem o dado vai para o fim (`src/lib/stores/filters.ts`).
+- **Subcategorias** por segmento (`db/seed/taxonomy.ts`, sincronizadas a cada migrate), segmento **Shopping**, **preço "de"** (`compare_at_price_cents`, só vitrine) e **vitrines** com dados reais (`src/lib/catalog/showcase.ts`). Faixa de cupons no início só com cupons válidos para o cliente (`src/lib/coupons/visible.ts`).
 - **Cupons:** fixo, percentual com teto, frete grátis; limites por validade, uso, cliente, primeira compra, loja, categoria, cidade. **Indique e ganhe** (R$ 5 + R$ 5, configurável).
 - **Chat cliente↔loja:** só após pagamento até 2 h depois da conclusão, com moderação automática.
 - **Avaliações:** até 7 dias após a entrega, nota 1–5; nota da loja = média dos últimos 180 dias ("Nova" com menos de 5).
@@ -204,6 +210,18 @@ Exemplo: pizza R$ 64,00, cupom R$ 10 da plataforma, entrega R$ 3, comissão 12% 
 - **Tarefas agendadas** (a cada minuto, via `POST /api/tarefas` protegido por `x-cron-secret` fora do ambiente local): expirar Pix, aviso de Pix expirando, alerta/recusa por falta de aceite, lembrete de avaliação, cupom de indicação, faturas, fim de banners/destaques, recálculo de notas.
 
 ---
+
+### Gestão da loja
+
+- **Permissões por funcionário**: `src/lib/merchant/permissions.ts`. Use `requirePermission(perm)` ou `getMerchantContext(perm)`.
+- **Estoque**: `src/lib/inventory/stock.ts` (`recordMovement`, `recordOrderSales`, `returnOrderSales`, `consumeIngredients`), ligado em `place-order.ts` e `transitions.ts`.
+- **Mesas**: `src/lib/tables/bills.ts`.
+- **Auditoria**:
+  - `audit()` em `src/lib/audit.ts`, de preferência na mesma transação;
+  - `transitionOrder` já audita toda mudança de status;
+  - `createSession`/`destroySession` auditam entrada e saída.
+- **Compra sem conta**: `placeOrder(input, null, at)` com `input.guest`; acompanhamento em `src/lib/orders/guest.ts`.
+- `notify()` ignora destinatários nulos (cliente de pedido sem conta).
 
 ## 9. Convenções obrigatórias
 

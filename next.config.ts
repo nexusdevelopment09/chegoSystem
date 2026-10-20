@@ -40,6 +40,11 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), payment=(), geolocation=(self)" },
+          // Restrições que não dependem dos scripts do Next: ninguém embute o app, nenhum
+          // plugin, <base> e formulários só para o próprio site.
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" },
+          // Fora do ambiente de testes o site só existe em HTTPS (o Caddy cuida do certificado).
+          ...(process.env.APP_ENV === "local" ? [] : [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]),
         ],
       },
       {

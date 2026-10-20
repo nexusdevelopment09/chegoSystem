@@ -1,5 +1,6 @@
 import "server-only";
 import { headers } from "next/headers";
+import { ipFromHeaders } from "@/lib/client-ip";
 import { sql } from "@/lib/db";
 
 /**
@@ -20,10 +21,15 @@ export async function rateLimit(key: string, limit: number, windowSeconds: numbe
   return row.count <= limit;
 }
 
-/** Melhor palpite do endereço do visitante, para os limites por IP. */
+/**
+ * Melhor palpite do endereço do visitante, para os limites por IP. Usa o último endereço
+ * de X-Forwarded-For, o que o nosso proxy (Caddy ou nginx) acrescentou: o primeiro vem do
+ * próprio visitante e pode ser inventado para fugir do limite.
+ */
 export async function clientIp(): Promise<string> {
-  const forwarded = (await headers()).get("x-forwarded-for");
-  return forwarded?.split(",")[0]?.trim() || "local";
+  const list = await headers();
+  return ipFromHeaders(list.get("x-forwarded-for"), list.get("x-real-ip"));
 }
+
 
 export const TOO_MANY_ATTEMPTS = "Eita, muitas tentativas. Espera uns minutinhos e tenta de novo.";

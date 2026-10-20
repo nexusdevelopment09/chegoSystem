@@ -20,6 +20,9 @@ export const PRODUCT_VARIANTS: Variant[] = [
   { suffix: "-800", width: 800, height: 800 },
   { suffix: "-400", width: 400, height: 400 },
 ];
+/** Logo e capa da loja: os formatos que o cadastro aceita (conferidos pelo conteúdo). */
+export const STORE_IMAGE_FORMATS = ["jpeg", "png", "webp"];
+
 export const LOGO_VARIANTS: Variant[] = [
   { suffix: "-logo", width: 400, height: 400 },
   // 192px: cobre o logo de 64px mesmo nos celulares com tela de densidade 3.
@@ -41,7 +44,11 @@ export const BANNER_VARIANTS: Variant[] = [
  * apaga todos os metadados, como a posição do GPS que o celular salva.
  * Devolve o endereço público da primeira variante.
  */
-export async function saveImage(file: File, bucket: "products" | "stores" | "banners", folder: string, variants: Variant[]): Promise<string> {
+export async function saveImage(
+  file: File, bucket: "products" | "stores" | "banners", folder: string, variants: Variant[],
+  /** Formatos aceitos, pelo conteúdo do arquivo (ex.: ["jpeg", "png", "webp"]). Sem a lista, qualquer imagem. */
+  options: { formats?: string[] } = {},
+): Promise<string> {
   if (file.size === 0) throw new UploadError("Escolha uma imagem.");
   if (file.size > MAX_BYTES) throw new UploadError("A imagem é muito grande. O limite é 15 MB.");
 
@@ -50,7 +57,9 @@ export async function saveImage(file: File, bucket: "products" | "stores" | "ban
   try {
     const metadata = await open().metadata();
     if (!metadata.format || !metadata.width || !metadata.height) throw new Error("not an image");
-  } catch {
+    if (options.formats && !options.formats.includes(metadata.format)) throw new UploadError("Formato não aceito. Envie uma imagem JPG, PNG ou WebP.");
+  } catch (error) {
+    if (error instanceof UploadError) throw error;
     throw new UploadError("Não deu para abrir esse arquivo como imagem. Envie uma foto (JPG, PNG, WebP, GIF, AVIF...).");
   }
 

@@ -6,7 +6,7 @@ import { getMerchantContext } from "@/lib/merchant/context";
 // /lojista/divulgacao/cartaz  -> cartaz A4 "Peça também pelo Chegô" (PDF)
 export async function GET(request: Request, { params }: { params: Promise<{ file: string }> }) {
   const { file } = await params;
-  const { store } = await getMerchantContext(["owner"]);
+  const { store } = await getMerchantContext("loja.config");
   const url = `${new URL(request.url).origin}/loja/${store.slug}`;
   const png = await QRCode.toBuffer(url, { type: "png", margin: 1, width: 900 });
 

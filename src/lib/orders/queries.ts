@@ -1,6 +1,7 @@
 import "server-only";
 import { describeOptions, type SnapshotOption } from "@/lib/catalog/selection";
-import { withUser } from "@/lib/db";
+import type postgres from "postgres";
+import { sql, withUser } from "@/lib/db";
 import type { Totals } from "./totals";
 import type { Fulfillment, OrderStatus } from "./status";
 
@@ -27,7 +28,8 @@ export type OrderView = {
   storeId: string;
   storeName: string;
   storeSlug: string;
-  customerId: string;
+  /** Nulo nos pedidos sem conta (visitante, mesa e balcão). */
+  customerId: string | null;
   customerName: string;
   customerPhone: string | null;
   address: { street: string; number: string; neighborhood: string; reference: string | null; complement: string | null; city: string } | null;
@@ -59,7 +61,7 @@ export type OrderView = {
 
 type OrderRow = {
   id: string; code: string; status: OrderStatus; fulfillment: Fulfillment; store_id: string; store_name: string;
-  store_slug: string; customer_id: string; customer_name: string; customer_phone: string | null;
+  store_slug: string; customer_id: string | null; customer_name: string; customer_phone: string | null;
   address_snapshot: OrderView["address"]; scheduled_for: Date | null; estimated_at: Date | null;
   subtotal_cents: number; discount_cents: number; delivery_fee_cents: number; service_fee_cents: number;
   commission_cents: number; store_amount_cents: number; platform_amount_cents: number; total_cents: number;
@@ -80,7 +82,21 @@ export async function loadOrders(
   viewerId: string,
   filter: { id?: string; customerId?: string; storeId?: string; statuses?: OrderStatus[]; courierId?: string; since?: Date; limit?: number },
 ): Promise<OrderView[]> {
-  return withUser(viewerId, async (tx) => {
+  return withUser(viewerId, (tx) => readOrders(tx, filter)) as Promise<OrderView[]>;
+}
+
+/**
+ * O pedido de um visitante (sem conta), lido pelo servidor. Chame só com o id que veio
+ * de um token de acompanhamento válido (src/lib/orders/guest.ts).
+ */
+export async function loadGuestOrder(orderId: string): Promise<OrderView | null> {
+  return (await readOrders(sql, { id: orderId, limit: 1 }))[0] ?? null;
+}
+
+type OrderFilter = Parameters<typeof loadOrders>[1];
+
+async function readOrders(tx: postgres.Sql | postgres.TransactionSql, filter: OrderFilter): Promise<OrderView[]> {
+  {
     const orders = await tx<OrderRow[]>`
       select o.id, o.code, o.status, o.fulfillment, o.store_id, s.name as store_name, s.slug as store_slug,
              o.customer_id, o.customer_name, o.customer_phone, o.address_snapshot, o.scheduled_for, o.estimated_at,
@@ -140,7 +156,7 @@ export async function loadOrders(
       })),
       history: history.filter((entry) => entry.order_id === order.id).map((entry) => ({ status: entry.status, reason: entry.reason, at: entry.created_at })),
     }));
-  }) as Promise<OrderView[]>;
+  }
 }
 
 export async function loadOrder(viewerId: string, orderId: string): Promise<OrderView | null> {

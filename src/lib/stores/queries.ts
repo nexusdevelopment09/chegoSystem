@@ -1,6 +1,6 @@
 import "server-only";
 import { productStatus, type ProductStatus } from "@/lib/catalog/availability";
-import { loadProducts } from "@/lib/catalog/queries";
+import { loadProducts, type ProductDetail } from "@/lib/catalog/queries";
 import { startingPriceCents } from "@/lib/catalog/selection";
 import { sql } from "@/lib/db";
 import { storeAvailability, type Shift, type StoreAvailability } from "./hours";
@@ -134,9 +134,22 @@ export type MenuProduct = {
   priceVaries: boolean;
   /** Vendido por peso: preço do quilo, mostrado no lugar do preço da porção. */
   pricePerKgCents: number | null;
+  /** Preço "de" da oferta (maior que o preço atual), ou null. */
+  compareAtCents: number | null;
   featured: boolean;
   status: ProductStatus;
 };
+
+/** O produto como aparece nas listas (cardápio, vitrines). */
+export function menuProduct(detail: ProductDetail, at: Date, featured = false): MenuProduct {
+  const fromCents = startingPriceCents(detail.priceCents, detail.groups);
+  return {
+    id: detail.id, name: detail.name, description: detail.description, imageUrl: detail.imageUrl,
+    fromCents, priceVaries: fromCents !== detail.priceCents, featured,
+    pricePerKgCents: detail.pricePerKgCents, compareAtCents: detail.compareAtCents,
+    status: productStatus(detail.rules, at),
+  };
+}
 
 export type MenuSection = { id: string; name: string; products: MenuProduct[] };
 
@@ -161,13 +174,7 @@ export async function getMenu(storeId: string, at: Date): Promise<MenuSection[]>
       section = { id: sectionId, name: row.section_name ?? "Outros", products: [] };
       sections.push(section);
     }
-    section.products.push({
-      id: detail.id, name: detail.name, description: detail.description, imageUrl: detail.imageUrl,
-      fromCents: startingPriceCents(detail.priceCents, detail.groups),
-      priceVaries: startingPriceCents(detail.priceCents, detail.groups) !== detail.priceCents, featured: row.featured,
-      pricePerKgCents: detail.pricePerKgCents,
-      status: productStatus(detail.rules, at),
-    });
+    section.products.push(menuProduct(detail, at, row.featured));
   }
 
   for (const section of sections) {

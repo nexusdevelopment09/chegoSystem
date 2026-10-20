@@ -13,6 +13,7 @@ import { getMerchantContext } from "@/lib/merchant/context";
 import { WEEKDAY_NAMES } from "@/lib/time";
 import { deleteProduct, duplicateProduct, linkGroup, saveOptionPrices, saveProduct, unlinkGroup } from "../../actions";
 import { formatWeight, WEIGHT_STEPS } from "@/lib/catalog/weight";
+import { RecipeEditor } from "../../../estoque/RecipeEditor";
 
 export const metadata: Metadata = { title: "Produto" };
 
@@ -41,6 +42,7 @@ type ProductRow = {
   available: boolean; featured: boolean; min_lead_minutes: number; max_per_order: number | null; track_stock: boolean;
   stock_qty: number | null; requires_age_check: boolean;
   weight_step_grams: number | null; price_per_kg_cents: number | null; weight_min_grams: number | null;
+  subcategory_id: string | null; compare_at_price_cents: number | null;
 };
 type LinkRow = { group_id: string; name: string; min_choices: number; max_choices: number; allow_repeat: boolean; price_mode: keyof typeof MODE_LABELS; free_quantity: number };
 type OptionRow = { id: string; group_id: string; name: string; default_price_cents: number; price_cents: number | null };
@@ -50,19 +52,23 @@ async function ProductEditor({ params }: { params: Params }) {
   const isNew = id === "novo";
   if (!isNew && !z.uuid().safeParse(id).success) notFound();
 
-  const { profile, store } = await getMerchantContext(["owner", "attendant"]);
+  const { profile, store } = await getMerchantContext("produtos.ver");
   const data = await withUser(profile.id, async (tx) => {
     const sections = await tx<{ id: string; name: string }[]>`select id, name from product_sections where store_id = ${store.id} order by sort_order`;
     const groups = await tx<{ id: string; name: string }[]>`select id, name from option_groups where store_id = ${store.id} order by name`;
-    if (isNew) return { sections, groups, product: null, windows: [], links: [], options: [] };
+    const subcategories = await tx<{ id: string; name: string }[]>`
+      select sc.id, sc.name from subcategories sc join stores s on s.category_id = sc.category_id
+      where s.id = ${store.id} and sc.active order by sc.sort_order, sc.name`;
+    if (isNew) return { sections, groups, subcategories, product: null, windows: [], links: [], options: [] };
 
     const [product] = await tx<ProductRow[]>`
       select id, section_id, name, description, price_cents, image_url, available, featured, min_lead_minutes,
-             max_per_order, track_stock, stock_qty, requires_age_check, weight_step_grams, price_per_kg_cents, weight_min_grams
+             max_per_order, track_stock, stock_qty, requires_age_check, weight_step_grams, price_per_kg_cents, weight_min_grams,
+             subcategory_id, compare_at_price_cents
       from products where id = ${id} and store_id = ${store.id} and deleted_at is null`;
     if (!product) return null;
     return {
-      sections, groups, product,
+      sections, groups, subcategories, product,
       windows: await tx<{ weekday: number; starts_at: string; ends_at: string }[]>`
         select weekday, starts_at::text, ends_at::text from product_availability where product_id = ${id}`,
       links: await tx<LinkRow[]>`
@@ -79,7 +85,7 @@ async function ProductEditor({ params }: { params: Params }) {
   });
   if (!data) notFound();
 
-  const { product, sections, groups, windows, links, options } = data;
+  const { product, sections, groups, subcategories, windows, links, options } = data;
   const days = new Set(windows.map((window) => window.weekday));
   const from = windows[0]?.starts_at.slice(0, 5) ?? "";
   const to = windows[0]?.ends_at.slice(0, 5) ?? "";
@@ -140,6 +146,20 @@ async function ProductEditor({ params }: { params: Params }) {
               <option value="">Sem seção</option>
               {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
             </select>
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Preço de antes (oferta)" name="compareAt" inputMode="decimal"
+            defaultValue={product?.compare_at_price_cents ? money(product.compare_at_price_cents) : ""}
+            hint="Opcional. Maior que o preço atual: o cliente vê “de R$ X por R$ Y”. Não vale para venda por peso." />
+          <label className="flex flex-col gap-1.5 text-sm font-semibold">
+            Subcategoria
+            <select name="subcategoryId" defaultValue={product?.subcategory_id ?? ""} className={inputClass}>
+              <option value="">Nenhuma</option>
+              {subcategories.map((sub) => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
+            </select>
+            <span className="text-xs font-normal text-coffee-soft">Ajuda o cliente a achar o produto nos filtros do app.</span>
           </label>
         </div>
 
@@ -250,6 +270,8 @@ async function ProductEditor({ params }: { params: Params }) {
             </ActionForm>
             <Link href="/lojista/cardapio/grupos" className="text-sm font-semibold text-brand-dark underline">Criar ou editar grupos de opções</Link>
           </section>
+
+          <RecipeEditor storeId={store.id} productId={product.id} />
 
           <section className="flex flex-wrap gap-2">
             <form action={duplicateProduct}>

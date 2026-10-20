@@ -1,5 +1,5 @@
 import "server-only";
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { isLocalEnv } from "@/lib/env";
 
 // Quem gera o Pix que a loja paga ao Chegô pelas taxas. O resto do sistema só conhece
@@ -37,7 +37,9 @@ export interface FeePixProvider {
 
 // ------------------------------------------------- provedor simulado (local)
 
-const secret = () => process.env.FEE_PIX_WEBHOOK_SECRET ?? process.env.PAYMENT_WEBHOOK_SECRET ?? "segredo-local-de-teste";
+// Fora do ambiente de testes não há segredo padrão: sem variável, nenhum webhook passa.
+const UNGUESSABLE = randomBytes(32).toString("hex");
+const secret = () => process.env.FEE_PIX_WEBHOOK_SECRET || process.env.PAYMENT_WEBHOOK_SECRET || (isLocalEnv ? "segredo-local-de-teste" : UNGUESSABLE);
 const sign = (rawBody: string) => createHmac("sha256", secret()).update(rawBody).digest("hex");
 
 /** O aviso que o provedor simulado mandaria ao nosso webhook (só para testes e para a tela local). */

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import type postgres from "postgres";
 import { z } from "zod";
 import { audit } from "@/lib/audit";
-import { requireStoreMember, type StoreRole } from "@/lib/auth/session";
+import { requirePermission, requireStoreMember, type StoreRole } from "@/lib/auth/session";
+import type { Permission } from "@/lib/merchant/permissions";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
 import { availableCourierIds, notify } from "@/lib/notifications/notify";
@@ -29,13 +30,14 @@ const friendly = (error: unknown): ActionState => {
  */
 async function onStoreOrder(
   orderId: unknown,
-  roles: StoreRole[],
+  /** Papéis aceitos (ex.: o entregador da loja) ou a permissão exigida. */
+  access: StoreRole[] | Permission,
   run: (tx: Tx, context: { orderId: string; storeId: string; profileId: string; role: StoreRole; at: Date }) => Promise<void>,
 ): Promise<ActionState> {
   const parsedId = uuid.safeParse(orderId);
   if (!parsedId.success) return { error: "Pedido inválido." };
 
-  const { profile, membership } = await requireStoreMember(roles);
+  const { profile, membership } = Array.isArray(access) ? await requireStoreMember(access) : await requirePermission(access);
   const at = await now();
   try {
     await sql.begin(async (tx) => {
@@ -57,7 +59,7 @@ export async function acceptOrder(_previous: ActionState, formData: FormData): P
   const prepMinutes = z.coerce.number().int().min(1).max(600).safeParse(formData.get("prepMinutes"));
   if (!prepMinutes.success) return { error: "Tempo de preparo inválido." };
 
-  return onStoreOrder(formData.get("orderId"), ["owner", "attendant"], async (tx, context) => {
+  return onStoreOrder(formData.get("orderId"), "pedidos.status", async (tx, context) => {
     await transitionOrder(tx, { orderId: context.orderId, to: "accepted", actor: "staff", actorId: context.profileId, at: context.at });
     // A estimativa mostrada ao cliente acompanha o tempo que a loja prometeu.
     await tx`
@@ -75,7 +77,7 @@ export async function rejectOrder(_previous: ActionState, formData: FormData): P
   const detail = z.string().trim().max(200).parse(formData.get("detail") ?? "");
   if (reason.data === "Outro" && !detail) return { error: "Conte o motivo em poucas palavras." };
 
-  return onStoreOrder(formData.get("orderId"), ["owner", "attendant"], (tx, context) =>
+  return onStoreOrder(formData.get("orderId"), "pedidos.cancelar", (tx, context) =>
     transitionOrder(tx, {
       orderId: context.orderId, to: "rejected", actor: "staff", actorId: context.profileId, at: context.at,
       reason: reason.data === "Outro" ? detail : reason.data,
@@ -90,7 +92,7 @@ export async function advanceOrder(_previous: ActionState, formData: FormData): 
   if (!to.success) return { error: "Mudança inválida." };
   const courierId = uuid.safeParse(formData.get("courierId"));
 
-  return onStoreOrder(formData.get("orderId"), ["owner", "attendant"], async (tx, context) => {
+  return onStoreOrder(formData.get("orderId"), "pedidos.status", async (tx, context) => {
     let courier: string | null = null;
     if (to.data === "out_for_delivery" && courierId.success) {
       const [member] = await tx`
@@ -148,7 +150,7 @@ export async function removeMissingItem(_previous: ActionState, formData: FormDa
   const itemId = uuid.safeParse(formData.get("itemId"));
   if (!itemId.success) return { error: "Item inválido." };
 
-  return onStoreOrder(formData.get("orderId"), ["owner", "attendant"], async (tx, context) => {
+  return onStoreOrder(formData.get("orderId"), "pedidos.status", async (tx, context) => {
     const [order] = await tx<{ status: OrderStatus; customer_id: string; code: string; total_cents: number; refunded_cents: number; payment_collection: "app" | "store" }[]>`
       select status, customer_id, code, total_cents, refunded_cents, payment_collection from orders where id = ${context.orderId}`;
     if (!["accepted", "preparing"].includes(order.status)) {
@@ -196,7 +198,7 @@ export async function removeMissingItem(_previous: ActionState, formData: FormDa
 
 /** "Abrir/fechar agora", pausa por alguns minutos e o tempo extra de movimento alto. */
 export async function updateStoreState(formData: FormData): Promise<void> {
-  const { profile, membership } = await requireStoreMember(["owner", "attendant"]);
+  const { profile, membership } = await requirePermission("pedidos.status");
   const parsed = z
     .discriminatedUnion("kind", [
       z.object({ kind: z.literal("manual"), value: z.enum(["auto", "open", "closed"]) }),
@@ -227,7 +229,7 @@ export async function updateStoreState(formData: FormData): Promise<void> {
 
 /** Ninguém pegou a entrega da rede ainda: avisa de novo os entregadores disponíveis da cidade. */
 export async function recallCouriers(_previous: ActionState, formData: FormData): Promise<ActionState> {
-  return onStoreOrder(formData.get("orderId"), ["owner", "attendant"], async (tx, context) => {
+  return onStoreOrder(formData.get("orderId"), "pedidos.status", async (tx, context) => {
     const [order] = await tx<{ code: string; city_id: string }[]>`
       select code, city_id from orders
       where id = ${context.orderId} and delivery_provider = 'platform' and courier_id is null
@@ -245,7 +247,7 @@ export async function recallCouriers(_previous: ActionState, formData: FormData)
  * nenhum entregador da rede pegou a entrega; a loja não deve nada a ninguém por ela.
  */
 export async function deliverWithOwnCourier(_previous: ActionState, formData: FormData): Promise<ActionState> {
-  return onStoreOrder(formData.get("orderId"), ["owner", "attendant"], async (tx, context) => {
+  return onStoreOrder(formData.get("orderId"), "pedidos.status", async (tx, context) => {
     const changed = await tx`
       update orders set delivery_provider = 'store', courier_fee_cents = 0
       where id = ${context.orderId} and delivery_provider = 'platform' and courier_id is null

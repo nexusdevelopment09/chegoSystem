@@ -1,6 +1,8 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { z } from "zod";
+import { AD_COOKIE } from "@/lib/ads/campaigns";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { placeOrder } from "@/lib/checkout/place-order";
 import { cartInputSchema } from "@/lib/checkout/quote";
@@ -47,7 +49,8 @@ export async function submitOrder(payload: unknown, cardPayload?: unknown): Prom
     card = cardParsed.data;
   }
 
-  const result = await placeOrder(parsed.data, profile, await now(), card);
+  const adCookie = (await cookies()).get(AD_COOKIE)?.value;
+  const result = await placeOrder(parsed.data, profile, await now(), card, adCookie);
   if (!result.ok) return result;
 
   // O gateway de mentira responde o cartão na hora, pelo mesmo webhook que um de verdade usa.

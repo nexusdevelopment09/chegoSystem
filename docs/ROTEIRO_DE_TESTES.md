@@ -247,3 +247,17 @@ Achou algo diferente do esperado? Anote o usuário, a página, o que você fez e
 | [ ] | Entre como lojista pelo menu e depois abra `/admin` | Volta para a página inicial: o perfil decide o acesso, não a opção escolhida |
 | [ ] | Sem conta, finalize um pedido com entrega | O bairro é escolhido no endereço, com a taxa de cada bairro |
 | [ ] | Com conta e endereço salvo, finalize um pedido | O endereço vem marcado, com o aviso para conferir se continua certo |
+
+## Novidades: super admin
+
+| Feito | Passo | Resultado esperado |
+|---|---|---|
+| [ ] | Entre como **Admin Chegô** e abra o **Painel**; troque o período para **Este ano** | Cartões com variação contra o mesmo trecho do ano passado; gráficos de pedidos e vendas |
+| [ ] | Clique em **Pedidos realizados** | Abre Pedidos com o mesmo período e o mesmo total |
+| [ ] | Numa loja, **Suspender conta** com prazo de 3 dias | A loja some da vitrine; aparece em **Contas suspensas** com o prazo |
+| [ ] | **Reativar conta** com motivo | A loja volta; o histórico mostra Suspensa e Reativada |
+| [ ] | **Excluir conta** digitando o nome errado e depois o certo | Primeiro recusa; depois a loja vai para **Empresas excluídas** e os pedidos continuam |
+| [ ] | Em **Anúncios**, crie uma campanha "Primeiras posições" para uma loja aberta | No início, em "Abertas agora", a loja aparece primeiro com o selo **Patrocinado** |
+| [ ] | Em **Avaliações**, corrija uma nota sem marcar a confirmação, depois marcando | Primeiro recusa; depois o histórico mostra a nota antiga e a nova |
+| [ ] | Entre como **Suporte Chegô** (admin comum) | Vê o painel, mas sem botões de suspender, anunciar ou corrigir nota |
+| [ ] | Como dono de uma loja, em **Minha loja**, use **Encerrar a loja** | A loja sai do painel e aparece em **Empresas excluídas → Encerradas pela empresa** |

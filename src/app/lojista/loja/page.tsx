@@ -9,7 +9,8 @@ import { formatDateTime, formatPhone } from "@/lib/format";
 import { STORE_ROLE_LABELS } from "@/lib/labels";
 import { getMerchantContext, getTeam } from "@/lib/merchant/context";
 import { WEEKDAY_NAMES } from "@/lib/time";
-import { addClosure, deleteClosure, inviteMember, removeMember, saveAreas, saveHours, savePayments, saveStore } from "../owner-actions";
+import { Modal } from "@/components/ui/Modal";
+import { addClosure, closeOwnStore, deleteClosure, inviteMember, removeMember, saveAreas, saveHours, savePayments, saveStore } from "../owner-actions";
 
 /** Logo e capa: os formatos que o cadastro aceita (o servidor confere de novo pelo conteúdo). */
 const STORE_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -29,7 +30,7 @@ export default function StoreSettingsPage() {
 }
 
 async function StoreSettings() {
-  const { profile, store, at } = await getMerchantContext("loja.config");
+  const { profile, membership, store, at } = await getMerchantContext("loja.config");
 
   const [[details], hours, closures, hoods, team] = await Promise.all([
     sql<{
@@ -239,6 +240,23 @@ async function StoreSettings() {
         </ActionForm>
         <p className="text-sm text-coffee-soft">A pessoa entra no Chegô com esse telefone e já cai no painel da loja.</p>
       </section>
+
+      {membership.role === "owner" && (
+        <section className={card} data-testid="close-store">
+          <h2 className="text-xl">Encerrar a loja no Chegô</h2>
+          <p className="text-sm text-coffee-soft">
+            A loja sai do ar e você perde o acesso ao painel. Pedidos, taxas pendentes e o histórico continuam guardados.
+            Com pedido em andamento, não dá para encerrar. Para voltar depois, fale com o suporte.
+          </p>
+          <Modal trigger="Encerrar a loja" title="Encerrar a loja" danger>
+            <ActionForm action={closeOwnStore} className="flex flex-col gap-3">
+              <Field label="Por que está saindo?" name="reason" required maxLength={500} />
+              <Field label={`Digite o nome da loja para confirmar: ${store.name}`} name="confirmName" required autoComplete="off" />
+              <SubmitButton className="self-start">Encerrar definitivamente</SubmitButton>
+            </ActionForm>
+          </Modal>
+        </section>
+      )}
     </div>
   );
 }

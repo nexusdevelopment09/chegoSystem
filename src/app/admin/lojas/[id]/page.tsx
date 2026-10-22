@@ -9,7 +9,7 @@ import { Field, inputClass } from "@/components/ui/Field";
 import { Stat } from "@/components/ui/Stats";
 import { APPROVAL_CHECKLIST } from "@/lib/admin/checklist";
 import { audit } from "@/lib/audit";
-import { requireRole } from "@/lib/auth/session";
+import { isSuperAdmin, requireRole } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
 import { formatCents, formatDateTime, formatPhone } from "@/lib/format";
@@ -18,7 +18,8 @@ import { getTeam } from "@/lib/merchant/context";
 import { storeReport } from "@/lib/merchant/reports";
 import { STATUS_LABELS, type OrderStatus } from "@/lib/orders/status";
 import { DAY_MS } from "@/lib/time";
-import { approveStore, saveStoreSubcategories, setStoreStatus, updateStoreTerms } from "../../actions";
+import { approveStore, saveStoreSubcategories, updateStoreTerms } from "../../actions";
+import { AccountPanel } from "./AccountPanel";
 import { ResetPasswordForm } from "../../ResetPasswordForm";
 
 export const metadata: Metadata = { title: "Loja" };
@@ -41,17 +42,18 @@ async function StoreDetail({ params, searchParams }: Props) {
   const [{ id }, { ver }] = await Promise.all([params, searchParams]);
   if (!z.uuid().safeParse(id).success) notFound();
   const at = await now();
+  const superAdmin = await isSuperAdmin(profile.id);
 
   const [store] = await sql<{
     id: string; name: string; slug: string; status: keyof typeof STORE_STATUS_LABELS; description: string; city: string; category: string;
     owner_name: string; owner_phone: string | null; internal_phone: string | null; document_type: string | null; document_number: string | null;
     commission_rate: string; payment_recipient_id: string | null; cash_enabled: boolean; status_reason: string | null;
-    featured_until: Date | null; plan_id: string | null; free_until: string | null; created_at: Date;
+    featured_until: Date | null; closed_at: Date | null; plan_id: string | null; free_until: string | null; created_at: Date;
     products: number; with_photo: number; hours: number; areas: number; offers_delivery: boolean;
   }[]>`
     select s.id, s.name, s.slug, s.status, s.description, c.name as city, cat.name as category,
            o.full_name as owner_name, o.phone as owner_phone, sp.internal_phone, sp.document_type, sp.document_number,
-           sp.commission_rate, sp.payment_recipient_id, sp.cash_enabled, sp.status_reason, s.featured_until,
+           sp.commission_rate, sp.payment_recipient_id, sp.cash_enabled, sp.status_reason, s.featured_until, s.closed_at,
            sub.plan_id, sub.free_until::text, s.created_at, s.offers_delivery,
            (select count(*)::int from products p where p.store_id = s.id and p.deleted_at is null) as products,
            (select count(*)::int from products p where p.store_id = s.id and p.deleted_at is null and p.image_url is not null) as with_photo,
@@ -112,7 +114,7 @@ async function StoreDetail({ params, searchParams }: Props) {
           <h1 className="text-3xl">{store.name}</h1>
           <p className="text-coffee-soft">{store.category} · {store.city} · cadastrada em {formatDateTime(store.created_at)}</p>
         </div>
-        <span data-testid="admin-store-status" className="rounded-full bg-peach px-4 py-2 font-bold">{STORE_STATUS_LABELS[store.status]}</span>
+        <span data-testid="admin-store-status" className="rounded-full bg-peach px-4 py-2 font-bold">{store.closed_at ? "Excluída" : STORE_STATUS_LABELS[store.status]}</span>
       </header>
       {store.status_reason && <p className="rounded-2xl bg-peach px-4 py-3"><strong>Motivo:</strong> {store.status_reason}</p>}
 
@@ -223,20 +225,7 @@ async function StoreDetail({ params, searchParams }: Props) {
             <SubmitButton className="self-start">Salvar condições</SubmitButton>
           </ActionForm>
 
-          <ActionForm action={setStoreStatus} className={card}>
-            <h2 className="text-xl">Situação</h2>
-            <input type="hidden" name="id" value={store.id} />
-            <label className="flex flex-col gap-1.5 text-sm font-semibold">
-              Nova situação
-              <select name="status" defaultValue={store.status} className={inputClass}>
-                <option value="active">Ativa</option>
-                <option value="paused">Pausada</option>
-                <option value="suspended">Suspensa (some para os clientes)</option>
-              </select>
-            </label>
-            <Field label="Motivo" name="reason" maxLength={300} hint="Obrigatório para suspender. O dono é avisado." />
-            <SubmitButton variant="secondary" className="self-start">Alterar situação</SubmitButton>
-          </ActionForm>
+          <AccountPanel storeId={store.id} storeName={store.name} status={store.status} superAdmin={superAdmin} at={at} />
         </>
       )}
     </div>

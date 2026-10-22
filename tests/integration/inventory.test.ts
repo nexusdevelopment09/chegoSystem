@@ -117,7 +117,7 @@ describe("estoque integrado aos pedidos", () => {
     await appSql.begin(async (tx) => {
       await recordMovement(tx, { storeId: market.id, itemId: milk, kind: "compra", quantity: 2, newLot: { expiresAt: "2026-10-05", manufacturedAt: null, supplier: null, costCents: null, receivedAt: "2026-09-20" } });
       await recordMovement(tx, { storeId: market.id, itemId: milk, kind: "compra", quantity: 3, newLot: { expiresAt: "2026-10-20", manufacturedAt: null, supplier: null, costCents: null, receivedAt: "2026-10-01" } });
-      await recordMovement(tx, { storeId: market.id, itemId: milk, kind: "venda", quantity: -1, process: "teste" });
+      await recordMovement(tx, { storeId: market.id, itemId: milk, kind: "venda", quantity: -1, process: "teste", at: new Date("2026-10-09T12:00:00-03:00") });
     });
     const lots = await sql<{ expires_at: string; remaining_quantity: string }[]>`select expires_at::text, remaining_quantity::text from stock_lots where item_id = ${milk} order by expires_at`;
     // O lote vencido (05/10) ficou intacto; saiu do que vence em 20/10.

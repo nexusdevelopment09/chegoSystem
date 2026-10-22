@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { chooseNeighborhood, db, loginAs, placePaidOrder, setClock, visible, freshDatabase } from "./helpers";
 
 // Uma sexta às 20h: a hamburgueria e a loja de açaí estão abertas.
@@ -7,20 +7,18 @@ test.afterAll(() => setClock(null));
 
 const ADMIN = "Admin Chegô";
 const storeId = async (slug: string) => (await db`select id from stores where slug = ${slug}`)[0].id as string;
-const stat = (page: Page, label: string) => page.locator('[data-testid="stat"]:visible').filter({ hasText: label }).first();
 
 test("painel geral mostra os números do período e só o admin entra", async ({ page }) => {
   await loginAs(page, ADMIN);
   await expect(page.getByRole("heading", { name: "Oi, Admin Chegô!" })).toBeVisible();
 
+  // "periodo=30" (link antigo) vira os últimos 30 dias de calendário, até agora.
   const to = new Date("2026-10-09T20:00:00-03:00");
   const [expected] = await db`
-    select count(*)::int as orders, coalesce(sum(total_cents - refunded_cents), 0)::int as gmv from orders
-    where paid_at is not null and status not in ('rejected', 'cancelled', 'refunded', 'expired')
-      and paid_at >= ${new Date(to.getTime() - 30 * 86_400_000)} and paid_at < ${to}`;
+    select count(*)::int as orders from orders where created_at >= '2026-09-10T00:00:00-03:00' and created_at < ${to}`;
   await page.goto("/admin?periodo=30");
-  await expect(stat(page, "Pedidos")).toContainText(String(expected.orders));
-  await expect(stat(page, "Lojas abertas agora")).toContainText(/\d+ de \d+/);
+  await expect(visible(page, "kpi-orders")).toContainText(String(expected.orders));
+  await expect(page.locator('[data-testid="kpi"]:visible').filter({ hasText: "Lojas abertas agora" })).toContainText(/\d+ de \d+/);
   await expect(page.getByRole("link", { name: /1 loja esperando aprovação/ })).toBeVisible();
 
   // Cada um termina onde o seu papel mora; a URL é conferida depois que os redirecionamentos assentam.
@@ -93,19 +91,23 @@ test("destaque pago aparece identificado; suspender tira a loja do ar", async ({
   const featured = customer.locator("section", { has: customer.getByRole("heading", { name: "Destaques" }) });
   await expect(featured.getByTestId("store-card").filter({ hasText: "Açaí Tropical" })).toHaveCount(1);
 
-  await page.getByLabel("Nova situação").selectOption("suspended");
-  await page.getByRole("button", { name: "Alterar situação" }).click();
-  await expect(page.getByText("Para suspender, escreva o motivo.")).toBeVisible();
-  await page.getByLabel("Motivo").fill("Teste de suspensão");
-  await page.getByRole("button", { name: "Alterar situação" }).click();
+  await page.getByTestId("suspend-open").click();
+  const dialog = page.getByRole("dialog", { name: /Suspender/ });
+  await dialog.getByLabel("Motivo da suspensão").fill("Teste de suspensão");
+  await dialog.getByLabel("Por tempo indeterminado").check();
+  await dialog.getByRole("button", { name: "Suspender conta" }).click();
+  await expect(page.getByTestId("open-suspension")).toBeVisible();
   await expect(visible(page, "admin-store-status")).toHaveText("Suspensa");
 
   await customer.goto("/loja/acai-tropical");
   await expect(customer.getByRole("heading", { name: "Oxe, essa página não existe." })).toBeVisible();
   await customer.context().close();
 
-  await page.getByLabel("Nova situação").selectOption("active");
-  await page.getByRole("button", { name: "Alterar situação" }).click();
+  await page.getByRole("button", { name: "Reativar conta" }).click();
+  const reactivate = page.getByRole("dialog", { name: "Reativar conta" });
+  await reactivate.getByLabel("Motivo da reativação").fill("Resolvido");
+  await reactivate.getByRole("button", { name: "Reativar" }).click();
+  await expect(page.getByTestId("open-suspension")).toHaveCount(0);
   await expect(visible(page, "admin-store-status")).toHaveText("Ativa");
 });
 
@@ -380,7 +382,7 @@ test("log de auditoria lista as ações e filtra por tipo", async ({ page }) => 
   await loginAs(page, ADMIN);
   await page.goto("/admin/auditoria");
   await expect(page.locator('[data-testid="audit-row"]:visible').first()).toBeVisible();
-  await page.getByLabel("Ação").selectOption("customer.block");
+  await page.getByLabel("Ação").fill("customer.block");
   await page.getByRole("button", { name: "Filtrar" }).click();
   const rows = page.locator('[data-testid="audit-row"]:visible');
   await expect(rows.first()).toContainText("customer.block");
@@ -404,58 +406,31 @@ test("pedidos ao vivo avisam quando a loja não aceita", async ({ page }) => {
 
 test("cada número do painel abre a lista já filtrada, e os valores batem", async ({ page }) => {
   await loginAs(page, ADMIN);
-  await page.goto("/admin?periodo=30");
   const summary = () => visible(page, "list-summary");
-  const filters = () => visible(page, "active-filters");
+  const kpi = (label: string) => page.locator('[data-testid^="kpi"]:visible').filter({ has: page.getByText(label, { exact: true }) }).first();
+  const value = async (label: string) => (await kpi(label).locator("p").nth(1).textContent())!.trim();
 
-  // Pedidos: mesmo período, só os vendidos, e a mesma quantidade do cartão.
-  const orders = (await stat(page, "Pedidos").locator("p").nth(1).textContent())!.trim();
-  await stat(page, "Pedidos").click();
-  await expect(page).toHaveURL(/\/admin\/pedidos\?periodo=30&situacao=vendidos$/);
-  await expect(filters()).toContainText("Pagos nos últimos 30 dias");
-  await expect(filters()).toContainText("Vendidos");
-  await expect(summary()).toContainText(`${orders} pedidos`);
-
-  // Faturamento: o total da lista é o mesmo valor do cartão.
-  await page.goto("/admin?periodo=30");
-  const gmv = (await stat(page, "Faturamento total (GMV)").locator("p").nth(1).textContent())!.trim();
-  await stat(page, "Faturamento total (GMV)").click();
-  await expect(summary()).toContainText(gmv);
-
-  // Recusas e cancelamentos.
-  await page.goto("/admin?periodo=30");
-  const [rejected, cancelled] = (await stat(page, "Recusas e cancelamentos").locator("p").nth(1).textContent())!.split("/").map((text) => Number(text.trim()));
-  await stat(page, "Recusas e cancelamentos").click();
-  await expect(page).toHaveURL(/situacao=problemas/);
-  await expect(summary()).toContainText(`${rejected + cancelled} pedido`);
-
-  // Clientes novos no período.
-  await page.goto("/admin?periodo=90");
-  const fresh = (await stat(page, "Clientes novos").locator("p").nth(1).textContent())!.trim();
-  await stat(page, "Clientes novos").click();
-  await expect(page).toHaveURL(/\/admin\/clientes\?periodo=90&novos=1$/);
-  await expect(filters()).toContainText("Cadastrados nos últimos 90 dias");
-  await expect(summary()).toContainText(`${fresh} cliente`);
+  // Pedidos realizados, concluídos e cancelados: a lista tem a mesma quantidade do cartão.
+  for (const [label, group] of [["Pedidos realizados", null], ["Concluídos", "concluidos"], ["Cancelados e recusados", "cancelados"]] as const) {
+    await page.goto("/admin?periodo=ano");
+    const count = await value(label);
+    await kpi(label).click();
+    if (group) await expect(page).toHaveURL(new RegExp(`grupo=${group}`));
+    await expect(summary()).toContainText(`${count} pedido`);
+  }
 
   // Lojas abertas agora.
   await page.goto("/admin");
-  const open = (await stat(page, "Lojas abertas agora").locator("p").nth(1).textContent())!.split(" de ")[0].trim();
-  await stat(page, "Lojas abertas agora").click();
+  const open = (await value("Lojas abertas agora")).split(" de ")[0];
+  await kpi("Lojas abertas agora").click();
   await expect(page).toHaveURL(/\/admin\/lojas\?abertas=1$/);
   await expect(summary()).toContainText(`${open} loja`);
 
-  // Receita da plataforma leva ao financeiro do mesmo período; o gráfico de lojas leva aos pedidos da loja.
-  await page.goto("/admin?periodo=7");
-  await stat(page, "Receita da plataforma").click();
-  await expect(page).toHaveURL(/\/admin\/financeiro\?periodo=7$/);
-  await expect(filters()).toContainText("Pagos nos últimos 7 dias");
-  await page.goto("/admin?periodo=30");
-  await page.getByRole("link", { name: "Pizzaria Forno de Barro" }).click();
+  // O gráfico de lojas da tela de pedidos leva aos pedidos da loja, e limpar volta para tudo.
+  await page.goto("/admin/pedidos?periodo=ano");
+  await page.getByRole("link", { name: "Pizzaria Forno de Barro" }).first().click();
   await expect(page).toHaveURL(/\/admin\/pedidos\?.*loja=[0-9a-f-]+/);
-  await expect(filters()).toContainText("Loja: Pizzaria Forno de Barro");
-
-  // Limpar volta para a lista inteira.
+  await expect(visible(page, "active-filters")).toContainText("Loja: Pizzaria Forno de Barro");
   await page.getByRole("link", { name: "Limpar filtros" }).click();
-  await expect(page).toHaveURL(/\/admin\/pedidos$/);
-  await expect(filters()).toHaveCount(0);
+  await expect(page.locator('[data-testid="active-filters"]:visible')).toHaveCount(0);
 });

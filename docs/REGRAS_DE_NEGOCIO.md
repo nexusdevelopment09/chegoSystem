@@ -383,3 +383,13 @@ Resumo; o detalhe está em [GESTAO_DA_LOJA.md](GESTAO_DA_LOJA.md).
   - só pagando direto à loja, acompanhada por um link com token;
   - sem cupom, chat, avaliação ou chamado;
   - a loja vê "sem conta" e liga para o telefone do pedido.
+
+## 20. Super admin
+
+Resumo; o detalhe está em [SUPER_ADMIN.md](SUPER_ADMIN.md).
+
+- **Ações críticas**: só o super admin suspende, reativa e exclui contas de loja, cria e altera anúncios, oculta e restaura avaliações e corrige nota por erro técnico. Tudo com motivo, no histórico e na auditoria.
+- **Exclusão de loja é lógica**: a loja sai do ar, e pedidos, taxas e lançamentos nunca são apagados. Com pedido em andamento, não exclui. A própria empresa também pode encerrar a loja.
+- **Suspensão**: pode ter prazo ou ser por tempo indeterminado, e pode começar no futuro. As tarefas automáticas aplicam e encerram nos horários.
+- **Anúncio**: loja anunciada leva o selo "Patrocinado"; nota e avaliações nunca mudam por anúncio. Pedido até 24 h depois do clique, na mesma loja, fica atribuído à campanha.
+- **Nota da loja**: sempre a média das avaliações visíveis. Não há como alterá-la diretamente.

@@ -3,7 +3,8 @@ import { Suspense } from "react";
 import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
 import { Button } from "@/components/ui/Button";
 import { Field, inputClass } from "@/components/ui/Field";
-import { requireRole } from "@/lib/auth/session";
+import { isSuperAdmin, requireRole } from "@/lib/auth/session";
+import { setSuperAdmin } from "./admins";
 import { sql } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { publishLegal, saveSettings, toggleFlag } from "../actions";
@@ -23,18 +24,41 @@ export default function SettingsPage() {
 }
 
 async function Settings() {
-  await requireRole("admin");
-  const [settings, flags, documents] = await Promise.all([
+  const profile = await requireRole("admin");
+  const [settings, flags, documents, admins, superAdmin] = await Promise.all([
     getSettings(),
     sql<{ key: string; enabled: boolean; description: string }[]>`select key, enabled, description from feature_flags order by key`,
     sql<{ type: keyof typeof LEGAL; version: number; title: string; content: string }[]>`
       select distinct on (type) type, version, title, content from legal_documents
       where published_at is not null order by type, version desc`,
+    sql<{ id: string; name: string; email: string | null; is_super_admin: boolean }[]>`
+      select id, full_name as name, email, is_super_admin from profiles where role = 'admin' and deleted_at is null order by is_super_admin desc, full_name`,
+    isSuperAdmin(profile.id),
   ]);
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <h1 className="text-3xl">Configurações</h1>
+
+      <section className={card} data-testid="admins">
+        <h2 className="text-xl">Administradores</h2>
+        <p className="text-sm text-coffee-soft">
+          Super admin faz as ações globais críticas: suspender e excluir contas, anúncios, ocultar avaliações e corrigir notas. Admin comum vê o painel e atende o dia a dia.
+        </p>
+        <ul className="flex flex-col gap-2">
+          {admins.map((item) => (
+            <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-cream px-3 py-2 text-sm">
+              <span><strong>{item.name}</strong>{item.email && <span className="text-coffee-soft"> · {item.email}</span>} · {item.is_super_admin ? "Super admin" : "Admin"}{item.id === profile.id && " (você)"}</span>
+              {superAdmin && item.id !== profile.id && (
+                <ActionForm action={setSuperAdmin} className="flex items-center gap-2">
+                  <input type="hidden" name="id" value={item.id} /><input type="hidden" name="grant" value={item.is_super_admin ? "0" : "1"} />
+                  <SubmitButton variant="secondary" className="min-h-11 px-3 text-xs">{item.is_super_admin ? "Tirar super admin" : "Tornar super admin"}</SubmitButton>
+                </ActionForm>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <ActionForm action={saveSettings} className={card}>
         <h2 className="text-xl">Taxas e prazos</h2>

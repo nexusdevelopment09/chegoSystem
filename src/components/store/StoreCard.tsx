@@ -99,15 +99,20 @@ export function StoreListSkeleton() {
  * Cartão grande, com a foto de capa da loja: para as vitrines principais da página
  * inicial. Só mostra o que existe no cadastro (nota, tempo, taxa); nada é inventado.
  */
-export function StoreCoverCard({ store, neighborhoodName, priority = false }: { store: StoreSummary; neighborhoodName: string | null; priority?: boolean }) {
+/**
+ * `sponsored`: a loja está ali por anúncio. Leva o selo "Patrocinado" e, com campanha, passa pelo
+ * contador de cliques (/anuncio/...). Nota e avaliações continuam as reais.
+ */
+export function StoreCoverCard({ store, neighborhoodName, priority = false, sponsored }: { store: StoreSummary; neighborhoodName: string | null; priority?: boolean; sponsored?: { campaignId: string | null } }) {
   const open = store.availability.state === "open";
   const delivery = deliveryText(store, neighborhoodName);
   const freeDelivery = open && store.offersDelivery && store.area?.feeCents === 0;
 
   return (
     <Link
-      href={`/loja/${store.slug}`}
+      href={sponsored?.campaignId ? `/anuncio/${sponsored.campaignId}` : `/loja/${store.slug}`}
       data-testid="store-card"
+      data-sponsored={sponsored ? "true" : undefined}
       className="group flex h-full flex-col overflow-hidden rounded-card bg-white shadow-sm ring-1 ring-peach transition hover:-translate-y-0.5 hover:shadow-md hover:ring-brand"
     >
       {/* A capa é 3:1 (1200x400): mostrada no mesmo formato, nada das laterais é cortado. */}
@@ -125,6 +130,9 @@ export function StoreCoverCard({ store, neighborhoodName, priority = false }: { 
             decoding="async"
             className={`size-full object-cover transition duration-300 group-hover:scale-[1.03] ${open ? "" : "grayscale"}`}
           />
+        )}
+        {sponsored && (
+          <span className="absolute right-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-xs font-bold text-coffee shadow-sm" data-testid="sponsored-badge">Patrocinado</span>
         )}
         {freeDelivery && (
           <span className="absolute left-3 top-3 rounded-full bg-success px-2.5 py-1 text-xs font-bold text-white shadow-sm">Entrega grátis</span>
@@ -161,7 +169,11 @@ export function StoreCoverCard({ store, neighborhoodName, priority = false }: { 
 }
 
 /** Grade de cartões com capa: uma coluna no celular, duas no tablet, três no computador. */
-export function StoreGrid({ stores, neighborhoodName, empty }: { stores: StoreSummary[]; neighborhoodName: string | null; empty: string }) {
+export function StoreGrid({ stores, neighborhoodName, empty, sponsored }: {
+  stores: StoreSummary[]; neighborhoodName: string | null; empty: string;
+  /** Lojas anunciadas: id da loja → campanha (null = destaque pago antigo, sem contador). */
+  sponsored?: Map<string, string | null>;
+}) {
   if (stores.length === 0) {
     return <p className="rounded-card bg-white p-6 text-center text-coffee-soft ring-1 ring-peach">{empty}</p>;
   }
@@ -169,7 +181,8 @@ export function StoreGrid({ stores, neighborhoodName, empty }: { stores: StoreSu
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {stores.map((store, index) => (
         <li key={store.id}>
-          <StoreCoverCard store={store} neighborhoodName={neighborhoodName} priority={index < 2} />
+          <StoreCoverCard store={store} neighborhoodName={neighborhoodName} priority={index < 2}
+            sponsored={sponsored?.has(store.id) ? { campaignId: sponsored.get(store.id) ?? null } : undefined} />
         </li>
       ))}
     </ul>

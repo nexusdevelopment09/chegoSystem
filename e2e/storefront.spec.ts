@@ -70,7 +70,7 @@ test("abertas primeiro, destaques em seção própria e fechadas dizem quando ab
   await chooseNeighborhood(page, "Centro");
 
   const featured = page.locator("section", { has: page.getByRole("heading", { name: "Destaques" }) });
-  await expect(featured.getByText("Lojas com destaque pago")).toBeVisible();
+  await expect(featured.getByText("Patrocinado").first()).toBeVisible();
   await expect(featured.getByTestId("store-card")).toHaveCount(1);
   await expect(featured.getByTestId("store-card")).toContainText("Pizzaria Forno de Barro");
 

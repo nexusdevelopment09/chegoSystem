@@ -87,6 +87,7 @@ export async function requestStore(_previous: SignupState, formData: FormData): 
       insert into store_private (store_id, internal_phone, document_type, document_number, commission_rate)
       values (${store.id}, ${phone}, ${data.documentType}, ${document}, ${settings.default_commission_rate})`;
     await tx`insert into store_members (store_id, profile_id, role) values (${store.id}, ${owner.id}, 'owner')`;
+    await tx`insert into store_status_events (store_id, kind, to_status, actor_id, created_at) values (${store.id}, 'cadastrada', 'pending', ${owner.id}, ${at})`;
 
     await notify({
       profileIds: await adminIds(tx), type: "store_signup", title: "Nova loja esperando aprovação",

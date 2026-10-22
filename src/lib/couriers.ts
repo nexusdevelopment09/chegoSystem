@@ -1,6 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { requireRole, type CurrentProfile } from "@/lib/auth/session";
+import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
 import type { OrderStatus } from "@/lib/orders/status";
 import type { Vehicle } from "@/lib/labels";
@@ -47,6 +48,10 @@ export async function requireCourier(): Promise<{ profile: CurrentProfile; couri
   const profile = await requireRole("courier");
   const courier = await getCourier(profile.id);
   if (!courier) redirect("/quero-entregar");
+  // "Visto por último" (conexão), no máximo uma escrita por minuto. A tela do entregador se
+  // atualiza sozinha enquanto está aberta, então isto marca quem está com o app aberto.
+  const at = await now();
+  await sql`update couriers set last_seen_at = ${at} where profile_id = ${profile.id} and (last_seen_at is null or last_seen_at < ${at}::timestamptz - interval '1 minute' or last_seen_at > ${at})`;
   return { profile, courier };
 }
 

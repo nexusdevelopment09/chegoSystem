@@ -19,6 +19,11 @@ export const AUDIT_MODULES: Record<string, string> = {
   fees: "Taxas",
   printer: "Impressoras",
   courier: "Entregadores",
+  lojas: "Contas das lojas",
+  anuncios: "Anúncios",
+  avaliacoes: "Avaliações",
+  review: "Avaliações",
+  admin: "Administração",
 };
 
 export const ACTION_LABELS: Record<string, string> = {
@@ -59,6 +64,23 @@ export const ACTION_LABELS: Record<string, string> = {
   "coupon.toggle": "Ligou ou desligou cupom",
   "order.item_removed": "Removeu item do pedido",
   "order.assign_courier": "Escolheu entregador",
+  "loja.ativada": "Ativou loja",
+  "loja.desativada": "Desativou loja",
+  "loja.suspensa": "Suspendeu conta",
+  "loja.suspensao_agendada": "Agendou suspensão",
+  "loja.reativada": "Reativou conta",
+  "loja.excluida": "Excluiu conta da loja",
+  "loja.encerrada_pela_empresa": "Empresa encerrou a conta",
+  "anuncio.criado": "Criou campanha de anúncio",
+  "anuncio.pausado": "Pausou campanha",
+  "anuncio.retomado": "Retomou campanha",
+  "anuncio.encerrado": "Encerrou campanha",
+  "avaliacao.ocultada": "Ocultou avaliação",
+  "avaliacao.restaurada": "Restaurou avaliação",
+  "avaliacao.denuncia_mantida": "Analisou denúncia (mantida)",
+  "avaliacao.nota_corrigida": "Corrigiu nota (erro técnico)",
+  "admin.super_concedido": "Tornou super admin",
+  "admin.super_removido": "Removeu super admin",
 };
 
 export const actionLabel = (action: string) => ACTION_LABELS[action] ?? action;

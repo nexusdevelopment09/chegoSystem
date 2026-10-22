@@ -147,8 +147,9 @@ test("preciso de ajuda: abre chamado com motivo e conversa nele", async ({ page 
 
   const [row] = await db`select reason, status, (select count(*)::int from ticket_messages m where m.ticket_id = t.id) as messages from support_tickets t where order_id = ${orderId}`;
   expect(row).toEqual({ reason: "delay", status: "open", messages: 2 });
-  const [notice] = await db`select count(*)::int as total from notifications where type = 'ticket_new' and order_id = ${orderId}`;
-  expect(notice.total).toBe(1);
+  // Um aviso para cada admin.
+  const [notice] = await db`select count(*)::int as total, (select count(*)::int from profiles where role = 'admin' and deleted_at is null) as admins from notifications where type = 'ticket_new' and order_id = ${orderId}`;
+  expect(notice.total).toBe(notice.admins);
 });
 
 test("sino de notificações: contador, lista e marcar como lidas", async ({ page }) => {

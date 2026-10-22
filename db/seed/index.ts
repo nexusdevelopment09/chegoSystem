@@ -176,7 +176,7 @@ export async function seedBase(sql: Sql, admin: BaseAdmin) {
 
   const adminId = randomUUID();
   await insert(sql, "profiles", [{
-    id: adminId, full_name: admin.name, phone: null, email: admin.email.toLowerCase(), role: "admin",
+    id: adminId, full_name: admin.name, phone: null, email: admin.email.toLowerCase(), role: "admin", is_super_admin: true,
     password_hash: hashPassword(admin.password), city_id: cityId, accepted_terms_at: START,
   }]);
   await insert(sql, "legal_acceptances", [
@@ -228,13 +228,15 @@ export async function seed(sql: Sql) {
     const { name, ...rest } = fields;
     profiles.push({
       email: null, password_hash: demoPasswordHash, birth_date: null, referral_code: null,
-      blocked_at: null, blocked_reason: null, city_id: cityId,
+      blocked_at: null, blocked_reason: null, city_id: cityId, is_super_admin: false,
       ...rest, id, full_name: name, accepted_terms_at: plus(START, -100 * DAY),
     });
     return id;
   };
 
-  profile({ id: adminId, name: "Admin Chegô", phone: "+5582900000000", role: "admin", email: "admin@chego.local", password_hash: hashPassword("admin") });
+  profile({ id: adminId, name: "Admin Chegô", phone: "+5582900000000", role: "admin", email: "admin@chego.local", password_hash: hashPassword("admin"), is_super_admin: true });
+  // Admin comum (suporte): vê o painel, mas não faz as ações globais críticas.
+  profile({ name: "Suporte Chegô", phone: "+5582900000009", role: "admin", email: "suporte@chego.local", password_hash: hashPassword("admin") });
 
   const ownerIds = STORES.map((store, index) =>
     profile({
@@ -466,7 +468,7 @@ export async function seed(sql: Sql) {
     { ...couponBase, id: coupons.PRIMEIRA, code: "PRIMEIRA", description: "R$ 10,00 de desconto na primeira compra", type: "fixed", value_cents: 1000, paid_by: "platform", min_order_cents: 3000, first_order_only: true },
     { ...couponBase, id: coupons.FRETEGRATIS, code: "FRETEGRATIS", description: "Frete grátis acima de R$ 50,00", type: "free_delivery", paid_by: "platform", min_order_cents: 5000, max_uses_per_customer: 100 },
     { ...couponBase, id: coupons.PIZZA10, code: "PIZZA10", description: "10% na Pizzaria Forno de Barro", type: "percent", percent: 10, max_discount_cents: 1500, paid_by: "store", created_by_store_id: stores.get("pizzaria")!.id, max_uses_per_customer: 100 },
-    { ...couponBase, id: coupons.VELHO, code: "VELHO", description: "Cupom expirado", type: "fixed", value_cents: 500, paid_by: "platform", expires_at: plus(START, -10 * DAY) },
+    { ...couponBase, id: coupons.VELHO, code: "VELHO", description: "Cupom expirado", type: "fixed", value_cents: 500, paid_by: "platform", expires_at: plus(START, -365 * DAY) },
     { ...couponBase, id: coupons.ESGOTOU, code: "ESGOTOU", description: "Cupom com limite de uso atingido", type: "fixed", value_cents: 500, paid_by: "platform", max_uses: 5, max_uses_per_customer: 100 },
   ].map((coupon) => ({ max_uses_per_customer: 1, ...coupon })));
   await sql`update coupons set store_ids = array[${stores.get("pizzaria")!.id}]::uuid[] where id = ${coupons.PIZZA10}`;
@@ -474,7 +476,8 @@ export async function seed(sql: Sql) {
   await insert(sql, "banners", BANNERS.map((banner, index) => ({
     city_id: cityId, title: banner.title, image_url: bannerImageUrl(banner.key),
     link_url: index === 1 ? "/loja/pizzaria-forno-de-barro" : index === 2 ? "/loja/acai-tropical" : null,
-    starts_at: plus(START, -10 * DAY), ends_at: plus(START, 60 * DAY), sort_order: index,
+    // Folga larga: os testes fixam o relógio em uma data que pode ficar semanas antes do dia em que o seed roda.
+    starts_at: plus(START, -365 * DAY), ends_at: plus(START, 60 * DAY), sort_order: index,
   })));
 
   // ------------------------------------------------------------------ pedidos
@@ -841,6 +844,9 @@ export async function seed(sql: Sql) {
 
   await sql`update cities set next_order_number = ${built.length + 1} where id = ${cityId}`;
   await sql`update coupons c set uses_count = (select count(*) from coupon_redemptions r where r.coupon_id = c.id)`;
+  // O histórico de situação de cada loja começa no cadastro (e na aprovação, para as aprovadas).
+  await sql`insert into store_status_events (store_id, kind, to_status, created_at) select id, 'cadastrada', 'pending', created_at from stores`;
+  await sql`insert into store_status_events (store_id, kind, from_status, to_status, created_at) select id, 'aprovada', 'pending', 'active', created_at + interval '1 day' from stores where status <> 'pending'`;
   await sql`
     update stores s set rating_count = stats.total, rating_avg = stats.average
     from (

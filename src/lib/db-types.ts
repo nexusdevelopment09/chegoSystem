@@ -1,5 +1,7 @@
 // GENERATED FILE. Do not edit: run `npm run db:types` after changing migrations.
 
+export type AdPlacement = "inicio" | "topo" | "categoria" | "promocional";
+export type AdStatus = "ativa" | "pausada" | "encerrada";
 export type BillStatus = "aberta" | "fechada" | "cancelada";
 export type ClosingStatus = "awaiting_payment" | "paid" | "overdue" | "in_review";
 export type CouponType = "fixed" | "percent" | "free_delivery";
@@ -41,6 +43,31 @@ export type StoreStatus = "pending" | "active" | "paused" | "suspended";
 export type TicketReason = "delay" | "missing_item" | "wrong_item" | "damaged_item" | "billing" | "other";
 export type TicketStatus = "open" | "in_progress" | "waiting_customer" | "resolved";
 export type UserRole = "customer" | "merchant" | "admin" | "courier";
+
+export interface AdCampaignsRow {
+  id: string;
+  store_id: string;
+  title: string;
+  placement: AdPlacement;
+  category_id: string | null;
+  priority: number;
+  starts_at: Date;
+  ends_at: Date;
+  status: AdStatus;
+  price_cents: number;
+  notes: string | null;
+  created_by: string | null;
+  created_at: Date;
+  updated_at: Date;
+  ended_at: Date | null;
+}
+
+export interface AdDailyStatsRow {
+  campaign_id: string;
+  day: Date;
+  impressions: number;
+  clicks: number;
+}
 
 export interface AddressesRow {
   id: string;
@@ -201,6 +228,7 @@ export interface CouriersRow {
   blocked_reason: string | null;
   created_at: Date;
   updated_at: Date;
+  last_seen_at: Date | null;
 }
 
 export interface FavoritesRow {
@@ -443,6 +471,7 @@ export interface OrdersRow {
   cash_change_for_cents: number | null;
   guest_token_hash: string | null;
   channel: SaleChannel;
+  ad_campaign_id: string | null;
 }
 
 export interface OutboundMessagesRow {
@@ -575,6 +604,7 @@ export interface ProfilesRow {
   blocked_reason: string | null;
   city_id: string | null;
   promo_notifications: boolean;
+  is_super_admin: boolean;
 }
 
 export interface PurchaseListItemsRow {
@@ -647,6 +677,17 @@ export interface RefundsRow {
   created_at: Date;
 }
 
+export interface ReviewEventsRow {
+  id: string;
+  review_id: string;
+  action: string;
+  old_rating: number | null;
+  new_rating: number | null;
+  reason: string;
+  actor_id: string | null;
+  created_at: Date;
+}
+
 export interface ReviewsRow {
   id: string;
   order_id: string;
@@ -661,6 +702,9 @@ export interface ReviewsRow {
   hidden_by: string | null;
   hidden_reason: string | null;
   created_at: Date;
+  report_reason: string | null;
+  report_resolved_at: Date | null;
+  report_resolved_by: string | null;
 }
 
 export interface SessionsRow {
@@ -839,6 +883,18 @@ export interface StorePrivateRow {
   pix_key: string | null;
 }
 
+export interface StoreStatusEventsRow {
+  id: string;
+  store_id: string;
+  kind: string;
+  from_status: string | null;
+  to_status: string | null;
+  reason: string | null;
+  actor_id: string | null;
+  process: string | null;
+  created_at: Date;
+}
+
 export interface StoreStockSettingsRow {
   store_id: string;
   expiry_warning_days: number[];
@@ -858,6 +914,23 @@ export interface StoreSubscriptionsRow {
   free_until: Date | null;
   active: boolean;
   started_at: Date;
+}
+
+export interface StoreSuspensionsRow {
+  id: string;
+  store_id: string;
+  reason: string;
+  description: string | null;
+  starts_at: Date;
+  ends_at: Date | null;
+  notify_owner: boolean;
+  previous_status: StoreStatus;
+  applied_at: Date | null;
+  created_by: string | null;
+  created_at: Date;
+  lifted_at: Date | null;
+  lifted_by: string | null;
+  lift_reason: string | null;
 }
 
 export interface StoreTablesRow {
@@ -912,6 +985,10 @@ export interface StoresRow {
   accepts_pix: boolean;
   accepts_card: boolean;
   accepts_cash: boolean;
+  closed_at: Date | null;
+  closed_reason: string | null;
+  closed_by_kind: string | null;
+  closed_by: string | null;
 }
 
 export interface SubcategoriesRow {

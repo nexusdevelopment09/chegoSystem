@@ -12,6 +12,7 @@ import { StoreGrid, StoreGridSkeleton, StoreList } from "@/components/store/Stor
 import { Icon } from "@/components/ui/Icon";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { offerStoreIds, popularStoreIds } from "@/lib/catalog/showcase";
+import { liveCampaigns, recordImpressions } from "@/lib/ads/campaigns";
 import { now } from "@/lib/clock";
 import { DISMISSED_COUPONS_COOKIE } from "@/lib/coupons/cookie";
 import { visibleCoupons } from "@/lib/coupons/visible";
@@ -113,24 +114,42 @@ async function HomeContent({ searchParams }: { searchParams: SearchParams }) {
 
   const storeIds = stores.map((store) => store.id);
   const dismissed = new Set(((await cookies()).get(DISMISSED_COUPONS_COOKIE)?.value ?? "").split("."));
-  const [popular, offerStores, coupons] = await Promise.all([
+  const [popular, offerStores, coupons, campaigns] = await Promise.all([
     popularStoreIds(storeIds, at),
     offerStoreIds(storeIds, at),
     visibleCoupons({ cityId: context.city.id, profileId: profile?.id ?? null, at }),
+    liveCampaigns({ cityId: context.city.id, at, placements: ["inicio", "promocional", "topo"] }),
   ]);
   const shownCoupons = coupons.filter((coupon) => !dismissed.has(coupon.id));
   const popularStores = popular.flatMap((id) => stores.find((store) => store.id === id) ?? []);
 
   const filtered = hasActiveFilters(filters) ? applyStoreFilters(stores, filters, { offerStoreIds: offerStores }) : null;
-  const open = stores.filter((store) => store.availability.state === "open");
   const closed = stores.filter((store) => store.availability.state !== "open");
-  const featured = stores.filter((store) => store.featured);
+  // Anúncios: "Destaques" (página inicial e campanhas promocionais, por prioridade) e as primeiras
+  // posições de "Abertas agora". Sempre com o selo "Patrocinado"; a ordem orgânica do resto não muda.
+  const storeById = new Map(stores.map((store) => [store.id, store]));
+  const highlight = campaigns.filter((item) => item.placement !== "topo" && storeById.has(item.storeId));
+  const highlightIds = new Set(highlight.map((item) => item.storeId));
+  const featured = [
+    ...highlight.filter((item, index) => highlight.findIndex((other) => other.storeId === item.storeId) === index).map((item) => storeById.get(item.storeId)!),
+    ...stores.filter((store) => store.featured && !highlightIds.has(store.id)),
+  ];
+  const featuredMap = new Map<string, string | null>([
+    ...stores.filter((store) => store.featured && !highlightIds.has(store.id)).map((store) => [store.id, null] as const),
+    ...[...highlight].reverse().map((item) => [item.storeId, item.campaignId] as const),
+  ]);
+  const top = campaigns.filter((item) => item.placement === "topo" && storeById.get(item.storeId)?.availability.state === "open");
+  const topMap = new Map<string, string | null>(top.map((item) => [item.storeId, item.campaignId]));
+  const openOrganic = stores.filter((store) => store.availability.state === "open");
+  const open = [...top.map((item) => storeById.get(item.storeId)!), ...openOrganic.filter((store) => !topMap.has(store.id))];
   const again = recentStoreIds.flatMap(({ store_id }) => stores.find((store) => store.id === store_id) ?? []);
   // Novidades: só lojas que entraram no Chegô nos últimos 30 dias.
   const newest = stores
     .filter((store) => at.getTime() - store.createdAt.getTime() <= 30 * DAY_MS)
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, 4);
+
+  if (!filtered) await recordImpressions([...highlight, ...top].map((item) => item.campaignId), at);
 
   return (
     <>
@@ -156,8 +175,8 @@ async function HomeContent({ searchParams }: { searchParams: SearchParams }) {
         <>
 
           {featured.length > 0 && (
-            <Shelf title="Destaques" note="Lojas com destaque pago">
-              <StoreGrid stores={featured} neighborhoodName={hoodName} empty="" />
+            <Shelf title="Destaques" note="Patrocinado">
+              <StoreGrid stores={featured} neighborhoodName={hoodName} empty="" sponsored={featuredMap} />
             </Shelf>
           )}
 
@@ -174,7 +193,7 @@ async function HomeContent({ searchParams }: { searchParams: SearchParams }) {
           )}
 
           <Shelf title="Abertas agora">
-            <StoreGrid stores={open} neighborhoodName={hoodName} empty="Eita, está tudo fechado agora. Dá uma olhada nas lojas abaixo e agende seu pedido." />
+            <StoreGrid stores={open} neighborhoodName={hoodName} sponsored={topMap} empty="Eita, está tudo fechado agora. Dá uma olhada nas lojas abaixo e agende seu pedido." />
           </Shelf>
 
           {newest.length > 0 && (

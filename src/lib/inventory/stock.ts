@@ -1,6 +1,8 @@
 import "server-only";
 import type postgres from "postgres";
 import { audit } from "@/lib/audit";
+import { now } from "@/lib/clock";
+import { toLocal } from "@/lib/time";
 import { estimateConsumption, soldAmount, stockLevel, type MovementKind, type RecipeLine, type SoldLine, type StockUnit } from "./rules";
 
 // Estoque da loja. TODA mudança de saldo passa por recordMovement: trava a linha do item,
@@ -23,6 +25,8 @@ export type MovementInput = {
   billItemId?: string | null;
   createdBy?: string | null;
   process?: string | null;
+  /** Quando aconteceu (relógio do app). Decide o que já venceu; o padrão é agora. */
+  at?: Date;
   /** Entrada com lote (compra de perecível). */
   newLot?: { expiresAt: string | null; manufacturedAt: string | null; supplier: string | null; costCents: number | null; receivedAt: string };
   /**
@@ -79,7 +83,7 @@ export async function recordMovement(tx: Tx, input: MovementInput): Promise<{ id
       returning id`;
     lotId = lot.id;
   } else if (quantity < 0) {
-    await takeFromLots(tx, item.id, -quantity, lotId, input.kind);
+    await takeFromLots(tx, item.id, -quantity, lotId, input.kind, toLocal(input.at ?? (await now())).date);
   } else if (lotId && quantity > 0) {
     await tx`update stock_lots set remaining_quantity = remaining_quantity + ${quantity} where id = ${lotId} and item_id = ${item.id}`;
   }
@@ -102,12 +106,12 @@ export async function recordMovement(tx: Tx, input: MovementInput): Promise<{ id
 }
 
 /** Saída tira dos lotes: o lote escolhido, ou os que vencem primeiro (venda nunca usa lote vencido). */
-async function takeFromLots(tx: Tx, itemId: string, amount: number, lotId: string | null, kind: MovementKind) {
+async function takeFromLots(tx: Tx, itemId: string, amount: number, lotId: string | null, kind: MovementKind, today: string) {
   const lots = await tx<{ id: string; remaining_quantity: string }[]>`
     select id, remaining_quantity::text from stock_lots
     where item_id = ${itemId} and remaining_quantity > 0 and discarded_at is null
       ${lotId ? tx`and id = ${lotId}` : tx``}
-      ${kind === "venda" || kind === "producao" ? tx`and (expires_at is null or expires_at >= (now() at time zone 'America/Maceio')::date)` : tx``}
+      ${kind === "venda" || kind === "producao" ? tx`and (expires_at is null or expires_at >= ${today}::date)` : tx``}
     order by expires_at nulls last, received_at
     for update`;
   let left = amount;

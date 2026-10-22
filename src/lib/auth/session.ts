@@ -122,6 +122,24 @@ export async function requireRole(...roles: UserRole[]): Promise<CurrentProfile>
   return profile;
 }
 
+/**
+ * Ações globais críticas (suspender e excluir contas, anúncios, corrigir nota): só o super admin.
+ * Admin comum vê o painel; a tentativa fica na auditoria e ele volta com o aviso.
+ */
+export async function requireSuperAdmin(): Promise<CurrentProfile> {
+  const profile = await requireRole("admin");
+  if (!(await isSuperAdmin(profile.id))) {
+    await audit({ actorId: profile.id, action: "acesso.negado", entityType: "permission", actorRole: "admin", module: "acesso", result: "negado", details: { permission: "super_admin" } });
+    redirect("/admin?negado=1");
+  }
+  return profile;
+}
+
+export async function isSuperAdmin(profileId: string): Promise<boolean> {
+  const [row] = await sql<{ super: boolean }[]>`select is_super_admin as super from profiles where id = ${profileId} and role = 'admin' and deleted_at is null`;
+  return row?.super ?? false;
+}
+
 export type StoreMembership = { storeId: string; storeName: string; storeSlug: string; role: StoreRole; permissions: Permission[] };
 
 export const getStoreMemberships = cache(async (profileId: string): Promise<StoreMembership[]> => {
@@ -130,7 +148,7 @@ export const getStoreMemberships = cache(async (profileId: string): Promise<Stor
     select m.store_id, s.name, s.slug, m.role, m.permissions
     from store_members m
     join stores s on s.id = m.store_id
-    where m.profile_id = ${profileId} and m.active
+    where m.profile_id = ${profileId} and m.active and s.closed_at is null
     order by s.name`;
   return rows.map((row) => ({
     storeId: row.store_id, storeName: row.name, storeSlug: row.slug, role: row.role,

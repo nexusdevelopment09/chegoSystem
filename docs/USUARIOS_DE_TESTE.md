@@ -20,7 +20,7 @@ Para testar passo a passo, siga o [roteiro de testes](ROTEIRO_DE_TESTES.md).
 
 | Nome | Telefone |
 |---|---|
-| Admin Chegô | (82) 90000-0000 |
+| Admin Chegô (super admin) | (82) 90000-0000 |
 
 ## Clientes
 
@@ -109,3 +109,6 @@ Há duas entregas esperando entregador (Sushi Maré, já pronta, e Casa da Lasan
 | Sítio Mata Verde (rural) | R$ 12,00 | 45 a 70 min |
 
 Só atendem toda a zona rural: Depósito Gelada Já, Mercado Boa Compra e Farmácia Saúde Mais. A Pizzaria Forno de Barro atende só o Sítio Riacho Fundo. As outras lojas entregam apenas nos bairros da cidade.
+
+
+Admin comum (sem as ações críticas): **Suporte Chegô**, telefone (82) 90000-0009, senha `admin`.

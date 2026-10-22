@@ -13,6 +13,7 @@ import { sql } from "@/lib/db";
 import { getShoppingContext } from "@/lib/shopping-context";
 import { applyStoreFilters } from "@/lib/stores/filters";
 import { listStores } from "@/lib/stores/queries";
+import { liveCampaigns, recordImpressions } from "@/lib/ads/campaigns";
 
 export const metadata: Metadata = { title: "Categoria" };
 
@@ -92,6 +93,15 @@ async function CategoryContent({ params, searchParams }: Props) {
     selected === null ? homeShowcases(storeIds, priorityIds, at) : null,
   ]);
   const result = applyStoreFilters(inSelection, filters, { offerStoreIds: offerStores });
+  // Destaque pago dentro da categoria: primeiro da lista, com o selo "Patrocinado".
+  const categoryCampaigns = (await liveCampaigns({ cityId: context.city.id, at, placements: ["categoria"], categoryId: category.id }))
+    .filter((item) => result.some((store) => store.id === item.storeId));
+  const categoryMap = new Map<string, string | null>(categoryCampaigns.map((item) => [item.storeId, item.campaignId]));
+  const sponsoredFirst = [
+    ...categoryCampaigns.map((item) => result.find((store) => store.id === item.storeId)!),
+    ...result.filter((store) => !categoryMap.has(store.id)),
+  ];
+  await recordImpressions(categoryCampaigns.map((item) => item.campaignId), at);
   const basePath = `/categoria/${slug}`;
   const subLink = (value: string | null) => linkWith(basePath, filters, (next) => (value ? next.set("sub", value) : next.delete("sub")));
   const selectedName = selected === OFFERS ? "Ofertas" : selected?.name ?? null;
@@ -161,7 +171,7 @@ async function CategoryContent({ params, searchParams }: Props) {
             <Link href={basePath} scroll={false} className="mt-2 inline-flex min-h-11 items-center font-bold text-brand-dark hover:underline">Limpar filtros</Link>
           </div>
         ) : (
-          <StoreGrid stores={result} neighborhoodName={hoodName} empty="" />
+          <StoreGrid stores={sponsoredFirst} neighborhoodName={hoodName} empty="" sponsored={categoryMap} />
         )}
       </section>
     </>

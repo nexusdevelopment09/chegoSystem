@@ -223,6 +223,15 @@ Exemplo: pizza R$ 64,00, cupom R$ 10 da plataforma, entrega R$ 3, comissão 12% 
 - **Compra sem conta**: `placeOrder(input, null, at)` com `input.guest`; acompanhamento em `src/lib/orders/guest.ts`.
 - `notify()` ignora destinatários nulos (cliente de pedido sem conta).
 
+### Super admin
+
+- `requireSuperAdmin()` em `src/lib/auth/session.ts` protege as ações globais críticas.
+- Situação da conta das lojas: `src/lib/admin/store-account.ts` (suspender, reativar, excluir; recebe a transação).
+- Números do painel: `src/lib/admin/super.ts`. Períodos: `src/lib/admin/range.ts`.
+- Anúncios: `src/lib/ads/campaigns.ts` (`liveCampaigns`, impressões, cliques, atribuição).
+- Lojas excluídas têm `stores.closed_at` e ficam com status `suspended`; filtre `closed_at is null` quando listar lojas "existentes".
+- Detalhes em `docs/SUPER_ADMIN.md`.
+
 ## 9. Convenções obrigatórias
 
 - **Código, tabelas e variáveis em inglês. Interface, comentários e documentação em português do Brasil.** Rotas da interface em português (`/lojista/cardapio`).

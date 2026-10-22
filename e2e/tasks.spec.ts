@@ -97,7 +97,9 @@ test("pedido sem aceite: alerta aos 8 minutos e recusa automática aos 15", asyn
   expect(order.refunded_cents).toBe(0);
   const [history] = await db`select reason, changed_by from order_status_history where order_id = ${orderId} and status = 'rejected'`;
   expect(history).toEqual({ reason: "A loja não respondeu a tempo", changed_by: null });
-  expect((await db`select count(*)::int as total from notifications where order_id = ${orderId} and type = 'order_auto_rejected'`)[0].total).toBe(1);
+  // Um aviso para cada admin.
+  const [rejectedNotice] = await db`select count(*)::int as total, (select count(*)::int from profiles where role = 'admin' and deleted_at is null) as admins from notifications where order_id = ${orderId} and type = 'order_auto_rejected'`;
+  expect(rejectedNotice.total).toBe(rejectedNotice.admins);
 
   await page.goto(`/pedidos/${orderId}`);
   await expect(visible(page, "order-status")).toHaveText("Recusado pela loja");

@@ -14,6 +14,7 @@ import type { CardData } from "@/lib/payments/types";
 import { getSettings } from "@/lib/settings";
 import { buildQuote, type CartInput } from "./quote";
 import { recordOrderSales } from "@/lib/inventory/stock";
+import { attributedCampaign } from "@/lib/ads/campaigns";
 
 export type PlaceOrderResult =
   /** Pagando direto à loja não há pagamento no app: paymentId e providerPaymentId vêm nulos. */
@@ -35,6 +36,8 @@ export async function placeOrder(
   profile: CurrentProfile | null,
   at: Date,
   card?: CardData,
+  /** Valor do cookie do último clique em anúncio, para atribuir o pedido à campanha. */
+  adCookie?: string,
 ): Promise<PlaceOrderResult> {
   // Sem conta: nome e telefone vêm do pedido, e o link de acompanhamento leva um token
   // (só o hash fica no banco). Cupom, chat e avaliação continuam pedindo conta.
@@ -53,6 +56,7 @@ export async function placeOrder(
   const cashChangeFor = direct && input.paymentMethod === "cash" ? input.cashChangeForCents ?? null : null;
   const scheduledFor = input.scheduledFor ? new Date(input.scheduledFor) : null;
   const { totals } = quote;
+  const adCampaignId = await attributedCampaign(adCookie, quote.store.id, at);
 
   try {
     return await sql.begin(async (tx): Promise<PlaceOrderResult> => {
@@ -100,7 +104,7 @@ export async function placeOrder(
           subtotal_cents, discount_cents, discount_paid_by, coupon_id, delivery_fee_cents, service_fee_cents,
           commission_rate, commission_cents, store_amount_cents, platform_amount_cents, total_cents,
           payment_method, age_confirmed, requires_age_check, missing_item_policy, notes, delivery_code,
-          payment_expires_at, created_at, delivery_provider, courier_fee_cents, payment_collection, cash_change_for_cents
+          payment_expires_at, created_at, delivery_provider, courier_fee_cents, payment_collection, cash_change_for_cents, ad_campaign_id
         ) values (
           ${code}, ${internals.cityId}, ${buyer.id}, ${guestToken ? hashGuestToken(guestToken) : null}, ${quote.store.id}, 'awaiting_payment', ${quote.fulfillment},
           ${buyer.name}, ${buyer.phone},
@@ -121,7 +125,7 @@ export async function placeOrder(
           ${quote.store.isMarket ? input.missingItemPolicy ?? null : null}, ${input.notes || null},
           ${quote.fulfillment === "delivery" ? String(randomInt(0, 10000)).padStart(4, "0") : null},
           ${expiresAt}, ${at}, ${internals.deliveryProvider}::delivery_provider, ${internals.courierFeeCents},
-          ${direct ? "store" : "app"}::payment_collection, ${cashChangeFor}
+          ${direct ? "store" : "app"}::payment_collection, ${cashChangeFor}, ${adCampaignId}
         ) returning id`;
 
       for (const line of quote.lines) {

@@ -40,7 +40,7 @@ export async function ensureAutoJobs(storeId: string, deviceId: string, at: Date
     from store_printers p
     join orders o on o.store_id = p.store_id
     where p.store_id = ${storeId} and p.device_id = ${deviceId} and p.auto_print
-      and o.paid_at is not null and o.paid_at >= p.auto_since and o.paid_at >= ${new Date(at.getTime() - AUTO_WINDOW_MS)}
+      and o.paid_at is not null and o.paid_at >= p.auto_since and o.paid_at <= ${at} and o.paid_at >= ${new Date(at.getTime() - AUTO_WINDOW_MS)}
       and o.status not in ('rejected', 'cancelled', 'expired', 'awaiting_payment')
     on conflict (printer_id, order_id, kind) where not reprint and order_id is not null do nothing`;
 }

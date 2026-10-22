@@ -21,7 +21,9 @@ describe("development seed", () => {
       select count(*) as total from stores s join cities c on c.id = s.city_id
       where s.status = 'active' and c.slug = 'joaquim-gomes'`)).toBe(14);
 
-    expect(await count(sql`select count(*) as total from profiles where role = 'admin'`)).toBe(1);
+    // Um super admin e um admin comum (suporte).
+    expect(await count(sql`select count(*) as total from profiles where role = 'admin'`)).toBe(2);
+    expect(await count(sql`select count(*) as total from profiles where role = 'admin' and is_super_admin`)).toBe(1);
     expect(await count(sql`select count(*) as total from profiles where role = 'customer'`)).toBe(10);
     expect(await count(sql`select count(*) as total from store_members where role = 'attendant'`)).toBe(2);
     expect(await count(sql`select count(*) as total from store_members where role = 'courier'`)).toBe(1);

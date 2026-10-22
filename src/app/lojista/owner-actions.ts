@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
+import { AccountError, closeStore } from "@/lib/admin/store-account";
 import { audit } from "@/lib/audit";
 import { invitedAccount, temporaryPasswordNote } from "@/lib/auth/accounts";
 import { requirePermission, requireStoreMember } from "@/lib/auth/session";
@@ -358,4 +360,26 @@ export async function payInvoice(_previous: ActionState, formData: FormData): Pr
   await audit({ actorId: profile.id, action: "invoice.pay", entityType: "invoice", entityId: invoice.id, storeId: membership.storeId });
   done();
   return { ok: true, message: "Fatura paga. Obrigado!" };
+}
+
+// ------------------------------------------------------- encerrar a loja
+
+/**
+ * O dono encerra a conta da loja (exclusão lógica): ela sai do ar e do painel; pedidos, taxas
+ * pendentes e lançamentos continuam guardados. Só o dono, com o nome da loja como confirmação.
+ */
+export async function closeOwnStore(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const { profile, membership } = await requireStoreMember(["owner"]);
+  if (String(formData.get("confirmName") ?? "").trim() !== membership.storeName) {
+    return { error: `Para confirmar, digite o nome da loja exatamente: ${membership.storeName}` };
+  }
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+  const at = await now();
+  try {
+    await sql.begin((tx) => closeStore(tx, { storeId: membership.storeId, by: "empresa", reason, actorId: profile.id, at }));
+  } catch (error) {
+    if (error instanceof AccountError) return { error: error.message };
+    throw error;
+  }
+  redirect("/");
 }

@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { APPROVAL_CHECKLIST } from "@/lib/admin/checklist";
+import { recordStoreEvent } from "@/lib/admin/store-account";
 import { audit } from "@/lib/audit";
 import { hashPassword, temporaryPassword } from "@/lib/auth/password";
-import { requireRole } from "@/lib/auth/session";
+import { requireRole, requireSuperAdmin } from "@/lib/auth/session";
 import { now } from "@/lib/clock";
 import { sql } from "@/lib/db";
 import { parseMoney } from "@/lib/format";
@@ -54,6 +55,7 @@ export async function approveStore(_previous: ActionState, formData: FormData): 
       select ${id.data}, p.id from subscription_plans p where p.active order by p.monthly_price_cents limit 1
       on conflict (store_id) do nothing`;
     await audit({ actorId: profile.id, action: "store.approve", entityType: "store", entityId: id.data, storeId: id.data }, tx);
+    await recordStoreEvent(tx, { storeId: id.data, kind: "aprovada", from: "pending", to: "active", actorId: profile.id, at });
     await notify({
       profileIds: await storeStaffIds(id.data, tx, ["owner"]), type: "store_approved", title: "Sua loja foi aprovada!",
       body: `A ${updated[0].name} já aparece para os clientes no Chegô.`, link: "/lojista", channels: ["sms", "email"], at,
@@ -65,33 +67,7 @@ export async function approveStore(_previous: ActionState, formData: FormData): 
   return { ok: true, message: `${approved.name} aprovada.` };
 }
 
-/** Pausa, suspende ou reativa uma loja. Suspender exige motivo e avisa o dono. */
-export async function setStoreStatus(_previous: ActionState, formData: FormData): Promise<ActionState> {
-  const profile = await admin();
-  const parsed = z
-    .object({ id: uuid, status: z.enum(["active", "paused", "suspended"]), reason: z.string().trim().max(300) })
-    .safeParse({ id: formData.get("id"), status: formData.get("status"), reason: formData.get("reason") ?? "" });
-  if (!parsed.success) return { error: "Dados inválidos." };
-  if (parsed.data.status === "suspended" && parsed.data.reason.length < 3) return { error: "Para suspender, escreva o motivo." };
-
-  const at = await now();
-  await sql.begin(async (tx) => {
-    const [store] = await tx<{ name: string }[]>`
-      update stores set status = ${parsed.data.status}::store_status where id = ${parsed.data.id} and status <> 'pending' returning name`;
-    if (!store) return;
-    await tx`update store_private set status_reason = ${parsed.data.status === "active" ? null : parsed.data.reason || null} where store_id = ${parsed.data.id}`;
-    await audit({ actorId: profile.id, action: `store.${parsed.data.status === "active" ? "reactivate" : parsed.data.status === "paused" ? "pause" : "suspend"}`,
-      entityType: "store", entityId: parsed.data.id, storeId: parsed.data.id, details: { reason: parsed.data.reason } }, tx);
-    if (parsed.data.status === "suspended") {
-      await notify({
-        profileIds: await storeStaffIds(parsed.data.id, tx, ["owner"]), type: "store_suspended", title: "Sua loja foi suspensa",
-        body: `Motivo: ${parsed.data.reason}. Fale com o suporte do Chegô.`, link: "/lojista/financeiro", channels: ["sms", "email"], at,
-      }, tx);
-    }
-  });
-  done();
-  return { ok: true, message: "Situação da loja atualizada." };
-}
+// Ativar, desativar, suspender, reativar e excluir: ./lojas/actions.ts (só o super admin).
 
 /** Comissão, plano, meses grátis e destaque pago. Tudo vai para o log de auditoria. */
 export async function updateStoreTerms(_previous: ActionState, formData: FormData): Promise<ActionState> {
@@ -290,13 +266,15 @@ export async function adminReplyTicket(_previous: ActionState, formData: FormDat
 
 // ---------------------------------------------------------------- moderação
 
+/** Ocultar ou mostrar de novo (tela de Moderação): só o super admin, com motivo, e vai para o histórico da avaliação. */
 export async function setReviewHidden(_previous: ActionState, formData: FormData): Promise<ActionState> {
-  const profile = await admin();
+  const profile = await requireSuperAdmin();
   const id = uuid.safeParse(formData.get("id"));
   const hide = formData.get("hide") === "1";
   const reason = z.string().trim().max(300).parse(formData.get("reason") ?? "");
   if (!id.success) return { error: "Avaliação inválida." };
   if (hide && reason.length < 3) return { error: "Para ocultar, escreva o motivo." };
+  const why = reason || "Mostrada de novo pela moderação";
 
   const at = await now();
   await sql.begin(async (tx) => {
@@ -305,6 +283,7 @@ export async function setReviewHidden(_previous: ActionState, formData: FormData
       where id = ${id.data} returning store_id`;
     if (!review) return;
     await recalculateRating(tx, review.store_id, at);
+    await tx`insert into review_events (review_id, action, reason, actor_id, created_at) values (${id.data}, ${hide ? "ocultada" : "restaurada"}, ${why}, ${profile.id}, ${at})`;
     await audit({ actorId: profile.id, action: hide ? "review.hide" : "review.show", entityType: "review", entityId: id.data, storeId: review.store_id, details: { reason } }, tx);
   });
   done();

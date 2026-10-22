@@ -97,7 +97,7 @@ test("painéis do lojista e do admin: acessíveis e sem estourar a tela do celul
   await check(page, `/lojista/cardapio/produto/${product.id}`, () => page.getByRole("button", { name: "Salvar produto" }).waitFor());
 
   await loginAs(page, "Admin Chegô");
-  await check(page, "/admin", () => page.getByRole("heading", { name: "Vendas por dia" }).waitFor());
+  await check(page, "/admin", () => page.getByRole("heading", { name: "Pedidos", exact: true }).waitFor());
   await check(page, "/admin/ao-vivo", () => page.locator('[data-testid="live-alerts"]:visible').waitFor());
   await check(page, "/admin/lojas", () => page.locator('[data-testid="admin-store"]:visible').first().waitFor());
   await check(page, "/admin/pedidos", () => page.locator('[data-testid="admin-order"]:visible').first().waitFor());
@@ -111,6 +111,14 @@ test("painéis do lojista e do admin: acessíveis e sem estourar a tela do celul
   await check(page, "/admin/cadastros", () => page.getByRole("button", { name: "Criar plano" }).waitFor());
   await check(page, "/admin/configuracoes", () => page.getByRole("button", { name: "Salvar configurações" }).waitFor());
   await check(page, "/admin/auditoria", () => page.locator('[data-testid="audit-row"]:visible').first().waitFor());
+  await check(page, "/admin/empresas?q=Marcos", () => page.locator('[data-testid="companies"]:visible').waitFor());
+  await check(page, "/admin/vendas?periodo=ano", () => page.locator('[data-testid="sales-by-store"]:visible').waitFor());
+  await check(page, "/admin/motoboys?periodo=ano", () => page.locator('[data-testid="courier-roster"]:visible').waitFor());
+  await check(page, "/admin/anuncios", () => page.getByRole("heading", { name: "Anúncios e impulsionamentos" }).waitFor());
+  await check(page, "/admin/avaliacoes", () => page.locator('[data-testid="admin-review"]:visible').first().waitFor());
+  await check(page, "/admin/suspensas", () => page.getByRole("heading", { name: "Contas suspensas" }).waitFor());
+  await check(page, "/admin/excluidas", () => page.getByRole("heading", { name: "Empresas excluídas" }).waitFor());
+  await check(page, "/admin/relatorios?periodo=ano", () => page.locator('[data-testid="chart-signups"]:visible').waitFor());
   await check(page, "/dev", () => page.getByRole("heading", { name: "Caixa de mensagens" }).waitFor());
 
   // O painel do entregador da rede, com uma entrega na rua e ofertas esperando.

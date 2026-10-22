@@ -1,5 +1,6 @@
 import "server-only";
 import { randomInt } from "node:crypto";
+import { runSuspensionSchedule } from "@/lib/admin/store-account";
 import { sql } from "@/lib/db";
 import { runDailyFeeTasks } from "@/lib/fees/closing";
 import { adminIds, notify, storeStaffIds } from "@/lib/notifications/notify";
@@ -164,7 +165,9 @@ async function runInvoices(at: Date): Promise<{ created: number; overdue: number
 async function endExpiredPromotions(at: Date): Promise<number> {
   const banners = await sql`update banners set active = false where active and ends_at is not null and ends_at <= ${at} returning id`;
   const featured = await sql`update stores set featured_until = null where featured_until is not null and featured_until <= ${at} returning id`;
-  return banners.length + featured.length;
+  // Campanha vencida sai do ar (a vitrine também confere o horário, então nunca aparece depois do fim).
+  const campaigns = await sql`update ad_campaigns set status = 'encerrada', ended_at = ends_at, updated_at = ${at} where status <> 'encerrada' and ends_at <= ${at} returning id`;
+  return banners.length + featured.length + campaigns.length;
 }
 
 /** As notas das lojas seguem os últimos 180 dias, então são atualizadas conforme o tempo passa. */
@@ -185,6 +188,7 @@ export async function runScheduledTasks(at: Date): Promise<TaskReport> {
   const promotionsEnded = await endExpiredPromotions(at);
   const ratings = await refreshRatings(at);
   const fees = await runDailyFeeTasks(at);
+  const suspensions = await runSuspensionSchedule(at);
   // As mensagens do pedido fecham duas horas depois da entrega por uma regra conferida a cada
   // leitura e escrita (chatOpen), então não há nada para desligar aqui.
 
@@ -201,5 +205,7 @@ export async function runScheduledTasks(at: Date): Promise<TaskReport> {
     notas_recalculadas: ratings,
     expedientes_fechados: fees.closed,
     taxas_vencidas: fees.overdue,
+    suspensoes_aplicadas: suspensions.applied,
+    suspensoes_encerradas: suspensions.lifted,
   };
 }
